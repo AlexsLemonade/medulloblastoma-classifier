@@ -1,4 +1,4 @@
-FROM rocker/verse:4.2.0
+FROM rocker/verse:4.2.2
 
 # Update apt-get and install other libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,12 +27,15 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'leukemiasEset', \
     'switchBox'), \
     update = FALSE, \
-    version = 3.15)"
+    version = 3.16)"
 
-# R packages
-RUN install2.r --error --deps TRUE \
+# R packages (R-forge)
+RUN install2.r --error --deps TRUE --repos http://r-forge.r-project.org \
+    estimate
+    
+# R packages (CRAN)
+RUN install2.r --error --deps TRUE --repos http://cran.r-project.org \
     caret \
     here \
     multiclassPairs \
     optparse
-
