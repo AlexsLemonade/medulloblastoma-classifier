@@ -1,0 +1,167 @@
+---
+title: "GSE124814 metadata"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r file paths}
+data_dir <- here::here("data")
+GSE124814_folder <- file.path(data_dir, "GSE124814")
+
+GSE124814_metadata_input_filename <- file.path(GSE124814_folder,
+                                               "GSE124814_sample_descriptions.xlsx")
+GSE124814_metadata_output_filename <- file.path(GSE124814_folder,
+                                                "GSE124814_metadata.tsv")
+GSE124814_duplicate_samples_filename <- file.path(GSE124814_folder,
+                                                  "GSE124814_duplicate_samples.tsv")
+GSE124814_experiment_accessions_output_filename <- file.path(data_dir,
+                                                             "GSE124814_experiment_accessions.tsv")
+
+```
+
+```{r load libraries}
+library(tidyverse)
+```
+
+[Weishaupt et al.](https://academic.oup.com/bioinformatics/article/35/18/3357/5305636) did a lot of heavy lifting to collect publicly-available MB samples, including harmonizing metadata:
+
+- mapped the original subgroups (`subgroup_supplied_original`) to consensus subgroups (`subgroup_supplied_renamed`)
+- identified duplicate samples (merged duplicate samples together by averaging expression values)
+- limited to just MB and normal cerebellum tissues
+
+Citation: Weishaupt, H. et al. Batch-normalization of cerebellar and medulloblastoma gene expression datasets utilizing empirically defined negative control genes. Bioinformatics 35, 3357–3364 (2019)
+
+```{r}
+GSE124814_samples_df_column_names <- c("Sample_name",
+                                       "title",
+                                       "CEL_file",
+                                       "source_name",
+                                       "organism",
+                                       "molecule",
+                                       "label",
+                                       "chip_name",
+                                       "age",
+                                       "sex", # was gender
+                                       "histology",
+                                       "brain_region",
+                                       "death",
+                                       "metastatic_stage",
+                                       "follow_up",
+                                       "subgroup_supplied_original",
+                                       "subgroup_supplied_renamed",
+                                       "subgroup_relabeled",
+                                       "description",
+                                       "description2")
+
+# when reading in the xlsx file,
+# 1. use the column names above
+# 2. skip final column
+# 3. ignore first two rows
+GSE124814_samples_df <- readxl::read_xlsx(GSE124814_metadata_input_filename,
+                                          col_names = GSE124814_samples_df_column_names,
+                                          col_types = "text",
+                                          skip = 2) %>%
+  separate(title, # separate title into experiment accession and sample id
+           into = c("experiment_accession", "id"),
+           sep = "-",
+           extra = "merge") %>% # split on the first hyphen and keep rest intact
+  # reformat E-MTAB-292 experiment accession name
+  mutate(experiment_accession = str_replace(experiment_accession, "EMTAB", "E-MTAB-")) %>%
+  # GSE124814 merged duplicate samples together by averaging expression values
+  mutate(is_duplicate = str_detect(description, "average")) %>%
+  # "NA" subgroup corresponds to "Normal"
+  mutate(subgroup_supplied_renamed = case_when(subgroup_supplied_renamed == "NA" ~ "Normal",
+                                               TRUE ~ subgroup_supplied_renamed)) %>%
+  # treat "Unknown" subgroup as NA -- we need to look further into these
+  mutate(subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
+                                           y = "Unknown")) %>%
+  mutate(sex = na_if(x = sex, # can potentially re-label these based on chrY expression (total 195)
+                     y = "NA"), # or cross-reference with refine.bio metadata
+         sex = case_when(sex %in% c("f", "female") ~ "F", # use F as default
+                         sex %in% c("m", "male") ~ "M", # use M as default
+                         TRUE ~ sex)) %>%
+  # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION ...")
+  rowwise() %>%
+  mutate(sample_accession = str_split(description,
+                                      pattern = " ",
+                                      simplify = TRUE)[3]) %>%
+  ungroup() %>%
+  # need to consider "age" -- lots of variation in formats, check with refine.bio
+  # deselect columns that are not important to us and/or have only one value
+  select(-c("CEL_file", # "Reanalysis of existing record"
+            "organism", # "Homo sapiens"
+            "molecule", # variations of "total RNA"
+            "label", # variations of "biotin"
+            "description2")) %>% # repeat of Sample_name
+  write_tsv(file = GSE124814_metadata_output_filename)
+
+```
+
+### GSE124814 experiment accessions (total samples from each relabeled subgroup)
+
+```{r GSE124814 accessions, results = "asis"}
+GSE124814_samples_df %>%
+  count(experiment_accession, subgroup_supplied_renamed) %>%
+  pivot_wider(names_from = subgroup_supplied_renamed,
+              values_from = n) %>%
+  left_join(GSE124814_samples_df %>%
+              group_by(experiment_accession) %>%
+              summarize("duplicates" = sum(is_duplicate)),
+            by = "experiment_accession") %>%
+  left_join(GSE124814_samples_df %>%
+              count(experiment_accession) %>%
+              rename("Total" = "n"),
+            by = "experiment_accession") %>%
+  replace(is.na(.), 0) %>%
+  arrange(desc(Total)) %>%
+  # add column sums, thanks to https://stackoverflow.com/a/50322272
+  bind_rows(summarise_all(., ~if(is.numeric(.)) sum(.) else "Total")) %>%
+  knitr::kable()
+
+GSE124814_samples_df %>%
+  select(experiment_accession) %>%
+  unique() %>%
+  write_tsv(file = GSE124814_experiment_accessions_output_filename,
+            col_names = FALSE)
+```
+### Mapping original subgroups to consensus subgroups
+
+Mapping was done by Weishaupt et al.
+We have further updated the mapping with the following:
+
+- `NA` is an unknown subgroup ("Unknown" in the Weishaupt metadata)
+- `Normal` was given as "NA" in the Weishaupt metadata
+
+```{r subgroup mapping, results = "asis"}
+# Display table of original subgroups mapped to consensus subgroups  
+GSE124814_samples_df %>%
+  select(subgroup_supplied_original,
+         subgroup_supplied_renamed) %>%
+  table(useNA = "ifany") %>%
+  knitr::kable()
+```
+
+
+### Duplicated patients identified by Weishaupt et al.
+
+Note: could be 2+ samples per patient
+
+```{r duplicate samples, results = "asis"}
+GSE124814_samples_df %>%
+  filter(is_duplicate) %>%
+  count(experiment_accession, subgroup_supplied_renamed) %>%
+  pivot_wider(names_from = subgroup_supplied_renamed,
+              values_from = n) %>%
+  replace(is.na(.), 0) %>%
+  knitr::kable()
+
+# save duplicate samples to file
+GSE124814_samples_df %>%
+  filter(is_duplicate) %>%
+  select(experiment_accession, sample_accession) %>%
+  write_tsv(file = GSE124814_duplicate_samples_filename) 
+```
