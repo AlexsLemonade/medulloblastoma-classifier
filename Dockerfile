@@ -36,6 +36,20 @@ RUN install2.r --error --deps TRUE --repos http://r-forge.r-project.org \
 # R packages (CRAN)
 RUN install2.r --error --deps TRUE --repos http://cran.r-project.org \
     caret \
+    doParallel \
+    glmnet \
     here \
     multiclassPairs \
-    optparse
+    optparse \
+    patchwork
+
+# Threading issue with preprocessCore::normalize.quantiles
+# https://support.bioconductor.org/p/122925/#124701
+# https://github.com/bmbolstad/preprocessCore/issues/1#issuecomment-326756305
+# put this last with force = TRUE to ensure it is properly installed
+RUN Rscript -e "options(warn = 2); BiocManager::install( \
+    'preprocessCore', \
+    configure.args = '--disable-threading', \
+    force = TRUE, \
+    update = FALSE, \
+    version = 3.16)"
