@@ -4,6 +4,7 @@
 .DS_Store
 data
 medulloblastoma-classifier.Rproj
+processed_data
 
 #########################
 # R .gitignore template #
