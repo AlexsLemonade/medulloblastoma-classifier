@@ -8,11 +8,16 @@ suppressMessages(library(tidyverse))
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
+combined_metadata_mb_output_filename <- file.path(processed_data_dir,
+                                                  "combined_metadata.mb.tsv")
+openpbta_metadata_lgg_output_filename <- file.path(processed_data_dir,
+                                                   "openpbta_metadata.lgg.tsv")
+
 ################################################################################
 # functions
 ################################################################################
 
-clean_metadata <- function(df){
+clean_mb_subgroups <- function(df){
   
   df %>%
     mutate(subgroup = case_when(subgroup %in% c("E", "Group3", "Group 3", "G3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
@@ -74,9 +79,9 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
            sep = "-",
            extra = "merge") %>% # split on the first hyphen and keep rest intact
   # filter out E-MTAB-292 per data accessibility
-  filter(experiment_accession != "E-MTAB-292") %>%
+  filter(experiment_accession != "EMTAB292") %>%
   # GSE124814 merged duplicate samples together by averaging expression values
-  # and this is indicated in the descript column with the word "average"
+  # and this is indicated in the description column with the word "average"
   mutate(is_duplicate = str_detect(description, "average")) %>%
   # "NA" subgroup corresponds to "Normal"
   mutate(subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
@@ -98,7 +103,7 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
   rename("subgroup" = "subgroup_supplied_renamed",
          "study" = "experiment_accession") %>%
   mutate(platform = "Array") %>%
-  clean_metadata()
+  clean_mb_subgroups()
 
 ################################################################################
 # GSE164677
@@ -118,14 +123,14 @@ GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz
   mutate(study = "GSE164677",
          is_duplicate = FALSE,
          platform = "RNA-seq") %>%
-  clean_metadata()
+  clean_mb_subgroups()
 
 ################################################################################
-# OpenPBTA
+# OpenPBTA (MB)
 ################################################################################
 
-openpbta_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
-                              col_types = "c") %>%
+openpbta_mb_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
+                                 col_types = "c") %>%
   filter(experimental_strategy == "RNA-Seq",
          short_histology == "Medulloblastoma") %>%
   separate(molecular_subtype, # separate molecular_subtype into molecular and subgroup
@@ -133,14 +138,44 @@ openpbta_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
            sep = ", ",
            extra = "merge") %>%
   mutate(subgroup = na_if(x = subgroup,
-                          y = "To be classified")) %>%
+                          y = "To be classified")) %>% 
+  arrange(Kids_First_Participant_ID) %>% # patient ID
+  mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
   rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
-  select(sample_accession,
-         subgroup) %>%
-  mutate(study = "St. Jude",
-         is_duplicate = FALSE,
+  mutate(study = "OpenPBTA",
          platform = "RNA-seq") %>%
-  clean_metadata()
+  select(sample_accession,
+         subgroup,
+         study,
+         is_duplicate,
+         platform) %>%
+  clean_mb_subgroups()
+
+################################################################################
+# OpenPBTA (LGG)
+################################################################################
+
+openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
+                                  col_types = "c") %>%
+  filter(experimental_strategy == "RNA-Seq",
+         pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
+         short_histology == "LGAT") %>%
+  separate(molecular_subtype, # separate molecular_subtype into molecular and subgroup
+           into = c("molecular", "subgroup"),
+           sep = ", ",
+           extra = "merge") %>%
+  mutate(subgroup = na_if(x = subgroup,
+                          y = "To be classified")) %>% 
+  arrange(Kids_First_Participant_ID) %>% # patient ID
+  mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
+  rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
+  mutate(study = "OpenPBTA",
+         platform = "RNA-seq") %>%
+  select(sample_accession,
+         subgroup,
+         study,
+         is_duplicate,
+         platform) # do not clean_mb_subgroups()
 
 ################################################################################
 # St. Jude
@@ -148,9 +183,6 @@ openpbta_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 
 sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
                         col_types = "c") %>%
-  select(sample_name,
-         sj_associated_diagnoses_disease_code,
-         sj_embargo_date) %>%
   separate(sj_embargo_date,
            into = c("embargo_mon",
                     "embargo_day",
@@ -158,27 +190,35 @@ sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
            sep = "-") %>%
   mutate(embargo_year = as.numeric(embargo_year)) %>%
   filter(embargo_year < 2023) %>% # keep samples with embargo ending before 2023
+  arrange(subject_name) %>% # patient ID
+  mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
   mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
                               str_detect(sj_associated_diagnoses_disease_code, "G4") ~ "G4",
                               str_detect(sj_associated_diagnoses_disease_code, "SHH") ~ "SHH",
                               str_detect(sj_associated_diagnoses_disease_code, "WNT") ~ "WNT")) %>%
   rename("sample_accession" = "sample_name") %>%
-  select(sample_accession,
-         subgroup) %>%
   mutate(study = "St. Jude",
-         is_duplicate = FALSE,
          platform = "RNA-seq") %>%
-  clean_metadata()
+  select(sample_accession,
+         subgroup,
+         study,
+         is_duplicate,
+         platform) %>%
+  clean_mb_subgroups()
 
 ################################################################################
-# combine metadata
+# combine metadata and write to file
 ################################################################################
 
-combined_metadata <- bind_rows(GSE124814_metadata,
-                               GSE164677_metadata,
-                               openpbta_metadata,
-                               sj_metadata) %>%
-  filter(!is_duplicate,
-         !is.na(subgroup),
-         subgroup != "Normal") %>%
-  write_tsv(file = file.path(processed_data_dir, "combined_metadata.tsv"))
+# 4 MB subgroups, NA subgroup, Normal subgroup
+bind_rows(GSE124814_metadata,
+          GSE164677_metadata,
+          openpbta_metadata,
+          sj_metadata) %>%
+  filter(!is_duplicate) %>% 
+  write_tsv(file = combined_metadata_mb_output_filename)
+
+# OpenPBTA LGG samples
+openpbta_lgg_metadata %>% 
+  filter(!is_duplicate) %>%
+  write_tsv(file = openpbta_metadata_lgg_output_filename)
