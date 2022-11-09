@@ -8,10 +8,8 @@ suppressMessages(library(tidyverse))
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
-combined_metadata_mb_output_filename <- file.path(processed_data_dir,
-                                                  "combined_metadata.mb.tsv")
-openpbta_metadata_lgg_output_filename <- file.path(processed_data_dir,
-                                                   "openpbta_metadata.lgg.tsv")
+combined_metadata_output_filename <- file.path(processed_data_dir,
+                                               "combined_metadata.tsv")
 
 ################################################################################
 # functions
@@ -160,12 +158,7 @@ openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
   filter(experimental_strategy == "RNA-Seq",
          pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
          short_histology == "LGAT") %>%
-  separate(molecular_subtype, # separate molecular_subtype into molecular and subgroup
-           into = c("molecular", "subgroup"),
-           sep = ", ",
-           extra = "merge") %>%
-  mutate(subgroup = na_if(x = subgroup,
-                          y = "To be classified")) %>% 
+  mutate(subgroup = "LGG") %>%
   arrange(Kids_First_Participant_ID) %>% # patient ID
   mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
   rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
@@ -210,15 +203,11 @@ sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
 # combine metadata and write to file
 ################################################################################
 
-# 4 MB subgroups, NA subgroup, Normal subgroup
+# 4 MB subgroups, NA subgroup, Normal subgroup, LGG
 bind_rows(GSE124814_metadata,
           GSE164677_metadata,
-          openpbta_metadata,
+          openpbta_mb_metadata,
+          openpbta_lgg_metadata,
           sj_metadata) %>%
   filter(!is_duplicate) %>% 
-  write_tsv(file = combined_metadata_mb_output_filename)
-
-# OpenPBTA LGG samples
-openpbta_lgg_metadata %>% 
-  filter(!is_duplicate) %>%
-  write_tsv(file = openpbta_metadata_lgg_output_filename)
+  write_tsv(file = combined_metadata_output_filename)
