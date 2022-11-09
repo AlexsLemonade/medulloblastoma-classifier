@@ -3,19 +3,10 @@
 # Steven Foltz
 # November 2022
 
-################################################################################
-# Notes
-################################################################################
-
-# Weishaupt et al. harmonized metadata for GSE124814:
-#   Mapped original subgroups (subgroup_supplied_original) to consensus subgroups (subgroup_supplied_renamed)
-#   Identified duplicate samples (merged duplicate samples together by averaging expression values)
-#   Limited to just MB and normal cerebellum tissues
-#   Citation: Weishaupt, H. et al. Batch-normalization of cerebellar and medulloblastoma gene expression datasets utilizing empirically defined negative control genes. Bioinformatics 35, 3357–3364 (2019)
-
-library(tidyverse)
+suppressMessages(library(tidyverse))
 
 data_dir <- here::here("data")
+processed_data_dir <- here::here("processed_data")
 
 ################################################################################
 # functions
@@ -36,6 +27,12 @@ clean_metadata <- function(df){
 ################################################################################
 # GSE124814
 ################################################################################
+
+# Weishaupt et al. harmonized metadata for GSE124814:
+#   Mapped original subgroups (subgroup_supplied_original) to consensus subgroups (subgroup_supplied_renamed)
+#   Identified duplicate samples (merged duplicate samples together by averaging expression values)
+#   Limited to just MB and normal cerebellum tissues
+#   Citation: Weishaupt, H. et al. Batch-normalization of cerebellar and medulloblastoma gene expression datasets utilizing empirically defined negative control genes. Bioinformatics 35, 3357–3364 (2019)
 
 # GSE124814 input file names
 GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814",
@@ -177,10 +174,11 @@ sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
 # combine metadata
 ################################################################################
 
-all_metadata <- bind_rows(GSE124814_metadata,
-                          GSE164677_metadata,
-                          openpbta_metadata,
-                          sj_metadata) %>%
+combined_metadata <- bind_rows(GSE124814_metadata,
+                               GSE164677_metadata,
+                               openpbta_metadata,
+                               sj_metadata) %>%
   filter(!is_duplicate,
          !is.na(subgroup),
-         subgroup != "Normal")
+         subgroup != "Normal") %>%
+  write_tsv(file = file.path(processed_data_dir, "combined_metadata.tsv"))
