@@ -21,24 +21,22 @@ create_and_run_models <- function(genex_df,
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    
-    
     test_train_samples_list <- get_test_train_samples(genex_df,
                                                       metadata_df,
                                                       test_train_seed = test_train_seeds[n])
     
-    genex_df_test <- genex_df %>% select(test_train_samples_list$test)
     genex_df_train <- genex_df %>% select(test_train_samples_list$train)
-    metadata_df_test <- metadata_df %>% select(test_train_samples_list$test)
+    genex_df_test <- genex_df %>% select(test_train_samples_list$test)
     metadata_df_train <- metadata_df %>% select(test_train_samples_list$train)
+    metadata_df_test <- metadata_df %>% select(test_train_samples_list$test)
     
     purrr::map(model_types,
-               function(x) run_model(type = x,
-                                     test_df = genex_df_test,
-                                     train_df = genex_df_train,
-                                     test_labels = metadata_df_test$subgroup,
-                                     train_labels = metadata_df_train$subgroup,
-                                     model_seed = model_seeds[n],
+               function(x) run_model(x,
+                                     genex_df_train,
+                                     genex_df_test,
+                                     metadata_df_train,
+                                     metadata_df_test,
+                                     model_seeds[n],
                                      n_rules_min,
                                      n_rules_max))
     
@@ -226,6 +224,6 @@ run_ktsp <- function(genex_df_train,
   
 }
 
-run_rf()
-run_mm2s()
-run_lasso()
+#run_rf()
+#run_mm2s()
+#run_lasso()
