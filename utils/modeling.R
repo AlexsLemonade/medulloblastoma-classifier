@@ -23,7 +23,8 @@ create_and_run_models <- function(genex_df,
     
     
     
-    test_train_samples_list <- get_test_train_samples(metadata_df,
+    test_train_samples_list <- get_test_train_samples(genex_df,
+                                                      metadata_df,
                                                       test_train_seed = test_train_seeds[n])
     
     genex_df_test <- genex_df %>% select(test_train_samples_list$test)
@@ -53,36 +54,93 @@ create_and_run_models <- function(genex_df,
   
 }
 
-
-get_test_train_samples <- function(metadata_df,
+get_test_train_samples <- function(genex_df,
+                                   metadata_df,
                                    test_train_seed) {
+  
+  proportion_of_studies_train <- 0.5
+  
+  set.seed(test_train_seed)
+  
+  array_studies <- metadata_df %>%
+    filter(sample_accession %in% names(genex_df),
+           platform == "Array") %>%
+    pull(study) %>%
+    unique()
+  
+  rnaseq_studies <- metadata_df %>%
+    filter(sample_accession %in% names(genex_df),
+           platform == "RNA-seq") %>%
+    pull(study) %>%
+    unique()
+  
+  n_array_studies <- length(array_studies)
+  n_rnaseq_studies <- length(rnaseq_studies)
+  
+  n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
+  n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
+  
+  array_studies_train <- sample(array_studies, size = n_array_studies_train)
+  rnaseq_studies_train <- sample(rnaseq_studies, size = n_array_studies_train)
+  
+  test_train_samples_list <- list()
+  
+  test_train_samples_list[["train"]] <- metadata_df %>%
+    filter(study %in% c(array_studies_train,
+                        rnaseq_studies_train)) %>%
+    pull(sample_accession)
+  
+  test_train_samples_list[["test"]] <- metadata_df %>%
+    filter(study %in% c(array_studies_test,
+                        rnaseq_studies_test)) %>%
+    pull(sample_accession)
+  
+  return(test_train_samples_list)
   
 }
 
-run_model() <- function(type,
-                        test_df,
-                        train_df,
-                        test_labels,
-                        train_labels,
-                        model_seed,
-                        n_rules_min,
-                        n_rules_max) {
+run_model <- function(type,
+                      genex_df_train,
+                      genex_df_test,
+                      metadata_df_train,
+                      metadata_df_test,
+                      model_seed,
+                      n_rules_min,
+                      n_rules_max) {
   
   if (type == "ktsp") {
     
-    model <- run_ktsp(test_df, train_df, test_labels, train_labels, model_seed, n_rules_min, n_rules_max)
+    model <- run_ktsp(genex_df_train,
+                      genex_df_test,
+                      metadata_df_train,
+                      metadata_df_test,
+                      model_seed,
+                      n_rules_min,
+                      n_rules_max)
     
   } else if (type == "rf") {
     
-    model <- run_rf(test_df, train_df, test_labels, train_labels, model_seed, n_rules_min, n_rules_max)
+    model <- run_rf(genex_df_train,
+                    genex_df_test,
+                    metadata_df_train,
+                    metadata_df_test,
+                    model_seed,
+                    n_rules_min,
+                    n_rules_max)
     
   } else if (type == "mm2s") {
     
-    model <- run_mm2s(train_df, train_labels, model_seed)
+    model <- run_mm2s(genex_df_test,
+                      metadata_df_test,
+                      model_seed)
     
   } else if (type == "lasso") {
     
-    model <- run_lasso(test_df, train_df, test_labels, train_labels, model_seed)
+    model <- run_lasso(genex_df_train,
+                       genex_df_test,
+                       metadata_df_train,
+                       metadata_df_test,
+                       model_seed)
     
   } else {
     
