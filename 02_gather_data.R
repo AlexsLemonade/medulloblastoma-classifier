@@ -143,4 +143,4 @@ lapply(genex_data_list,
        function(x) x[common_genes,]) %>%
   bind_cols() %>%
   rownames_to_column(var = "gene") %>%
-  write_rds(genex_df_output_filename)
+  write_tsv(genex_df_output_filename)
