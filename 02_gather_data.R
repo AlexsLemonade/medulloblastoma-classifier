@@ -12,8 +12,14 @@ GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
                                                             "GSE124814_experiment_accessions.tsv")
 combined_metadata_input_filepath <- file.path(processed_data_dir,
                                               "combined_metadata.tsv")
+GSE164677_genex_input_filename <- file.path(data_dir,
+                                            "GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz")
+OpenPBTA_polya_genex_input_filename <- file.path(data_dir,
+                                                 "OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds")
+OpenPBTA_stranded_genex_input_filename <- file.path(data_dir,
+                                                    "OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds")
 
-genex_df_output_filename <- file.path(processed_data,
+genex_df_output_filename <- file.path(processed_data_dir,
                                       "genex_df.tsv")
 
 ################################################################################
@@ -49,28 +55,34 @@ get_common_genes <- function(genex_list){
   
 }
 
+################################################################################
+# Read in metadata
+################################################################################
+
+combined_metadata <- read_tsv(combined_metadata_input_filepath,
+                              col_types = "c")
 
 ################################################################################
 # create a list containing each data set
 ################################################################################
 
-# experiments part of GSE124814
+### experiments part of GSE124814
 
-experiment_accession_ids <- read_tsv(experiment_accessions_filepath,
-                                     col_names = "experiment_accession",
-                                     col_types = "c") %>%
+GSE124184_experiment_accession_ids <- read_tsv(GSE124184_experiment_accessions_input_filepath,
+                                               col_names = "experiment_accession",
+                                               col_types = "c") %>%
   filter(experiment_accession != "E-MTAB-292")
 
 
-genex_data_list <- purrr::map(experiment_accession_ids$experiment_accession,
+genex_data_list <- purrr::map(GSE124184_experiment_accession_ids$experiment_accession,
                               function(x) get_genex_data(file.path(data_dir, x, x, str_c(x, ".tsv", sep = "")),
-                                                         all_metadata$sample_accession))
+                                                         combined_metadata$sample_accession))
 
-names(genex_data_list) <- experiment_accession_ids$experiment_accession
+names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accession
 
 ### GSE164677
 
-genex_data_list[["GSE164677"]] <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz",
+genex_data_list[["GSE164677"]] <- read_tsv(GSE164677_genex_input_filename,
                                            col_names = TRUE,
                                            show_col_types = FALSE,
                                            skip = 1) %>%
@@ -83,13 +95,22 @@ genex_data_list[["GSE164677"]] <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RN
          !duplicated(GENEID),
          !is.na(GENEID)) %>%
   select(-gene) %>%
-  column_to_rownames(var = "GENEID") %>%
-  select(-ends_with("N")) # normals
+  column_to_rownames(var = "GENEID")
 
-### E-MTAB-292
+### OpenPBTA
+
+genex_data_list[["OpenPBTA"]] <- bind_cols(read_rds(OpenPBTA_polya_genex_input_filename),
+                                           read_rds(OpenPBTA_stranded_genex_input_filename)[,-1]) %>%
+  mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) %>%
+  filter(!duplicated(gene_id)) %>%
+  column_to_rownames(var = "gene_id") %>%
+  select(combined_metadata %>%
+           filter(study == "OpenPBTA") %>%
+           pull(sample_accession))
 
 ### St. Jude
-genex_data_list[["St. Jude"]] <- all_metadata %>%
+
+genex_data_list[["St. Jude"]] <- combined_metadata %>%
   filter(study == "St. Jude") %>%
   pull(sample_accession) %>%
   purrr::map(function(x) read_tsv(file.path(data_dir,
@@ -110,92 +131,16 @@ genex_data_list[["St. Jude"]] <- all_metadata %>%
   select(-SYMBOL) %>%
   column_to_rownames(var = "GENEID")
 
-# common genes
-common_genes <- get_common_genes(genex_data_list)
-
 ################################################################################
 # combine the list
 ################################################################################
 
-genex_df <- lapply(genex_data_list,
-                   function(x) x[common_genes,]) %>%
-  bind_cols()
+### common genes
+common_genes <- get_common_genes(genex_data_list)
 
-# set train/test
-test_train_genex_list <- list()
-test_train_metadata_list <- list()
-set.seed(1)
-for (i in 1:10) {
-  
-  test_train_metadata_list[[i]] <- list()
-  test_train_genex_list[[i]] <- list()
-  
-  array_train <- all_metadata %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "Array") %>%
-    select(study) %>%
-    unique() %>%
-    sample_n(size = 5) %>%
-    pull(study)
-    
-  array_test <- all_metadata %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "Array") %>%
-    select(study) %>%
-    unique() %>%
-    filter(!(study %in% array_train)) %>%
-    pull(study)
-  
-  seq_train <- all_metadata %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "RNA-seq") %>%
-    select(study) %>%
-    unique() %>%
-    sample_n(size = 1) %>%
-    pull(study)
-  
-  seq_test <- all_metadata %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "RNA-seq") %>%
-    select(study) %>%
-    unique() %>%
-    filter(!(study %in% seq_train)) %>%
-    pull(study)
-  
-  train_samples_metadata <- all_metadata %>%
-    filter(study %in% c(array_train, seq_train),
-           sample_accession %in% names(genex_df))
-  
-  test_samples_metadata <- all_metadata %>%
-    filter(study %in% c(array_test, seq_test),
-           sample_accession %in% names(genex_df))
-  
-  test_train_metadata_list[[i]][["train"]] <- train_samples_metadata
-  test_train_metadata_list[[i]][["test"]] <- test_samples_metadata
-  
-  test_train_genex_list[[i]][["train"]] <- genex_df %>%
-    select(train_samples_metadata$sample_accession)
-    
-  test_train_genex_list[[i]][["test"]] <- genex_df %>%
-    select(test_samples_metadata$sample_accession)
-  
-}
-
-
-# genex and metadata by study
-
-study_metadata_list <- all_metadata %>%
-  filter(sample_accession %in% names(genex_df)) %>%
-  arrange(study) %>%
-  group_by(study) %>%
-  group_split()
-
-names(study_metadata_list) <- purrr::map(study_metadata_list, function(x) unique(x$study))
-
-
-study_genex_list <- purrr::map(study_metadata_list,
-                               function(x) genex_df %>%
-                                 select(x$sample_accession))
-
-names(study_genex_list) <- names(study_metadata_list)
-
+### column bind the studies together using common genes
+lapply(genex_data_list,
+       function(x) x[common_genes,]) %>%
+  bind_cols() %>%
+  rownames_to_column(var = "gene") %>%
+  write_rds(genex_df_output_filename)
