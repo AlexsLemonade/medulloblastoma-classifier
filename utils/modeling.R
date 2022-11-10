@@ -21,7 +21,7 @@ create_and_run_models <- function(genex_df,
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    official_model <- (n == official_model_n)
+    
     
     test_train_samples_list <- get_test_train_samples(metadata_df,
                                                       test_train_seed = test_train_seeds[n])
@@ -45,6 +45,9 @@ create_and_run_models <- function(genex_df,
   
   # stop parallel backend
   stopCluster(cl)
+  
+  # set official model
+  model_list[[n]]$official_model <- TRUE
   
   return(model_list)
   
