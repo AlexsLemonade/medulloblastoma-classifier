@@ -95,13 +95,76 @@ run_model() <- function(type,
 }
 
 
-run_ktsp <- function(test_df,
-                     train_df,
-                     test_labels,
-                     train_labels,
+run_ktsp <- function(genex_df_train,
+                     genex_df_test,
+                     metadata_df_train,
+                     metadata_df_test,
                      model_seed,
                      n_rules_min,
                      n_rules_max) {
+
+  set.seed(model_seed)
+  
+  train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
+                                                 Labels = metadata_df_train$subgroup,
+                                                 Platform = metadata_df_train$platform,
+                                                 verbose = FALSE)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = FALSE)
+  
+  filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
+                                                      filter = "one_vs_one",
+                                                      platform_wise = TRUE,
+                                                      featureNo = 1000,
+                                                      UpDown = TRUE,
+                                                      verbose = TRUE)
+  
+  classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
+                                                       filtered_genes = filtered_genes,
+                                                       k_range = n_rules_min:n_rules_max,
+                                                       include_pivot = FALSE,
+                                                       one_vs_one_scores = TRUE,
+                                                       platform_wise_scores = TRUE,
+                                                       seed = model_seed,
+                                                       verbose = FALSE)
+  
+  train_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
+                                                            Data = train_data_object,
+                                                            tolerate_missed_genes = TRUE,
+                                                            weighted_votes = TRUE,
+                                                            classes = c("G3", "G4", "SHH", "WNT"),
+                                                            verbose = TRUE)
+  
+  test_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
+                                                           Data = test_data_object,
+                                                           tolerate_missed_genes = TRUE,
+                                                           weighted_votes = TRUE,
+                                                           classes = c("G3", "G4", "SHH", "WNT"),
+                                                           verbose = TRUE)
+  
+  train_cm <- caret::confusionMatrix(data = factor(train_results$max_score, 
+                                                   levels = unique(train_data_object$data$Labels)),
+                                     reference = factor(train_data_object$data$Labels, 
+                                                        levels = unique(train_data_object$data$Labels)),
+                                     mode = "everything")
+  
+  test_cm <- caret::confusionMatrix(data = factor(test_results$max_score, 
+                                                  levels = unique(test_data_object$data$Labels)),
+                                    reference = factor(test_data_object$data$Labels, 
+                                                       levels = unique(test_data_object$data$Labels)),
+                                    mode = "everything")
+  
+  list(train_data_object = train_data_object,
+       test_data_object = test_data_object,
+       filtered_genes = filtered_genes,
+       classifier = classifier,
+       train_results = train_results,
+       test_results = test_results,
+       train_cm = train_cm,
+       test_cm = test_cm)
   
 }
 
