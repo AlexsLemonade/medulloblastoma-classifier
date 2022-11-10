@@ -1,14 +1,36 @@
 suppressMessages(library(foreach))
 
-create_and_run_models <- function(genex_df,
-                                  metadata_df,
-                                  model_types = list("ktsp", "rf", "mm2s", "lasso"),
-                                  initial_seed = 44,
-                                  n_repeats = 1,
-                                  n_cores = parallel::detectCores() - 1,
-                                  n_rules_min = 5,
-                                  n_rules_max = NA) {
+run_models <- function(genex_df,
+                       metadata_df,
+                       model_types = list("ktsp", "rf", "mm2s", "lasso"),
+                       initial_seed = 44,
+                       n_repeats = 1,
+                       n_cores = NA,
+                       n_rules_min = 5,
+                       n_rules_max = NA) {
   
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  if (!is.list(model_types) |
+      !all(unlist(model_types) %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+    
+    stop("model_types in run_models() should be a list limited to 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    
+  }
+  
+  # n_repeats should be a positive integer <= 100
+  if (n_repeats < 1 | n_repeats > 100 | round(n_repeats) != n_repeats) {
+    
+    stop("n_repeats in run_models() should be a positive integer <= 100.")
+    
+  }
+  
+  # n_cores should not exceed parallel::detectCores() - 1
+  n_cores <- min(n_cores, parallel::detectCores() - 1)
+  
+  # n_rules_min should be a positive integer
+  
+  # n_rules_max should be a positive integer and >= n_rules_min
+  # if n_rules_max is not given, set to n_rules_min
   if (is.na(n_rules_max)) {
     n_rules_max <- n_rules_min
   }
@@ -178,8 +200,7 @@ run_ktsp <- function(genex_df_train,
                      n_rules_min,
                      n_rules_max) {
 
-  mb_subgroups <- factor(c("G3", "G4", "SHH", "WNT"),
-                         ordered = TRUE)
+  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
   set.seed(model_seed)
   
@@ -235,8 +256,8 @@ run_ktsp <- function(genex_df_train,
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
-  list(train_data_object = train_data_object,
-       test_data_object = test_data_object,
+  list(train_data_object = train_data_object, # contains genex data
+       test_data_object = test_data_object, # contain genex_data
        filtered_genes = filtered_genes,
        classifier = classifier,
        train_results = train_results,
