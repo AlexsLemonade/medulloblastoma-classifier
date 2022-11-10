@@ -1,4 +1,4 @@
-suppressMessages(library(tidyverse))
+suppressMessages(library(foreach))
 
 create_and_run_models <- function(genex_df,
                                   metadata_df,
@@ -7,43 +7,59 @@ create_and_run_models <- function(genex_df,
                                   n_repeats = 1,
                                   n_cores = parallel::detectCores() - 1,
                                   n_rules_min = 5,
-                                  n_rules_max = n_rules_min) {
+                                  n_rules_max = NA) {
+  
+  if (is.na(n_rules_max)) {
+    n_rules_max <- n_rules_min
+  }
   
   set.seed(initial_seed)
   
-  train_test_seeds <- sample(1:n_repeats, size = n_repeats)
-  modeling_seeds <- sample(1:n_repeats, size = n_repeats)
+  train_test_seeds <- sample(1:max(100, n_repeats), size = n_repeats)
+  modeling_seeds <- sample(1:max(100, n_repeats), size = n_repeats)
   official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
   cl <- parallel::makeCluster(n_cores)
-  registerDoParallel(cl)
+  doParallel::registerDoParallel(cl)
+  parallel::clusterExport(cl,
+                          c("get_train_test_samples",
+                            "run_model",
+                            "run_ktsp")) #,
+                            #"run_rf",
+                            #"run_mm2s",
+                            #"run_lasso"))
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    test_train_samples_list <- get_test_train_samples(genex_df,
+    suppressMessages(library(magrittr))
+    
+    train_test_samples_list <- get_train_test_samples(genex_df,
                                                       metadata_df,
-                                                      test_train_seed = test_train_seeds[n])
+                                                      train_test_seed = train_test_seeds[n])
     
-    genex_df_train <- genex_df %>% select(test_train_samples_list$train)
-    genex_df_test <- genex_df %>% select(test_train_samples_list$test)
-    metadata_df_train <- metadata_df %>% select(test_train_samples_list$train)
-    metadata_df_test <- metadata_df %>% select(test_train_samples_list$test)
+    genex_df_train <- genex_df %>% dplyr::select(train_test_samples_list$train)
+    genex_df_test <- genex_df %>% dplyr::select(train_test_samples_list$test)
+    metadata_df_train <- metadata_df %>% dplyr::filter(sample_accession %in% train_test_samples_list$train)
+    metadata_df_test <- metadata_df %>% dplyr::filter(sample_accession %in% train_test_samples_list$test)
     
-    purrr::map(model_types,
-               function(x) run_model(x,
-                                     genex_df_train,
-                                     genex_df_test,
-                                     metadata_df_train,
-                                     metadata_df_test,
-                                     model_seeds[n],
-                                     n_rules_min,
-                                     n_rules_max))
+    repeat_list <- purrr::map(model_types,
+                              function(x) run_model(x,
+                                                    genex_df_train,
+                                                    genex_df_test,
+                                                    metadata_df_train,
+                                                    metadata_df_test,
+                                                    modeling_seeds[n],
+                                                    n_rules_min,
+                                                    n_rules_max))
+    
+    repeat_list[["train_test_seed"]] <- train_test_seeds[n]
+    repeat_list[["modeling_seed"]] <- modeling_seeds[n]
     
   }
   
   # stop parallel backend
-  stopCluster(cl)
+  parallel::stopCluster(cl)
   
   # set official model
   model_list[[n]]$official_model <- TRUE
@@ -52,24 +68,24 @@ create_and_run_models <- function(genex_df,
   
 }
 
-get_test_train_samples <- function(genex_df,
+get_train_test_samples <- function(genex_df,
                                    metadata_df,
-                                   test_train_seed) {
+                                   train_test_seed) {
   
   proportion_of_studies_train <- 0.5
   
-  set.seed(test_train_seed)
+  set.seed(train_test_seed)
   
   array_studies <- metadata_df %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "Array") %>%
-    pull(study) %>%
+    dplyr::filter(sample_accession %in% names(genex_df),
+                  platform == "Array") %>%
+    dplyr::pull(study) %>%
     unique()
   
   rnaseq_studies <- metadata_df %>%
-    filter(sample_accession %in% names(genex_df),
-           platform == "RNA-seq") %>%
-    pull(study) %>%
+    dplyr::filter(sample_accession %in% names(genex_df),
+                  platform == "RNA-seq") %>%
+    dplyr::pull(study) %>%
     unique()
   
   n_array_studies <- length(array_studies)
@@ -79,21 +95,24 @@ get_test_train_samples <- function(genex_df,
   n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
   
   array_studies_train <- sample(array_studies, size = n_array_studies_train)
-  rnaseq_studies_train <- sample(rnaseq_studies, size = n_array_studies_train)
+  rnaseq_studies_train <- sample(rnaseq_studies, size = n_rnaseq_studies_train)
   
-  test_train_samples_list <- list()
+  array_studies_test <- setdiff(array_studies, array_studies_train)
+  rnaseq_studies_test <- setdiff(rnaseq_studies, rnaseq_studies_train)
   
-  test_train_samples_list[["train"]] <- metadata_df %>%
-    filter(study %in% c(array_studies_train,
-                        rnaseq_studies_train)) %>%
-    pull(sample_accession)
+  train_test_samples_list <- list()
   
-  test_train_samples_list[["test"]] <- metadata_df %>%
-    filter(study %in% c(array_studies_test,
-                        rnaseq_studies_test)) %>%
-    pull(sample_accession)
+  train_test_samples_list[["train"]] <- metadata_df %>%
+    dplyr::filter(study %in% c(array_studies_train,
+                               rnaseq_studies_train)) %>%
+    dplyr::pull(sample_accession)
   
-  return(test_train_samples_list)
+  train_test_samples_list[["test"]] <- metadata_df %>%
+    dplyr::filter(study %in% c(array_studies_test,
+                               rnaseq_studies_test)) %>%
+    dplyr::pull(sample_accession)
+  
+  return(train_test_samples_list)
   
 }
 
@@ -159,6 +178,9 @@ run_ktsp <- function(genex_df_train,
                      n_rules_min,
                      n_rules_max) {
 
+  mb_subgroups <- factor(c("G3", "G4", "SHH", "WNT"),
+                         ordered = TRUE)
+  
   set.seed(model_seed)
   
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
@@ -176,7 +198,7 @@ run_ktsp <- function(genex_df_train,
                                                       platform_wise = TRUE,
                                                       featureNo = 1000,
                                                       UpDown = TRUE,
-                                                      verbose = TRUE)
+                                                      verbose = FALSE)
   
   classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
                                                        filtered_genes = filtered_genes,
@@ -191,26 +213,26 @@ run_ktsp <- function(genex_df_train,
                                                             Data = train_data_object,
                                                             tolerate_missed_genes = TRUE,
                                                             weighted_votes = TRUE,
-                                                            classes = c("G3", "G4", "SHH", "WNT"),
-                                                            verbose = TRUE)
+                                                            classes = mb_subgroups,
+                                                            verbose = FALSE)
   
   test_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
                                                            Data = test_data_object,
                                                            tolerate_missed_genes = TRUE,
                                                            weighted_votes = TRUE,
-                                                           classes = c("G3", "G4", "SHH", "WNT"),
-                                                           verbose = TRUE)
+                                                           classes = mb_subgroups,
+                                                           verbose = FALSE)
   
   train_cm <- caret::confusionMatrix(data = factor(train_results$max_score, 
-                                                   levels = unique(train_data_object$data$Labels)),
+                                                   levels = mb_subgroups),
                                      reference = factor(train_data_object$data$Labels, 
-                                                        levels = unique(train_data_object$data$Labels)),
+                                                        levels = mb_subgroups),
                                      mode = "everything")
   
   test_cm <- caret::confusionMatrix(data = factor(test_results$max_score, 
-                                                  levels = unique(test_data_object$data$Labels)),
+                                                  levels = mb_subgroups),
                                     reference = factor(test_data_object$data$Labels, 
-                                                       levels = unique(test_data_object$data$Labels)),
+                                                       levels = mb_subgroups),
                                     mode = "everything")
   
   list(train_data_object = train_data_object,
