@@ -11,7 +11,7 @@ processed_data_dir <- here::here("processed_data")
 GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
                                                             "GSE124814_experiment_accessions.tsv")
 combined_metadata_input_filepath <- file.path(processed_data_dir,
-                                              "combined_metadata.tsv")
+                                              "bulk_metadata.tsv")
 GSE164677_genex_input_filename <- file.path(data_dir,
                                             "GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz")
 OpenPBTA_polya_genex_input_filename <- file.path(data_dir,
@@ -20,7 +20,7 @@ OpenPBTA_stranded_genex_input_filename <- file.path(data_dir,
                                                     "OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds")
 
 genex_df_output_filename <- file.path(processed_data_dir,
-                                      "genex_df.tsv")
+                                      "bulk_genex.tsv")
 
 ################################################################################
 # functions
