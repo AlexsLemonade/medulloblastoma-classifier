@@ -9,7 +9,7 @@ data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
 combined_metadata_output_filename <- file.path(processed_data_dir,
-                                               "combined_metadata.tsv")
+                                               "bulk_metadata.tsv")
 
 ################################################################################
 # functions
