@@ -16,7 +16,7 @@ sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.tx
 
 # output file names
 combined_metadata_output_filename <- file.path(processed_data_dir,
-                                               "bulk_metadata.tsv")
+                                               "combined_metadata.tsv")
 
 ################################################################################
 # functions
