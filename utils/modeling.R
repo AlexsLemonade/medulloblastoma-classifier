@@ -75,8 +75,12 @@ run_models <- function(genex_df,
                                                     n_rules_min,
                                                     n_rules_max))
     
+    names(repeat_list) <- unlist(model_types)
+    
     repeat_list[["train_test_seed"]] <- train_test_seeds[n]
     repeat_list[["modeling_seed"]] <- modeling_seeds[n]
+    
+    return(repeat_list)
     
   }
   
@@ -84,7 +88,7 @@ run_models <- function(genex_df,
   parallel::stopCluster(cl)
   
   # set official model
-  model_list[[n]]$official_model <- TRUE
+  model_list[[n]][["official_model"]] <- TRUE
   
   return(model_list)
   
