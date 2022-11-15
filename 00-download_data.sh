@@ -62,6 +62,9 @@ while read accession; do
     
   elif [[ $accession == "E-MTAB-292" ]]; then
   
+    # E-MTAB-292 is part of ArrayExpress.
+    # We can come back to this dataset in the future.
+    # For now it is not clear how to easily download processed expression data.
     echo Skipping over E-MTAB-292.
     
   else
@@ -73,7 +76,7 @@ while read accession; do
 done < $data/GSE124814_experiment_accessions.tsv
 
 ################################################################################
-# GSE164677
+# GSE164677 -- not in refine.bio
 ################################################################################
 
 if [[ -d $data/GSE164677 ]]; then
