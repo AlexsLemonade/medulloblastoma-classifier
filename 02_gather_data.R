@@ -10,8 +10,8 @@ processed_data_dir <- here::here("processed_data")
 
 GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
                                                             "GSE124814_experiment_accessions.tsv")
-combined_metadata_input_filepath <- file.path(processed_data_dir,
-                                              "bulk_metadata.tsv")
+bulk_metadata_input_filepath <- file.path(processed_data_dir,
+                                          "bulk_metadata.tsv")
 GSE164677_genex_input_filename <- file.path(data_dir,
                                             "GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz")
 OpenPBTA_polya_genex_input_filename <- file.path(data_dir,
@@ -29,6 +29,9 @@ genex_df_output_filename <- file.path(processed_data_dir,
 get_genex_data <- function(genex_file_path,
                            mb_sample_accessions){
   
+  # for a gene expression file located at genex_file_path,
+  # read in columns associated with sample accessions in mb_sample_accessions
+  
   genex_df_columns <- read_tsv(genex_file_path,
                                col_types = "c",
                                n_max = 0)
@@ -37,8 +40,8 @@ get_genex_data <- function(genex_file_path,
   
   select_these_columns_types <- str_c(c("c", # for the gene column
                                         ifelse(select_these_samples_TF,
-                                             "d",
-                                             "-")),
+                                               "d",
+                                               "-")),
                                       collapse = "")
   
   genex_df <- read_tsv(genex_file_path,
@@ -51,6 +54,9 @@ get_genex_data <- function(genex_file_path,
 
 get_common_genes <- function(genex_list){
   
+  # for a list of gene expression files with row names as genes,
+  # find the common row names (genes)
+  
   Reduce(intersect, lapply(genex_list, row.names))
   
 }
@@ -59,8 +65,8 @@ get_common_genes <- function(genex_list){
 # Read in metadata
 ################################################################################
 
-combined_metadata <- read_tsv(combined_metadata_input_filepath,
-                              col_types = "c")
+bulk_metadata <- read_tsv(bulk_metadata_input_filepath,
+                          col_types = "c")
 
 ################################################################################
 # create a list containing each data set
@@ -76,7 +82,7 @@ GSE124184_experiment_accession_ids <- read_tsv(GSE124184_experiment_accessions_i
 
 genex_data_list <- purrr::map(GSE124184_experiment_accession_ids$experiment_accession,
                               function(x) get_genex_data(file.path(data_dir, x, x, str_c(x, ".tsv", sep = "")),
-                                                         combined_metadata$sample_accession))
+                                                         bulk_metadata$sample_accession))
 
 names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accession
 
@@ -104,13 +110,13 @@ genex_data_list[["OpenPBTA"]] <- bind_cols(read_rds(OpenPBTA_polya_genex_input_f
   mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) %>%
   filter(!duplicated(gene_id)) %>%
   column_to_rownames(var = "gene_id") %>%
-  select(combined_metadata %>%
+  select(bulk_metadata %>%
            filter(study == "OpenPBTA") %>%
            pull(sample_accession))
 
 ### St. Jude
 
-genex_data_list[["St. Jude"]] <- combined_metadata %>%
+genex_data_list[["St. Jude"]] <- bulk_metadata %>%
   filter(study == "St. Jude") %>%
   pull(sample_accession) %>%
   purrr::map(function(x) read_tsv(file.path(data_dir,
