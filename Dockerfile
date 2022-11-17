@@ -20,10 +20,9 @@ RUN pip3 install pyrefinebio==0.4.9
 
 # R Bioconductor packages
 RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
+    'AnnotationHub', \
     'Biobase', \
     'BiocStyle', \
-    'EnsDb.Hsapiens.v86', \
-    'ensembldb', \
     'leukemiasEset', \
     'switchBox'), \
     update = FALSE, \
