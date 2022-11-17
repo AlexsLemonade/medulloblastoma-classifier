@@ -90,13 +90,11 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
          subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
                                            y = "Unknown"),
          # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
-         sample_accession = word(description, 3)) %>%
+         sample_accession = word(description, 3) ) %>%
   select(sample_accession,
-         subgroup_supplied_renamed,
-         experiment_accession,
+         subgroup = subgroup_supplied_renamed,
+         study = experiment_accession,
          is_duplicate) %>%
-  rename("subgroup" = "subgroup_supplied_renamed",
-         "study" = "experiment_accession") %>%
   mutate(platform = "Array") %>%
   clean_mb_subgroups()
 
@@ -104,6 +102,9 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # GSE164677
 ################################################################################
 
+# This file contains both metadata and expression values
+# Here, we only want the first two rows (the metadata rows), then transpose it,
+# then clean it up for combination with metadata from other studies.
 GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz",
                                col_names = FALSE,
                                col_types = "c",
