@@ -174,7 +174,7 @@ openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
                         col_types = "c") %>%
   filter(lubridate::mdy(sj_embargo_date) %>%
-           lubridate::year() < 2023) # keep samples with embargo ending before 2023
+           lubridate::year() < 2023) %>% # keep samples with embargo ending before 2023
   arrange(subject_name) %>% # patient ID
   mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
   mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
