@@ -17,13 +17,14 @@ combined_metadata_output_filename <- file.path(processed_data_dir,
 
 clean_mb_subgroups <- function(df){
   
-  df %>%
+  df <- df %>%
     mutate(subgroup = case_when(subgroup %in% c("E", "Group3", "Group 3", "G3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
                                 subgroup %in% c("C", "D", "Group4", "G4", "Group 4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
                                 subgroup %in% c("NORM") ~ "Normal",
                                 subgroup %in% c("B", "MB_SHH", "SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma") ~ "SHH",
-                                subgroup %in% c("A", "MB_WNT", "WNT", "WNT_alpha", "WNT_beta") ~ "WNT")) %>%
-    return()
+                                subgroup %in% c("A", "MB_WNT", "WNT", "WNT_alpha", "WNT_beta") ~ "WNT"))
+
+  return(df)
   
 }
 
