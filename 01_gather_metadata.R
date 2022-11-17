@@ -81,16 +81,16 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
   filter(experiment_accession != "EMTAB292") %>%
   # GSE124814 merged duplicate samples together by averaging expression values
   # and this is indicated in the description column with the word "average"
-  mutate(is_duplicate = str_detect(description, "average")) %>%
-  # "NA" subgroup corresponds to "Normal"
-  mutate(subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
+  mutate(is_duplicate = str_detect(description, "average"),
+         # "NA" subgroup corresponds to "Normal"
+         subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
                                             "Normal",
-                                            subgroup_supplied_renamed)) %>%
-  # treat "Unknown" subgroup as NA -- we need to look further into these
-  mutate(subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
-                                           y = "Unknown")) %>%
-  # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
-  mutate(sample_accession = word(description, 3)) %>%
+                                            subgroup_supplied_renamed),
+         # treat "Unknown" subgroup as NA
+         subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
+                                           y = "Unknown"),
+         # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
+         sample_accession = word(description, 3)) %>%
   select(sample_accession,
          subgroup_supplied_renamed,
          experiment_accession,
