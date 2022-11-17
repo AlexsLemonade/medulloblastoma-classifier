@@ -44,7 +44,7 @@ GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814",
 
 # Read in GSE124814 metadata
 
-GSE124814_samples_df_column_names <- c("Sample_name",
+GSE124814_samples_df_column_names <- c("sample_name",
                                        "title",
                                        "CEL_file",
                                        "source_name",
