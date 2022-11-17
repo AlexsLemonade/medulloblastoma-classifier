@@ -1,0 +1,9 @@
+# ignore git
+.git
+
+# ignore data folders
+data
+processed_data
+
+# Other files to ignore
+.Rproj.user
