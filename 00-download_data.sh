@@ -18,10 +18,12 @@ data="data"
 # set input data sources file
 data_sources_file=$1
 
+# read in each column of data sources file one line at a time
+# data_source defines the action taken for each line
 while read accession data_source url; do
 
   # skip over any header lines starting with hash
-  if [[ $accession =~ ^#.* ]] && continue
+  [[ $accession =~ ^#.* ]] && continue
 
   if [[ $accession == "E-MTAB-292" ]]; then
   
@@ -30,7 +32,7 @@ while read accession data_source url; do
     # For now it is not clear how to easily download processed expression data.
     echo Skipping over E-MTAB-292.
 
-  elif [[ $data_source == refine\.bio ]]; then
+  elif [[ $data_source == refine.bio ]]; then
 
     if [[ -d $data/$accession ]]; then
   
@@ -67,7 +69,7 @@ while read accession data_source url; do
   
     else
     
-      echo Downloading $accesion $url_basename...
+      echo Downloading $accession $url_basename...
       
       curl -o $file_name --silent $url
       
@@ -75,8 +77,13 @@ while read accession data_source url; do
       
     fi
   
-  fi
+  else
+  
+    echo Error with: $accession $data_source $url
+    exit 1
     
+  fi
+  
 done < $data_sources_file
 
 ################################################################################
