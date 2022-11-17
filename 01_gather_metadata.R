@@ -89,12 +89,11 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
   # treat "Unknown" subgroup as NA -- we need to look further into these
   mutate(subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
                                            y = "Unknown")) %>%
-  # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION ...")
-  rowwise() %>%
-  mutate(sample_accession = str_split(description,
-                                      pattern = " ",
-                                      simplify = TRUE)[3]) %>%
-  ungroup() %>%
+  # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
+  separate(description,
+           into = c("reanalysis", "of", "sample_accession"),
+           sep = " ",
+           extra = "drop") %>%
   select(sample_accession,
          subgroup_supplied_renamed,
          experiment_accession,
