@@ -90,10 +90,7 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
   mutate(subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
                                            y = "Unknown")) %>%
   # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
-  separate(description,
-           into = c("reanalysis", "of", "sample_accession"),
-           sep = " ",
-           extra = "drop") %>%
+  mutate(sample_accession = word(description, 3)) %>%
   select(sample_accession,
          subgroup_supplied_renamed,
          experiment_accession,
