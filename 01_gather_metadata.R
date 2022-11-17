@@ -112,10 +112,8 @@ GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz
   column_to_rownames(var = "X1") %>%
   t() %>%
   as_tibble() %>%
-  rename("sample_accession" = "gene",
-         "subgroup" = "group") %>%
-  select(sample_accession,
-         subgroup) %>%
+  select(sample_accession = gene,
+         subgroup = group) %>%
   mutate(study = "GSE164677",
          is_duplicate = FALSE,
          platform = "RNA-seq") %>%
@@ -174,13 +172,8 @@ openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 
 sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
                         col_types = "c") %>%
-  separate(sj_embargo_date,
-           into = c("embargo_mon",
-                    "embargo_day",
-                    "embargo_year"),
-           sep = "-") %>%
-  mutate(embargo_year = as.numeric(embargo_year)) %>%
-  filter(embargo_year < 2023) %>% # keep samples with embargo ending before 2023
+  filter(lubridate::mdy(sj_embargo_date) %>%
+           lubridate::year() < 2023) # keep samples with embargo ending before 2023
   arrange(subject_name) %>% # patient ID
   mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
   mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
