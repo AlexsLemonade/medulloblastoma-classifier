@@ -23,6 +23,23 @@ genex_df_output_filename <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
 
 ################################################################################
+# set up gene name conversions
+################################################################################
+
+AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
+ah <- AnnotationHub::AnnotationHub()
+AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
+hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
+map_ensembl_symbol_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
+                                                     keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
+                                                     columns = "SYMBOL",
+                                                     keytype = "ENSEMBL") %>%
+  mutate(dup_ensembl = duplicated(ENSEMBL),
+         dup_symbol = duplicated(SYMBOL)) %>%
+  filter(!dup_ensembl, !dup_symbol) %>%
+  select(ENSEMBL, SYMBOL)
+
+################################################################################
 # functions
 ################################################################################
 
@@ -92,16 +109,13 @@ genex_data_list[["GSE164677"]] <- read_tsv(GSE164677_genex_input_filename,
                                            col_names = TRUE,
                                            show_col_types = FALSE,
                                            skip = 1) %>%
-  left_join(ensembldb::select(EnsDb.Hsapiens.v86::EnsDb.Hsapiens.v86,
-                              keys = .$gene,
-                              keytype = "SYMBOL",
-                              columns = "GENEID"),
+  left_join(map_ensembl_symbol_dedup_df,
             by = c("gene" = "SYMBOL")) %>%
   filter(!duplicated(gene),
-         !duplicated(GENEID),
-         !is.na(GENEID)) %>%
+         !duplicated(ENSEMBL),
+         !is.na(ENSEMBL)) %>%
   select(-gene) %>%
-  column_to_rownames(var = "GENEID")
+  column_to_rownames(var = "ENSEMBL")
 
 ### OpenPBTA
 
@@ -119,23 +133,19 @@ genex_data_list[["OpenPBTA"]] <- bind_cols(read_rds(OpenPBTA_polya_genex_input_f
 genex_data_list[["St. Jude"]] <- bulk_metadata %>%
   filter(study == "St. Jude") %>%
   pull(sample_accession) %>%
-  purrr::map(function(x) read_tsv(file.path(data_dir,
-                                            "stjudecloud",
-                                            str_c(x,
-                                                  ".RNA-Seq.feature-counts.txt")),
+  purrr::map(function(x) read_tsv(file.path(data_dir, "stjudecloud",
+                                            str_c(x, ".RNA-Seq.feature-counts.txt")),
                                   col_names = c("SYMBOL", x), show_col_types = FALSE) %>%
                column_to_rownames("SYMBOL")) %>%
   bind_cols() %>%
   rownames_to_column("SYMBOL") %>%
-  left_join(ensembldb::select(EnsDb.Hsapiens.v86::EnsDb.Hsapiens.v86,
-                              keys = .$SYMBOL,
-                              keytype = "SYMBOL",
-                              columns = "GENEID"),
+  left_join(map_ensembl_symbol_dedup_df,
             by = "SYMBOL") %>%
   filter(!duplicated(SYMBOL),
-         !is.na(GENEID)) %>%
+         !duplicated(ENSEMBL),
+         !is.na(ENSEMBL)) %>%
   select(-SYMBOL) %>%
-  column_to_rownames(var = "GENEID")
+  column_to_rownames(var = "ENSEMBL")
 
 ################################################################################
 # combine the list
