@@ -8,6 +8,13 @@ suppressMessages(library(tidyverse))
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
+# input file names
+GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
+GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_Asian_MB_RNA-seq.txt.gz")
+openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
+sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
+
+# output file names
 combined_metadata_output_filename <- file.path(processed_data_dir,
                                                "bulk_metadata.tsv")
 
@@ -38,10 +45,6 @@ clean_mb_subgroups <- function(df){
 #   Identified duplicate samples (merged duplicate samples together by averaging expression values)
 #   Limited to just MB and normal cerebellum tissues
 #   Citation: Weishaupt, H. et al. Batch-normalization of cerebellar and medulloblastoma gene expression datasets utilizing empirically defined negative control genes. Bioinformatics 35, 3357–3364 (2019)
-
-# GSE124814 input file names
-GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814",
-                                               "GSE124814_sample_descriptions.xlsx")
 
 # Read in GSE124814 metadata
 
@@ -106,7 +109,7 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # This file contains both metadata and expression values
 # Here, we only want the first two rows (the metadata rows), then transpose it,
 # then clean it up for combination with metadata from other studies.
-GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz",
+GSE164677_metadata <- read_tsv(GSE164677_metadata_input_filename,
                                col_names = FALSE,
                                col_types = "c",
                                n_max = 2) %>%
@@ -124,7 +127,7 @@ GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz
 # OpenPBTA (MB)
 ################################################################################
 
-openpbta_mb_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
+openpbta_mb_metadata <- read_tsv(file = openpbta_metadata_input_filename,
                                  col_types = "c") %>%
   filter(experimental_strategy == "RNA-Seq",
          short_histology == "Medulloblastoma") %>%
@@ -150,7 +153,7 @@ openpbta_mb_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 # OpenPBTA (LGG)
 ################################################################################
 
-openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
+openpbta_lgg_metadata <- read_tsv(file = openpbta_metadata_input_filename,
                                   col_types = "c") %>%
   filter(experimental_strategy == "RNA-Seq",
          pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
@@ -171,7 +174,7 @@ openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 # St. Jude
 ################################################################################
 
-sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
+sj_metadata <- read_tsv(file = sj_metadata_input_filename,
                         col_types = "c") %>%
   filter(lubridate::mdy(sj_embargo_date) %>%
            lubridate::year() < 2023) %>% # keep samples with embargo ending before 2023

@@ -3,7 +3,7 @@
 # Steven Foltz
 # November 2022
 #
-# Usage: 00_download_data.sh data/data_sources.tsv
+# Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv
 # where data/data_sources.tsv is a TSV file with accession, data_source, and url columns
 
 #!/bin/bash
@@ -16,11 +16,27 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 data="data"
 
 # set input data sources file
-data_sources_file=$1
+data_sources_file="data/data_sources.tsv"
+
+# allow for alternative input data sources file
+while [ $# -gt 0 ]; do
+    if [[ $1 == *'--'* ]]; then
+        v="${1/--/}"
+        declare $v="$2"
+    fi
+    shift
+done
+
+if [[ ! -f $data_sources_file ]]; then
+
+  echo Input data_sources_file $data_sources_file does not exist.
+  exit 1
+  
+fi
 
 # read in each column of data sources file one line at a time
 # data_source defines the action taken for each line
-while read accession data_source url; do
+while read accession download_source url; do
 
   # skip over any header lines starting with hash
   [[ $accession =~ ^#.* ]] && continue
@@ -32,7 +48,7 @@ while read accession data_source url; do
     # For now it is not clear how to easily download processed expression data.
     echo Skipping over E-MTAB-292.
 
-  elif [[ $data_source == refine.bio ]]; then
+  elif [[ $download_source == refine.bio ]]; then
 
     if [[ -d $data/$accession ]]; then
   
@@ -57,7 +73,7 @@ while read accession data_source url; do
       
     fi
 
-  elif [[ $data_source == url ]]; then
+  elif [[ $download_source == url ]]; then
 
     mkdir -p $data/$accession
     url_basename=$(basename $url)
@@ -79,7 +95,7 @@ while read accession data_source url; do
   
   else
   
-    echo Error with: $accession $data_source $url
+    echo Error with: $accession $download_source $url
     exit 1
     
   fi
