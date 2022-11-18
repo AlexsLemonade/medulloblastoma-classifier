@@ -137,7 +137,7 @@ openpbta_mb_metadata <- read_tsv(file = openpbta_metadata_input_filename,
            extra = "merge") %>%
   mutate(subgroup = na_if(x = subgroup,
                           y = "To be classified")) %>% 
-  arrange(Kids_First_Participant_ID) %>% # patient ID
+  arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) %>% # patient ID, sample ID
   mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
   rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
   mutate(study = "OpenPBTA",
@@ -159,7 +159,7 @@ openpbta_lgg_metadata <- read_tsv(file = openpbta_metadata_input_filename,
          pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
          short_histology == "LGAT") %>%
   mutate(subgroup = "LGG") %>%
-  arrange(Kids_First_Participant_ID) %>% # patient ID
+  arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) %>% # patient ID, sample ID
   mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
   rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
   mutate(study = "OpenPBTA",
@@ -178,7 +178,7 @@ sj_metadata <- read_tsv(file = sj_metadata_input_filename,
                         col_types = "c") %>%
   filter(lubridate::mdy(sj_embargo_date) %>%
            lubridate::year() < 2023) %>% # keep samples with embargo ending before 2023
-  arrange(subject_name) %>% # patient ID
+  arrange(subject_name, sample_name) %>% # patient ID, sample ID
   mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
   mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
                               str_detect(sj_associated_diagnoses_disease_code, "G4") ~ "G4",
