@@ -11,8 +11,7 @@ processed_data_dir <- here::here("processed_data")
 # input file names
 GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
 GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_Asian_MB_RNA-seq.txt.gz")
-openpbta_mb_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
-openpbta_lgg_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
+openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
 sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
 
 # output file names
@@ -128,7 +127,7 @@ GSE164677_metadata <- read_tsv(GSE164677_metadata_input_filename,
 # OpenPBTA (MB)
 ################################################################################
 
-openpbta_mb_metadata <- read_tsv(file = openpbta_mb_metadata_input_filename,
+openpbta_mb_metadata <- read_tsv(file = openpbta_metadata_input_filename,
                                  col_types = "c") %>%
   filter(experimental_strategy == "RNA-Seq",
          short_histology == "Medulloblastoma") %>%
@@ -154,7 +153,7 @@ openpbta_mb_metadata <- read_tsv(file = openpbta_mb_metadata_input_filename,
 # OpenPBTA (LGG)
 ################################################################################
 
-openpbta_lgg_metadata <- read_tsv(file = openpbta_lgg_metadata_input_filename,
+openpbta_lgg_metadata <- read_tsv(file = openpbta_metadata_input_filename,
                                   col_types = "c") %>%
   filter(experimental_strategy == "RNA-Seq",
          pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
