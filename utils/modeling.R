@@ -264,9 +264,7 @@ run_ktsp <- function(genex_df_train,
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
-  list(#train_data_object = train_data_object, # contains genex data
-       #test_data_object = test_data_object, # contain genex_data
-       filtered_genes = filtered_genes,
+  list(filtered_genes = filtered_genes,
        classifier = classifier,
        train_results = train_results,
        test_results = test_results,
@@ -275,6 +273,79 @@ run_ktsp <- function(genex_df_train,
   
 }
 
-#run_rf()
+run_rf <- function(genex_df_train,
+                   genex_df_test,
+                   metadata_df_train,
+                   metadata_df_test,
+                   model_seed,
+                   n_rules_min,
+                   n_rules_max) {
+
+  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+  
+  set.seed(model_seed)
+  
+  train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
+                                                 Labels = metadata_df_train$subgroup,
+                                                 Platform = metadata_df_train$platform,
+                                                 verbose = TRUE)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = TRUE)
+  
+  genes_RF <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
+                                             rank_data = TRUE,
+                                             platform_wise = TRUE,
+                                             num.trees = 500, # increase
+                                             seed = model_seed,
+                                             verbose = TRUE)
+  
+  rules_RF <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
+                                             sorted_genes_RF = genes_RF,
+                                             genes_altogether = 200, # more genes,
+                                             genes_one_vs_rest = 200, # more rules
+                                             platform_wise = TRUE, # pick rules that perform well across platforms
+                                             num.trees = 500,# more rules, more tress are recommended 
+                                             seed = model_seed,
+                                             verbose = TRUE)
+  
+  RF_classifier <- multiclassPairs::train_RF(data_object = train_data_object,
+                                             sorted_rules_RF = rules_RF,
+                                             gene_repetition = 1, # * these parameters can be optimized
+                                             rules_altogether = 10, # * using optimize_RF()
+                                             rules_one_vs_rest = 10, # *
+                                             run_boruta = TRUE, # * keep
+                                             plot_boruta = FALSE, # * keep
+                                             probability = TRUE, # * keep
+                                             num.trees = 300, # *
+                                             boruta_args = list(),
+                                             verbose = TRUE)
+  
+  results <- multiclassPairs::predict_RF(classifier = RF_classifier, 
+                                         Data = test_data_object)
+  
+  # get the prediction labels
+  test_pred <- results$predictions
+  
+  # if the classifier trained using probability = FALSE
+  if (is.factor(test_pred)) {
+    x <- as.character(test_pred)
+  }
+  
+  # if the classifier trained using probability = TRUE
+  if (is.matrix(test_pred)) {
+    x <- colnames(test_pred)[max.col(test_pred)]
+  }
+  
+  # training accuracy
+  caret::confusionMatrix(data = factor(x),
+                         reference = factor(test_data_object$data$Labels, 
+                                            levels = mb_subgroups),
+                         mode = "everything")
+  
+}
+
 #run_mm2s()
 #run_lasso()
