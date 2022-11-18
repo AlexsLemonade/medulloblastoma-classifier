@@ -36,7 +36,7 @@ fi
 
 # read in each column of data sources file one line at a time
 # data_source defines the action taken for each line
-while read accession data_source url; do
+while read accession download_source url; do
 
   # skip over any header lines starting with hash
   [[ $accession =~ ^#.* ]] && continue
