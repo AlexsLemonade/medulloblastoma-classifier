@@ -1,4 +1,4 @@
-#accession	data_source	url
+#accession	download_source	url
 GSE124814	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE124nnn/GSE124814/suppl/GSE124814_sample_descriptions.xlsx
 E-MTAB-292	ArrayExpress	NA
 GSE10327	refine.bio	NA
