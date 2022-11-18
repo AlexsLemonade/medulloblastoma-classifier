@@ -18,7 +18,7 @@ f5b710bef707b6450af5bfc0542544c3  data/GSE22569/GSE22569/metadata_GSE22569.tsv
 b62634d9eccbb548499ce384605fe47a  data/GSE22569/LICENSE.TXT
 9ed2fa92d31d51f17fc048b98158a5e1  data/GSE22569/README.md
 e3c61891921850be5cf9824c3def30aa  data/GSE25219/GSE25219/GSE25219.tsv
-f3f5dbbc74884c6f04084e76ce321d80  data/GSE25219/GSE25219/metadata_GSE25219.tsv
+c18fafd004642ac4ad0e6d2f8449bd7f  data/GSE25219/GSE25219/metadata_GSE25219.tsv
 b62634d9eccbb548499ce384605fe47a  data/GSE25219/LICENSE.TXT
 9ed2fa92d31d51f17fc048b98158a5e1  data/GSE25219/README.md
 4c4fec8473aec4844234a69a924018c7  data/GSE30074/GSE30074/GSE30074.tsv
@@ -92,7 +92,6 @@ b62634d9eccbb548499ce384605fe47a  data/GSE85217/LICENSE.TXT
 f207a129a5442f4ed3c3b63a46ec9fde  data/OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds
 1f3c8bfa55ba38db2edde1a206f90bf1  data/OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds
 d75303b0b255b76eb63de076957bdefc  data/OpenPBTA/pbta-histologies.tsv
-f592b981376a7f65d1ce86e3002092a6  data/stjudecloud/DNAnexus_export_urls-20220616-155748.txt
 088e10d47c80ca9e02e539ba9f05271a  data/stjudecloud/SAMPLE_INFO.txt
 e234de1cb921f2abf475beade7a82c63  data/stjudecloud/SJBT032180_D1.RNA-Seq.feature-counts.txt
 e044aca6210740260bf1d5d025db3b26  data/stjudecloud/SJHGG032395_D1.RNA-Seq.feature-counts.txt
