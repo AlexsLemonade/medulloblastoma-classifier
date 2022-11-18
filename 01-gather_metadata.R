@@ -17,13 +17,15 @@ combined_metadata_output_filename <- file.path(processed_data_dir,
 
 clean_mb_subgroups <- function(df){
   
-  df %>%
-    mutate(subgroup = case_when(subgroup %in% c("E", "Group3", "Group 3", "G3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
-                                subgroup %in% c("C", "D", "Group4", "G4", "Group 4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
+  df <- df %>%
+    mutate(subgroup = case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
+                                subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
                                 subgroup %in% c("NORM") ~ "Normal",
-                                subgroup %in% c("B", "MB_SHH", "SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma") ~ "SHH",
-                                subgroup %in% c("A", "MB_WNT", "WNT", "WNT_alpha", "WNT_beta") ~ "WNT")) %>%
-    return()
+                                subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma") ~ "SHH",
+                                subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
+                                TRUE ~ subgroup))
+
+  return(df)
   
 }
 
@@ -43,7 +45,7 @@ GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814",
 
 # Read in GSE124814 metadata
 
-GSE124814_samples_df_column_names <- c("Sample_name",
+GSE124814_samples_df_column_names <- c("sample_name",
                                        "title",
                                        "CEL_file",
                                        "source_name",
@@ -80,26 +82,20 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
   filter(experiment_accession != "EMTAB292") %>%
   # GSE124814 merged duplicate samples together by averaging expression values
   # and this is indicated in the description column with the word "average"
-  mutate(is_duplicate = str_detect(description, "average")) %>%
-  # "NA" subgroup corresponds to "Normal"
-  mutate(subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
+  mutate(is_duplicate = str_detect(description, "average"),
+         # "NA" subgroup corresponds to "Normal"
+         subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
                                             "Normal",
-                                            subgroup_supplied_renamed)) %>%
-  # treat "Unknown" subgroup as NA -- we need to look further into these
-  mutate(subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
-                                           y = "Unknown")) %>%
-  # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION ...")
-  rowwise() %>%
-  mutate(sample_accession = str_split(description,
-                                      pattern = " ",
-                                      simplify = TRUE)[3]) %>%
-  ungroup() %>%
+                                            subgroup_supplied_renamed),
+         # treat "Unknown" subgroup as NA
+         subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
+                                           y = "Unknown"),
+         # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
+         sample_accession = word(description, 3) ) %>%
   select(sample_accession,
-         subgroup_supplied_renamed,
-         experiment_accession,
+         subgroup = subgroup_supplied_renamed,
+         study = experiment_accession,
          is_duplicate) %>%
-  rename("subgroup" = "subgroup_supplied_renamed",
-         "study" = "experiment_accession") %>%
   mutate(platform = "Array") %>%
   clean_mb_subgroups()
 
@@ -107,6 +103,9 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # GSE164677
 ################################################################################
 
+# This file contains both metadata and expression values
+# Here, we only want the first two rows (the metadata rows), then transpose it,
+# then clean it up for combination with metadata from other studies.
 GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz",
                                col_names = FALSE,
                                col_types = "c",
@@ -114,10 +113,8 @@ GSE164677_metadata <- read_tsv("data/GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz
   column_to_rownames(var = "X1") %>%
   t() %>%
   as_tibble() %>%
-  rename("sample_accession" = "gene",
-         "subgroup" = "group") %>%
-  select(sample_accession,
-         subgroup) %>%
+  select(sample_accession = gene,
+         subgroup = group) %>%
   mutate(study = "GSE164677",
          is_duplicate = FALSE,
          platform = "RNA-seq") %>%
@@ -176,13 +173,8 @@ openpbta_lgg_metadata <- read_tsv(file = "data/OpenPBTA/pbta-histologies.tsv",
 
 sj_metadata <- read_tsv("data/stjudecloud/SAMPLE_INFO.txt",
                         col_types = "c") %>%
-  separate(sj_embargo_date,
-           into = c("embargo_mon",
-                    "embargo_day",
-                    "embargo_year"),
-           sep = "-") %>%
-  mutate(embargo_year = as.numeric(embargo_year)) %>%
-  filter(embargo_year < 2023) %>% # keep samples with embargo ending before 2023
+  filter(lubridate::mdy(sj_embargo_date) %>%
+           lubridate::year() < 2023) %>% # keep samples with embargo ending before 2023
   arrange(subject_name) %>% # patient ID
   mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
   mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
