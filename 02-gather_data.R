@@ -98,7 +98,7 @@ GSE124184_experiment_accession_ids <- readr::read_tsv(GSE124184_experiment_acces
 
 
 genex_data_list <- purrr::map(GSE124184_experiment_accession_ids$experiment_accession,
-                              function(x) get_genex_data(file.path(data_dir, x, x, str_c(x, ".tsv", sep = "")),
+                              function(x) get_genex_data(file.path(data_dir, x, x, stringr::str_c(x, ".tsv", sep = "")),
                                                          bulk_metadata$sample_accession))
 
 names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accession
