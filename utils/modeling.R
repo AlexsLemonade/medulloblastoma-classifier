@@ -18,21 +18,67 @@ run_many_models <- function(genex_df,
   }
   
   # n_repeats should be a positive integer <= 100
-  if (n_repeats < 1 | n_repeats > 100 | round(n_repeats) != n_repeats) {
+  if (n_repeats < 1 | round(n_repeats) != n_repeats) {
     
-    stop("n_repeats in run_models() should be a positive integer <= 100.")
+    stop("n_repeats in run_models() should be a positive integer.")
     
   }
   
   # n_cores should not exceed parallel::detectCores() - 1
   n_cores <- min(n_cores, parallel::detectCores() - 1)
   
-  # n_rules_min should be a positive integer
+  # n_rules_min is required for ktsp and is only used in ktsp
+  if ("ktsp" %in% model_types) {
+    
+    if (is.na(n_rules_min)) {
+      stop("n_rules_min in run_models() cannot be NA with ktsp model type.")
+    }
+    
+    # ktsp should be a positive integer  
+    if (n_rules_min < 1 | round(n_rules_min) != n_rules_min) {
+      
+      stop("n_rules_min in run_models() should be a positive integer.")
+      
+    }
+    
+    # n_rules_max should be a positive integer and >= n_rules_min
+    # if n_rules_max is not given, set to n_rules_min
+    if (is.na(n_rules_max)) {
+      
+      n_rules_max <- n_rules_min
+      
+    } else if (n_rules_max < 1 | round(n_rules_max) != n_rules_max) {
+      
+      stop("n_rules_max in run_models() should be NA or a positive integer.")
+      
+    }
+    
+  } else {
+    
+    n_rules_min <- NA
+    n_rules_max <- NA
+    
+  }
   
-  # n_rules_max should be a positive integer and >= n_rules_min
-  # if n_rules_max is not given, set to n_rules_min
-  if (is.na(n_rules_max)) {
-    n_rules_max <- n_rules_min
+  if ("mm2s" %in% model_types) {
+    
+    suppressMessages(library(MM2S))
+  
+    # set up gene name conversions
+    
+    AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
+    ah <- AnnotationHub::AnnotationHub()
+    AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
+    hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
+    map_ensembl_entrezid_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
+                                                         keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
+                                                         columns = "ENTREZID",
+                                                         keytype = "ENSEMBL") %>%
+      dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
+                    dup_entrezid = duplicated(ENTREZID)) %>%
+      dplyr::filter(!dup_ensembl, !dup_entrezid) %>%
+      dplyr::select(ENSEMBL, ENTREZID)
+    
   }
   
   set.seed(initial_seed)
@@ -42,13 +88,13 @@ run_many_models <- function(genex_df,
   official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
-  cl <- parallel::makeCluster(n_cores, outfile = "logfile.txt")
+  cl <- parallel::makeCluster(n_cores)
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl,
                           c("get_train_test_samples",
                             "run_one_model",
-                            "run_ktsp")) #,
-                            #"run_rf",
+                            "run_ktsp",
+                            "run_rf")) #,
                             #"run_mm2s",
                             #"run_lasso"))
   
@@ -100,9 +146,8 @@ run_many_models <- function(genex_df,
 
 get_train_test_samples <- function(genex_df,
                                    metadata_df,
-                                   train_test_seed) {
-  
-  proportion_of_studies_train <- 0.5
+                                   train_test_seed,
+                                   proportion_of_studies_train = 0.5) {
   
   set.seed(train_test_seed)
   
@@ -171,9 +216,7 @@ run_one_model <- function(type,
                     genex_df_test,
                     metadata_df_train,
                     metadata_df_test,
-                    model_seed,
-                    n_rules_min,
-                    n_rules_max)
+                    model_seed)
     
   } else if (type == "mm2s") {
     
@@ -198,7 +241,6 @@ run_one_model <- function(type,
   return(model)
   
 }
-
 
 run_ktsp <- function(genex_df_train,
                      genex_df_test,
@@ -238,13 +280,6 @@ run_ktsp <- function(genex_df_train,
                                                        seed = model_seed,
                                                        verbose = TRUE)
   
-  train_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
-                                                            Data = train_data_object,
-                                                            tolerate_missed_genes = TRUE,
-                                                            weighted_votes = TRUE,
-                                                            classes = mb_subgroups,
-                                                            verbose = TRUE)
-  
   test_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
                                                            Data = test_data_object,
                                                            tolerate_missed_genes = TRUE,
@@ -252,23 +287,14 @@ run_ktsp <- function(genex_df_train,
                                                            classes = mb_subgroups,
                                                            verbose = TRUE)
   
-  train_cm <- caret::confusionMatrix(data = factor(train_results$max_score, 
-                                                   levels = mb_subgroups),
-                                     reference = factor(train_data_object$data$Labels, 
-                                                        levels = mb_subgroups),
-                                     mode = "everything")
-  
   test_cm <- caret::confusionMatrix(data = factor(test_results$max_score, 
                                                   levels = mb_subgroups),
                                     reference = factor(test_data_object$data$Labels, 
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
-  list(filtered_genes = filtered_genes,
-       classifier = classifier,
-       train_results = train_results,
+  list(classifier = classifier,
        test_results = test_results,
-       train_cm = train_cm,
        test_cm = test_cm)
   
 }
@@ -277,9 +303,7 @@ run_rf <- function(genex_df_train,
                    genex_df_test,
                    metadata_df_train,
                    metadata_df_test,
-                   model_seed,
-                   n_rules_min,
-                   n_rules_max) {
+                   model_seed) {
 
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
@@ -298,54 +322,119 @@ run_rf <- function(genex_df_train,
   genes_RF <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
                                              rank_data = TRUE,
                                              platform_wise = TRUE,
-                                             num.trees = 500, # increase
+                                             num.trees = 1000,
                                              seed = model_seed,
                                              verbose = TRUE)
   
   rules_RF <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                              sorted_genes_RF = genes_RF,
-                                             genes_altogether = 200, # more genes,
-                                             genes_one_vs_rest = 200, # more rules
-                                             platform_wise = TRUE, # pick rules that perform well across platforms
-                                             num.trees = 500,# more rules, more tress are recommended 
+                                             genes_altogether = 1000,
+                                             genes_one_vs_rest = 1000,
+                                             platform_wise = TRUE,
+                                             num.trees = 1000,
                                              seed = model_seed,
                                              verbose = TRUE)
   
   RF_classifier <- multiclassPairs::train_RF(data_object = train_data_object,
                                              sorted_rules_RF = rules_RF,
-                                             gene_repetition = 1, # * these parameters can be optimized
-                                             rules_altogether = 10, # * using optimize_RF()
-                                             rules_one_vs_rest = 10, # *
-                                             run_boruta = TRUE, # * keep
-                                             plot_boruta = FALSE, # * keep
-                                             probability = TRUE, # * keep
-                                             num.trees = 300, # *
-                                             boruta_args = list(),
+                                             gene_repetition = 1,
+                                             rules_altogether = 1000,
+                                             rules_one_vs_rest = 1000,
+                                             run_boruta = TRUE,
+                                             plot_boruta = FALSE,
+                                             probability = TRUE,
+                                             num.trees = 1000,
                                              verbose = TRUE)
   
-  results <- multiclassPairs::predict_RF(classifier = RF_classifier, 
-                                         Data = test_data_object)
+  test_results <- multiclassPairs::predict_RF(classifier = RF_classifier, 
+                                              Data = test_data_object)
   
-  # get the prediction labels
-  test_pred <- results$predictions
+  # get the prediction matrix
+  test_pred <- test_results$predictions
   
-  # if the classifier trained using probability = FALSE
-  if (is.factor(test_pred)) {
-    x <- as.character(test_pred)
-  }
+  # pick the column with maximum probability
+  test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
-  # if the classifier trained using probability = TRUE
-  if (is.matrix(test_pred)) {
-    x <- colnames(test_pred)[max.col(test_pred)]
-  }
+  # test accuracy
+  test_cm <- caret::confusionMatrix(data = factor(test_prediction_labels),
+                                    reference = factor(test_data_object$data$Labels, 
+                                                       levels = mb_subgroups),
+                                    mode = "everything")
   
-  # training accuracy
-  caret::confusionMatrix(data = factor(x),
-                         reference = factor(test_data_object$data$Labels, 
-                                            levels = mb_subgroups),
-                         mode = "everything")
+  list(classifier = RF_classifier,
+       test_results = test_results,
+       test_cm = test_cm)
   
 }
 
-#run_mm2s()
-#run_lasso()
+run_mm2s <- function(genex_df_test,
+                     metadata_df_test,
+                     model_seed) {
+  
+  mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
+  
+  genex_df_test_entrez <- genex_df_test %>%
+    tibble::rownames_to_column(var = "ENSEMBL") %>%
+    dplyr::left_join(map_ensembl_entrez_dedup_df,
+                     by = "ENSEMBL") %>%
+    dplyr::filter(!duplicated(ENSEMBL),
+                  !duplicated(ENTREZID),
+                  !is.na(ENTREZID))
+    dplyr::select(-ENSEMBL) %>%
+    tibble::column_to_rownames(var = "ENTREZID")
+  
+  mm2s_predictions <- MM2S::MM2S.human(InputMatrix = genex_df_test,
+                                       parallelize = 1,
+                                       seed = model_seed)
+  
+  test_results <- dplyr::bind_cols(mm2s_predictions$MM2S_Subtype,
+                                   mm2s_predictions$Predictions) %>%
+    dplyr::mutate(MM2S_Prediction = dplyr::case_when(MM2S_Prediction == "Group3" ~ "G3",
+                                                     MM2S_Prediction == "Group4" ~ "G4",
+                                                     TRUE ~ MM2S_Prediction)) %>%
+    dplyr::select(SampleName,
+                  MM2S_Prediction,
+                  "G3" = Group3,
+                  "G4" = Group4,
+                  Normal,
+                  SHH,
+                  WNT)
+  
+  # test accuracy
+  test_cm <- caret::confusionMatrix(data = factor(test_results$MM2S_Prediction),
+                                    reference = factor(metadata_df_test$subgroup,
+                                                       levels = mb_subgroups),
+                                    mode = "everything")
+  
+  list(test_results = test_results,
+       test_cm = test_cm)
+  
+}
+
+run_lasso <- function(genex_df_train,
+                      genex_df_test,
+                      metadata_df_train,
+                      metadata_df_test,
+                      model_seed) {
+
+  set.seed(model.seed)
+  
+  # do basic normalization e.g. each column sums to 1
+  
+  genex_df_train <- apply(genex_df_train, 2, function(x) x/sum(x))
+  genex_df_train <- apply(genex_df_test, 2, function(x) x/sum(x))
+  
+  # what are dims of input t_dt?
+  
+  classifier <- glmnet::cv.glmnet(x = t_dt,
+                                  y = category,
+                                  family = "multinomial",
+                                  type.measure = "class",
+                                  alpha = 1) # lasso
+  
+  
+  prd <- predict(model, dt.mat, s=model$lambda.1se, type="class")
+  cm <- confusionMatrix(as.factor(as.vector(prd)), category)
+  
+  
+}
