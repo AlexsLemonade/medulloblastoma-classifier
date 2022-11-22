@@ -23,6 +23,7 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'AnnotationHub', \
     'Biobase', \
     'BiocStyle', \
+    'GSVA', \
     'leukemiasEset', \
     'switchBox'), \
     update = FALSE, \
@@ -38,6 +39,7 @@ RUN install2.r --error --deps TRUE --repos http://cran.r-project.org \
     doParallel \
     glmnet \
     here \
+    MM2S \
     multiclassPairs \
     optparse \
     patchwork
@@ -52,3 +54,4 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     force = TRUE, \
     update = FALSE, \
     version = 3.16)"
+
