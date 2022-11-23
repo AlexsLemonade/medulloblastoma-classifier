@@ -94,9 +94,9 @@ run_many_models <- function(genex_df,
                           c("get_train_test_samples",
                             "run_one_model",
                             "run_ktsp",
-                            "run_rf")) #,
-                            #"run_mm2s",
-                            #"run_lasso"))
+                            "run_rf",
+                            "run_mm2s",
+                            "run_lasso"))
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
@@ -289,7 +289,7 @@ run_ktsp <- function(genex_df_train,
   
   test_cm <- caret::confusionMatrix(data = factor(test_results$max_score, 
                                                   levels = mb_subgroups),
-                                    reference = factor(test_data_object$data$Labels, 
+                                    reference = factor(metadata_df_test$subgroup,
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
@@ -319,34 +319,34 @@ run_rf <- function(genex_df_train,
                                                 Platform = metadata_df_test$platform,
                                                 verbose = TRUE)
   
-  genes_RF <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
-                                             rank_data = TRUE,
-                                             platform_wise = TRUE,
-                                             num.trees = 1000,
-                                             seed = model_seed,
-                                             verbose = TRUE)
+  genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
+                                          rank_data = TRUE,
+                                          platform_wise = TRUE,
+                                          num.trees = 1000,
+                                          seed = model_seed,
+                                          verbose = TRUE)
   
-  rules_RF <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
-                                             sorted_genes_RF = genes_RF,
-                                             genes_altogether = 1000,
-                                             genes_one_vs_rest = 1000,
-                                             platform_wise = TRUE,
-                                             num.trees = 1000,
-                                             seed = model_seed,
-                                             verbose = TRUE)
+  rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
+                                          sorted_genes_RF = genes,
+                                          genes_altogether = 1000,
+                                          genes_one_vs_rest = 1000,
+                                          platform_wise = TRUE,
+                                          num.trees = 1000,
+                                          seed = model_seed,
+                                          verbose = TRUE)
   
-  RF_classifier <- multiclassPairs::train_RF(data_object = train_data_object,
-                                             sorted_rules_RF = rules_RF,
-                                             gene_repetition = 1,
-                                             rules_altogether = 1000,
-                                             rules_one_vs_rest = 1000,
-                                             run_boruta = TRUE,
-                                             plot_boruta = FALSE,
-                                             probability = TRUE,
-                                             num.trees = 1000,
-                                             verbose = TRUE)
+  classifier <- multiclassPairs::train_RF(data_object = train_data_object,
+                                          sorted_rules_RF = rules,
+                                          gene_repetition = 1,
+                                          rules_altogether = 1000,
+                                          rules_one_vs_rest = 1000,
+                                          run_boruta = TRUE,
+                                          plot_boruta = FALSE,
+                                          probability = TRUE,
+                                          num.trees = 1000,
+                                          verbose = TRUE)
   
-  test_results <- multiclassPairs::predict_RF(classifier = RF_classifier, 
+  test_results <- multiclassPairs::predict_RF(classifier = classifier, 
                                               Data = test_data_object)
   
   # get the prediction matrix
@@ -356,12 +356,13 @@ run_rf <- function(genex_df_train,
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
   # test accuracy
-  test_cm <- caret::confusionMatrix(data = factor(test_prediction_labels),
-                                    reference = factor(test_data_object$data$Labels, 
+  test_cm <- caret::confusionMatrix(data = factor(test_prediction_labels,
+                                                  levels = mb_subgroups),
+                                    reference = factor(metadata_df_test$subgroup, 
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
-  list(classifier = RF_classifier,
+  list(classifier = classifier,
        test_results = test_results,
        test_cm = test_cm)
   
@@ -401,7 +402,8 @@ run_mm2s <- function(genex_df_test,
                   WNT)
   
   # test accuracy
-  test_cm <- caret::confusionMatrix(data = factor(test_results$MM2S_Prediction),
+  test_cm <- caret::confusionMatrix(data = factor(test_results$MM2S_Prediction,
+                                                  levels = mb_subgroups),
                                     reference = factor(metadata_df_test$subgroup,
                                                        levels = mb_subgroups),
                                     mode = "everything")
@@ -441,9 +443,11 @@ run_lasso <- function(genex_df_train,
     tibble::rownames_to_column(var = "sample_accession") %>%
     tibble::as_tibble()
   
-  test_cm <- caret::confusionMatrix(factor(test_results$prediction),
+  test_cm <- caret::confusionMatrix(factor(test_results$prediction,
+                                           levels = mb_subgroups),
                                     factor(metadata_df_test$subgroup,
-                                           levels = mb_subgroups))
+                                           levels = mb_subgroups),
+                                    mode = "everything")
   
   list(classifier = classifier,
        test_results = test_results,
