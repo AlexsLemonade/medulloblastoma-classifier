@@ -70,13 +70,13 @@ run_many_models <- function(genex_df,
     ah <- AnnotationHub::AnnotationHub()
     AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
     hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
-    map_ensembl_entrezid_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
-                                                         keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
-                                                         columns = "ENTREZID",
-                                                         keytype = "ENSEMBL") %>%
-      dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
-                    dup_entrezid = duplicated(ENTREZID)) %>%
-      dplyr::filter(!dup_ensembl, !dup_entrezid) %>%
+    map_ENSEMBL_ENTREZID_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
+                                                           keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
+                                                           columns = "ENTREZID",
+                                                           keytype = "ENSEMBL") %>%
+      dplyr::mutate(dup_ENSEMBL = duplicated(ENSEMBL),
+                    dup_ENTREZID = duplicated(ENTREZID)) %>%
+      dplyr::filter(!dup_ENSEMBL, !dup_ENTREZID) %>%
       dplyr::select(ENSEMBL, ENTREZID)
     
   }
@@ -374,9 +374,9 @@ run_mm2s <- function(genex_df_test,
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
   
-  genex_df_test_entrez <- genex_df_test %>%
+  genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(map_ensembl_entrez_dedup_df,
+    dplyr::left_join(map_ENSEMBL_ENTREZID_dedup_df,
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
