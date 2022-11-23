@@ -417,24 +417,36 @@ run_lasso <- function(genex_df_train,
                       metadata_df_test,
                       model_seed) {
 
+  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+  
   set.seed(model.seed)
   
-  # do basic normalization e.g. each column sums to 1
+  # do basic normalization: make each column sums to 1
   
   genex_df_train <- apply(genex_df_train, 2, function(x) x/sum(x))
-  genex_df_train <- apply(genex_df_test, 2, function(x) x/sum(x))
+  genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
-  # what are dims of input t_dt?
-  
-  classifier <- glmnet::cv.glmnet(x = t_dt,
-                                  y = category,
+  classifier <- glmnet::cv.glmnet(x = t(genex_df_train),
+                                  y = metadata_df_train$subgroup,
                                   family = "multinomial",
                                   type.measure = "class",
                                   alpha = 1) # lasso
   
+  test_results <- predict(classifier,
+                          t(genex_df_test),
+                          s = classifier$lambda.1se,
+                          type = "response")[,,1] %>%
+    as.data.frame() %>%
+    dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
+    tibble::rownames_to_column(var = "sample_accession") %>%
+    tibble::as_tibble()
   
-  prd <- predict(model, dt.mat, s=model$lambda.1se, type="class")
-  cm <- confusionMatrix(as.factor(as.vector(prd)), category)
+  test_cm <- caret::confusionMatrix(factor(test_results$prediction),
+                                    factor(metadata_df_test$subgroup,
+                                           levels = mb_subgroups))
   
+  list(classifier = classifier,
+       test_results = test_results,
+       test_cm = test_cm)
   
 }
