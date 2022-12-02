@@ -92,6 +92,12 @@ while read accession download_source url; do
       sleep 1
       
     fi
+    
+    if [[ "${file_name#*.}" == tar ]]; then
+    
+    	tar -xf $file_name -C $data/$accession
+    
+    fi 
   
   else
   
@@ -111,4 +117,4 @@ done < $data_sources_file
 
 # check md5 sums of downloaded files
 echo Checking md5 sums of downloaded files...
-md5sum --check --quiet data/md5_check_sums.tsv && echo All good!
+md5sum --check data/md5_check_sums.tsv && echo All good!
