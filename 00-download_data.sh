@@ -93,7 +93,7 @@ while read accession download_source url; do
       
     fi
     
-    if [[ "${file_name#*.}" == tar ]]; then
+    if [[ "${file_name##*.}" == tar ]]; then
     
     	tar -xf $file_name -C $data/$accession
     
