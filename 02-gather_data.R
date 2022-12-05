@@ -71,15 +71,6 @@ get_genex_data <- function(genex_file_path,
   
 }
 
-get_common_genes <- function(genex_list){
-  
-  # for a list of gene expression files with row names as genes,
-  # find the common row names (genes)
-  
-  Reduce(intersect, lapply(genex_list, row.names))
-  
-}
-
 ################################################################################
 # Read in metadata
 ################################################################################
@@ -154,7 +145,9 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
 ################################################################################
 
 ### common genes
-common_genes <- get_common_genes(genex_data_list)
+common_genes <- genex_data_list %>%
+  purrr::map(row.names) %>%
+  purrr::reduce(intersect)
 
 ### column bind the studies together using common genes
 lapply(genex_data_list,
