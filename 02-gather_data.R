@@ -12,12 +12,12 @@ GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
                                                             "GSE124814_experiment_accessions.tsv")
 bulk_metadata_input_filepath <- file.path(processed_data_dir,
                                           "bulk_metadata.tsv")
-GSE164677_genex_input_filename <- file.path(data_dir,
-                                            "GSE164677/GSE164677_Asian_MB_RNA-seq.txt.gz")
-OpenPBTA_polya_genex_input_filename <- file.path(data_dir,
-                                                 "OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds")
-OpenPBTA_stranded_genex_input_filename <- file.path(data_dir,
-                                                    "OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds")
+GSE164677_genex_input_filename <- file.path(data_dir, "GSE164677",
+                                            "GSE164677_Asian_MB_RNA-seq.txt.gz")
+OpenPBTA_polya_genex_input_filename <- file.path(data_dir, "OpenPBTA",
+                                                 "pbta-gene-expression-rsem-tpm.polya.rds")
+OpenPBTA_stranded_genex_input_filename <- file.path(data_dir, "OpenPBTA",
+                                                    "pbta-gene-expression-rsem-tpm.stranded.rds")
 
 genex_df_output_filename <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
