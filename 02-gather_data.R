@@ -49,7 +49,7 @@ get_genex_data <- function(genex_file_path,
                            mb_sample_accessions){
   
   # for a gene expression file located at genex_file_path,
-  # read in columns associated with sample accessions in mb_sample_accessions
+  # read in columns associated with sample accessions in the mb_sample_accessions vector
   
   genex_df_columns <- readr::read_tsv(genex_file_path,
                                       col_types = "c",
