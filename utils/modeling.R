@@ -372,13 +372,14 @@ run_rf <- function(genex_df_train,
 
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
-                     model_seed) {
+                     model_seed,
+                     gene_map = map_ENSEMBL_ENTREZID_dedup_df) {
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
   
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(map_ENSEMBL_ENTREZID_dedup_df,
+    dplyr::left_join(gene_map,
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
