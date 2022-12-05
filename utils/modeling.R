@@ -60,6 +60,7 @@ run_many_models <- function(genex_df,
     
   }
   
+  map_ENSEMBL_ENTREZID_dedup_df <- NULL
   if ("mm2s" %in% model_types) {
     
     suppressMessages(library(MM2S))
@@ -96,7 +97,8 @@ run_many_models <- function(genex_df,
                             "run_ktsp",
                             "run_rf",
                             "run_mm2s",
-                            "run_lasso"))
+                            "run_lasso",
+                            "map_ENSEMBL_ENTREZID_dedup_df"))
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
