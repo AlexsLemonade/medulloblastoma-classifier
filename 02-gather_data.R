@@ -3,6 +3,8 @@
 # Steven Foltz
 # November 2022
 
+annotationhub_snapshot_date <- "2022-10-26" # reproducibility
+
 suppressMessages(library(tidyverse))
 
 data_dir <- here::here("data")
@@ -28,7 +30,7 @@ genex_df_output_filename <- file.path(processed_data_dir,
 
 AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
 ah <- AnnotationHub::AnnotationHub()
-AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
+AnnotationHub::snapshotDate(ah) <- annotationhub_snapshot_date
 hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
 map_ensembl_symbol_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
                                                      keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
