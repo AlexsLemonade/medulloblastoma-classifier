@@ -67,18 +67,8 @@ run_many_models <- function(genex_df,
   
     # set up gene name conversions
     
-    AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
-    ah <- AnnotationHub::AnnotationHub()
-    AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
-    hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
-    map_ENSEMBL_ENTREZID_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
-                                                           keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
-                                                           columns = "ENTREZID",
-                                                           keytype = "ENSEMBL") %>%
-      dplyr::mutate(dup_ENSEMBL = duplicated(ENSEMBL),
-                    dup_ENTREZID = duplicated(ENTREZID)) %>%
-      dplyr::filter(!dup_ENSEMBL, !dup_ENTREZID) %>%
-      dplyr::select(ENSEMBL, ENTREZID)
+    gene_map_df <- readr::read_tsv(file.path("processed_data",
+                                             "gene_map.tsv"))
     
   }
   
@@ -372,14 +362,13 @@ run_rf <- function(genex_df_train,
 
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
-                     model_seed,
-                     gene_map = map_ENSEMBL_ENTREZID_dedup_df) {
+                     model_seed) {
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
   
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(gene_map,
+    dplyr::left_join(gene_map_df %>% dplyr::select(-SYMBOL),
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
