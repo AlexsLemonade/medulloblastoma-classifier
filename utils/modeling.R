@@ -90,9 +90,10 @@ run_many_models <- function(genex_df,
                             "run_mm2s",
                             "run_lasso"))
   
-  model_list <- foreach(n = 1:n_repeats, .packages(c("magrittr", "MM2S"))) %dopar% {
+  model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    #suppressMessages(library(magrittr))
+    suppressMessages(library(magrittr))
+    suppressMessages(library(MM2S))
     
     train_test_samples_list <- get_train_test_samples(genex_df,
                                                       metadata_df,
@@ -364,11 +365,11 @@ run_rf <- function(genex_df_train,
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
                      model_seed,
-                     gene_map_df) {
-  
-  #suppressMessages(library(MM2S))	
+                     gene_map_df) {	
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
+  
+  set.seed(model_seed)
   
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
