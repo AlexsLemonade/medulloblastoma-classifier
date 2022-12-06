@@ -11,6 +11,8 @@ option_list <- list(
 
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 
+library(magrittr)
+
 # set up directories and output filepaths
 processed_data_dir <- here::here("processed_data")
 
