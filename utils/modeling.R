@@ -60,15 +60,13 @@ run_many_models <- function(genex_df,
     
   }
   
-  map_ENSEMBL_ENTREZID_dedup_df <- NULL
+  gene_map_df <- NULL
   if ("mm2s" %in% model_types) {
     
-    suppressMessages(library(MM2S))
-  
-    # set up gene name conversions
-    
+    # set up gene name conversions    
     gene_map_df <- readr::read_tsv(file.path("processed_data",
-                                             "gene_map.tsv"))
+                                             "gene_map.tsv"),
+    col_types = "c")
     
   }
   
@@ -114,7 +112,8 @@ run_many_models <- function(genex_df,
                                                         metadata_df_test,
                                                         modeling_seeds[n],
                                                         n_rules_min,
-                                                        n_rules_max))
+                                                        n_rules_max,
+							gene_map_df))
     
     names(repeat_list) <- model_types
     
@@ -190,7 +189,7 @@ run_one_model <- function(type,
                           model_seed,
                           n_rules_min,
                           n_rules_max,
-                          gene_map = map_ENSEMBL_ENTREZID_dedup_df) {
+                          gene_map_df) {
   
   if (type == "ktsp") {
     
@@ -214,7 +213,8 @@ run_one_model <- function(type,
     
     model <- run_mm2s(genex_df_test,
                       metadata_df_test,
-                      model_seed)
+                      model_seed,
+                      gene_map_df)
     
   } else if (type == "lasso") {
     
@@ -362,21 +362,24 @@ run_rf <- function(genex_df_train,
 
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
-                     model_seed) {
+                     model_seed,
+		     gene_map_df) {
+
+  suppressMessages(library(MM2S))	
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
   
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(gene_map_df %>% dplyr::select(-SYMBOL),
+    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
-                  !is.na(ENTREZID))
+                  !is.na(ENTREZID)) %>%
     dplyr::select(-ENSEMBL) %>%
     tibble::column_to_rownames(var = "ENTREZID")
   
-  mm2s_predictions <- MM2S::MM2S.human(InputMatrix = genex_df_test,
+  mm2s_predictions <- MM2S::MM2S.human(InputMatrix = genex_df_test_ENTREZID,
                                        parallelize = 1,
                                        seed = model_seed)
   
@@ -413,7 +416,7 @@ run_lasso <- function(genex_df_train,
 
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
-  set.seed(model.seed)
+  set.seed(model_seed)
   
   # do basic normalization: make each column sums to 1
   
