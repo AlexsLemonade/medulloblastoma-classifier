@@ -3,7 +3,7 @@
 # Steven Foltz
 # November 2022
 #
-# Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv
+# Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv --ah_date "2022-10-26"
 # where data/data_sources.tsv is a TSV file with accession, data_source, and url columns
 
 #!/bin/bash
@@ -14,9 +14,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # set data directory
 data="data"
+processed_data="processed_data"
 
 # set input data sources file
 data_sources_file="data/data_sources.tsv"
+
+# set default AnnotationHub snapshot date
+ah_date="2022-10-26"
 
 # allow for alternative input data sources file
 while [ $# -gt 0 ]; do
@@ -107,6 +111,23 @@ while read accession download_source url; do
   fi
   
 done < $data_sources_file
+
+################################################################################
+# Gene map
+################################################################################
+
+gene_map_file=$processed_data/gene_map.tsv
+
+if [[ -f $gene_map_file ]]; then
+
+  echo File $gene_map_file already exists and will not be re-created.
+  
+else
+
+  echo Creating new gene map file...
+  Rscript utils/create_gene_map.R --annotationhub_snapshot_date $ah_date
+
+fi
 
 ################################################################################
 # md5sum of downloaded data
