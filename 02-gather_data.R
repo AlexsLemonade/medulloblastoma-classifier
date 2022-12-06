@@ -3,8 +3,6 @@
 # Steven Foltz
 # November 2022
 
-annotationhub_snapshot_date <- "2022-10-26" # reproducibility
-
 suppressMessages(library(tidyverse))
 
 data_dir <- here::here("data")
@@ -14,64 +12,30 @@ GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
                                                             "GSE124814_experiment_accessions.tsv")
 bulk_metadata_input_filepath <- file.path(processed_data_dir,
                                           "bulk_metadata.tsv")
-GSE164677_genex_input_filename <- file.path(data_dir, "GSE164677",
+GSE164677_genex_input_filepath <- file.path(data_dir, "GSE164677",
                                             "GSE164677_Asian_MB_RNA-seq.txt.gz")
-OpenPBTA_polya_genex_input_filename <- file.path(data_dir, "OpenPBTA",
+OpenPBTA_polya_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
                                                  "pbta-gene-expression-rsem-tpm.polya.rds")
-OpenPBTA_stranded_genex_input_filename <- file.path(data_dir, "OpenPBTA",
+OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
                                                     "pbta-gene-expression-rsem-tpm.stranded.rds")
 
-gene_map_filename <- file.path(processed_data_dir,
-                               "gene_map.tsv")
+gene_map_input_filepath <- file.path(processed_data_dir,
+                                     "gene_map.tsv")
 
-genex_df_output_filename <- file.path(processed_data_dir,
+genex_df_output_filepath <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
-
-################################################################################
-# set up gene name conversions
-################################################################################
-
-# this gene_map will be used by other scripts downstream
-# mapping includes: ENSEMBL, ENTREZID, SYMBOL
-# duplicate entries are removed
-if (!file.exists(gene_map_filename)) {
-  
-  AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
-  ah <- AnnotationHub::AnnotationHub()
-  AnnotationHub::snapshotDate(ah) <- annotationhub_snapshot_date
-  hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
-  gene_map_df <- AnnotationDbi::select(x = hs_orgdb,
-                                       keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
-                                       columns = c("ENTREZID", "SYMBOL"),
-                                       keytype = "ENSEMBL") %>%
-    dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
-                  dup_entrezid = duplicated(ENTREZID),
-                  dup_symbol = duplicated(SYMBOL)) %>%
-    dplyr::filter(!dup_ensembl, !dup_entrezid, !dup_symbol) %>%
-    dplyr::select(ENSEMBL, ENTREZID, SYMBOL) %>%
-    readr::write_tsv(file = gene_map_filename)
-  
-} else {
-  
-  message(stringr::str_c("Gene map ", gene_map_filename,
-                         " already exists and was not re-created."))
-  
-  gene_map_df <- readr::read_tsv(gene_map_filename,
-                                 col_types = "c")
-  
-}
 
 ################################################################################
 # functions
 ################################################################################
 
-get_genex_data <- function(genex_file_path,
+get_genex_data <- function(genex_filepath,
                            mb_sample_accessions){
   
-  # for a gene expression file located at genex_file_path,
+  # for a gene expression file located at genex_filepath,
   # read in columns associated with sample accessions in the mb_sample_accessions vector
   
-  genex_df_columns <- readr::read_tsv(genex_file_path,
+  genex_df_columns <- readr::read_tsv(genex_filepath,
                                       col_types = "c",
                                       n_max = 0)
   
@@ -83,7 +47,7 @@ get_genex_data <- function(genex_file_path,
                                                         "-")),
                                                collapse = "")
   
-  genex_df <- readr::read_tsv(genex_file_path,
+  genex_df <- readr::read_tsv(genex_filepath,
                               col_types = select_these_columns_types) %>%
     tibble::column_to_rownames(var = "Gene")
   
@@ -92,11 +56,14 @@ get_genex_data <- function(genex_file_path,
 }
 
 ################################################################################
-# Read in metadata
+# Read in metadata and gene map
 ################################################################################
 
 bulk_metadata <- readr::read_tsv(bulk_metadata_input_filepath,
                                  col_types = "c")
+
+gene_map_df <- readr::read_tsv(gene_map_input_filepath,
+                               col_types = "c")
 
 ################################################################################
 # create a list containing each data set
@@ -118,7 +85,7 @@ names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accessio
 
 ### GSE164677
 
-genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filename,
+genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath,
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
                                                   skip = 1) %>%
@@ -132,8 +99,8 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filename
 
 ### OpenPBTA
 
-genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya_genex_input_filename),
-                                                  readr::read_rds(OpenPBTA_stranded_genex_input_filename)[,-1]) %>%
+genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya_genex_input_filepath),
+                                                  readr::read_rds(OpenPBTA_stranded_genex_input_filepath)[,-1]) %>%
   dplyr::mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) %>%
   dplyr::filter(!duplicated(gene_id)) %>%
   tibble::column_to_rownames(var = "gene_id") %>%
@@ -174,4 +141,4 @@ lapply(genex_data_list,
        function(x) x[common_genes,]) %>%
   dplyr::bind_cols() %>%
   tibble::rownames_to_column(var = "gene") %>%
-  readr::write_tsv(genex_df_output_filename)
+  readr::write_tsv(genex_df_output_filepath)
