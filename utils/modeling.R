@@ -60,13 +60,16 @@ run_many_models <- function(genex_df,
     
   }
   
-  gene_map_df <- NULL
   if ("mm2s" %in% model_types) {
     
     # set up gene name conversions    
     gene_map_df <- readr::read_tsv(file.path("processed_data",
                                              "gene_map.tsv"),
-    col_types = "c")
+                                   col_types = "c")
+    
+  } else {
+    
+    gene_map_df <- NULL
     
   }
   
@@ -113,7 +116,7 @@ run_many_models <- function(genex_df,
                                                         modeling_seeds[n],
                                                         n_rules_min,
                                                         n_rules_max,
-							gene_map_df))
+                                                        gene_map_df))
     
     names(repeat_list) <- model_types
     
@@ -241,7 +244,7 @@ run_ktsp <- function(genex_df_train,
                      model_seed,
                      n_rules_min,
                      n_rules_max) {
-
+  
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
   set.seed(model_seed)
@@ -296,7 +299,7 @@ run_rf <- function(genex_df_train,
                    metadata_df_train,
                    metadata_df_test,
                    model_seed) {
-
+  
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
   set.seed(model_seed)
@@ -363,8 +366,8 @@ run_rf <- function(genex_df_train,
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
                      model_seed,
-		     gene_map_df) {
-
+                     gene_map_df) {
+  
   suppressMessages(library(MM2S))	
   
   mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
@@ -413,7 +416,7 @@ run_lasso <- function(genex_df_train,
                       metadata_df_train,
                       metadata_df_test,
                       model_seed) {
-
+  
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
   set.seed(model_seed)
