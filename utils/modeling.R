@@ -404,7 +404,8 @@ run_mm2s <- function(genex_df_test,
                                                        levels = mb_subgroups),
                                     mode = "everything")
   
-  list(test_results = test_results,
+  list(classifier = NA,
+       test_results = test_results,
        test_cm = test_cm)
   
 }
