@@ -75,8 +75,8 @@ run_many_models <- function(genex_df,
   
   set.seed(initial_seed)
   
-  train_test_seeds <- sample(1:n_repeats, size = n_repeats)
-  modeling_seeds <- sample(1:n_repeats, size = n_repeats)
+  train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
   official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
