@@ -97,8 +97,7 @@ run_many_models <- function(genex_df,
                             "run_ktsp",
                             "run_rf",
                             "run_mm2s",
-                            "run_lasso",
-                            "map_ENSEMBL_ENTREZID_dedup_df"))
+                            "run_lasso"))
   
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
@@ -200,7 +199,8 @@ run_one_model <- function(type,
                           metadata_df_test,
                           model_seed,
                           n_rules_min,
-                          n_rules_max) {
+                          n_rules_max,
+                          gene_map = map_ENSEMBL_ENTREZID_dedup_df) {
   
   if (type == "ktsp") {
     
