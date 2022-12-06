@@ -21,6 +21,10 @@ OpenPBTA_polya_genex_input_filename <- file.path(data_dir, "OpenPBTA",
 OpenPBTA_stranded_genex_input_filename <- file.path(data_dir, "OpenPBTA",
                                                     "pbta-gene-expression-rsem-tpm.stranded.rds")
 
+gene_map_output_filename <- file.path(processed_data_dir,
+                                      stringr::str_c("gene_map_",
+                                                     annotationhub_snapshot_date,
+                                                     ".tsv"))
 genex_df_output_filename <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
 
@@ -28,18 +32,25 @@ genex_df_output_filename <- file.path(processed_data_dir,
 # set up gene name conversions
 ################################################################################
 
-AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
-ah <- AnnotationHub::AnnotationHub()
-AnnotationHub::snapshotDate(ah) <- annotationhub_snapshot_date
-hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
-map_ensembl_symbol_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
-                                                     keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
-                                                     columns = "SYMBOL",
-                                                     keytype = "ENSEMBL") %>%
-  dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
-                dup_symbol = duplicated(SYMBOL)) %>%
-  dplyr::filter(!dup_ensembl, !dup_symbol) %>%
-  dplyr::select(ENSEMBL, SYMBOL)
+if (!file.exists(gene_map_output_filename)) {
+  
+  AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
+  ah <- AnnotationHub::AnnotationHub()
+  AnnotationHub::snapshotDate(ah) <- annotationhub_snapshot_date
+  hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
+  gene_map_df <- AnnotationDbi::select(x = hs_orgdb,
+                                       keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
+                                       columns = c("ENTREZID", "SYMBOL"),
+                                       keytype = "ENSEMBL") %>%
+    dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
+                  dup_entrezid = duplicated(ENTREZID),
+                  dup_symbol = duplicated(SYMBOL)) %>%
+    dplyr::filter(!dup_ensembl, !dup_entrezid, !dup_symbol) %>%
+    dplyr::select(ENSEMBL, ENTREZID, SYMBOL) %>%
+    readr::write_tsv(file = gene_map_output_filename)
+  
+}
+
 
 ################################################################################
 # functions
@@ -102,7 +113,7 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filename
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
                                                   skip = 1) %>%
-  dplyr::left_join(map_ensembl_symbol_dedup_df,
+  dplyr::left_join(gene_map_df %>% dplyr::select(-ENTREZID),
                    by = c("gene" = "SYMBOL")) %>%
   dplyr::filter(!duplicated(gene),
                 !duplicated(ENSEMBL),
@@ -132,7 +143,7 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
                tibble::column_to_rownames("SYMBOL")) %>%
   dplyr::bind_cols() %>%
   tibble::rownames_to_column("SYMBOL") %>%
-  dplyr::left_join(map_ensembl_symbol_dedup_df,
+  dplyr::left_join(gene_map_df %>% dplyr::select(-ENTREZID),
                    by = "SYMBOL") %>%
   dplyr::filter(!duplicated(SYMBOL),
                 !duplicated(ENSEMBL),
