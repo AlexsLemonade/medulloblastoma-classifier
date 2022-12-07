@@ -4,6 +4,7 @@
 # November 2022
 
 suppressMessages(library(tidyverse))
+library(GEOquery)
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
@@ -13,6 +14,7 @@ GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814
 GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_Asian_MB_RNA-seq.txt.gz")
 openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
 sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
+GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
 
 # output file names
 combined_metadata_output_filename <- file.path(processed_data_dir,
@@ -195,6 +197,24 @@ sj_metadata <- read_tsv(file = sj_metadata_input_filename,
   clean_mb_subgroups()
 
 ################################################################################
+# GSE119926
+################################################################################
+
+GSE119926_metadata <- getGEO(filename=GSE119926_metadata_input_filename) %>%
+  as.data.frame() %>%
+  select(sample_accession = geo_accession,
+         is_PDX = source_name_ch1,
+         subgroup = characteristics_ch1.2,
+         subtype = characteristics_ch1.3) %>%
+  mutate(subgroup = gsub("methylation subgroup: ", "", subgroup),
+         subtype = gsub("methylation subtype: ", "", subtype),
+         is_PDX = case_when(str_detect(is_PDX, "patient-derived xenograft") ~ TRUE,
+                            TRUE ~ FALSE),
+         study = "GSE119926",
+         platform = "RNA-seq") %>%
+  clean_mb_subgroups()
+
+################################################################################
 # combine metadata and write to file
 ################################################################################
 
@@ -203,6 +223,7 @@ bind_rows(GSE124814_metadata,
           GSE164677_metadata,
           openpbta_mb_metadata,
           openpbta_lgg_metadata,
-          sj_metadata) %>%
+          sj_metadata,
+          GSE119926_metadata) %>%
   filter(!is_duplicate) %>% 
   write_tsv(file = combined_metadata_output_filename)
