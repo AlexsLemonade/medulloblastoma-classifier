@@ -202,16 +202,20 @@ sj_metadata <- read_tsv(file = sj_metadata_input_filename,
 
 GSE119926_metadata <- getGEO(filename=GSE119926_metadata_input_filename) %>%
   as.data.frame() %>%
-  select(sample_accession = geo_accession,
-         is_PDX = source_name_ch1,
-         subgroup = characteristics_ch1.2,
-         subtype = characteristics_ch1.3) %>%
-  mutate(subgroup = gsub("methylation subgroup: ", "", subgroup),
-         subtype = gsub("methylation subtype: ", "", subtype),
-         is_PDX = case_when(str_detect(is_PDX, "patient-derived xenograft") ~ TRUE,
-                            TRUE ~ FALSE),
+  mutate(subgroup = gsub("methylation subgroup: ", "", characteristics_ch1.2),
+         subtype = gsub("methylation subtype: ", "", characteristics_ch1.3),
+         is_duplicate = FALSE,
          study = "GSE119926",
-         platform = "RNA-seq") %>%
+         platform = "RNA-seq",
+         is_PDX = case_when(str_detect(source_name_ch1, "patient-derived xenograft") ~ TRUE,
+                            TRUE ~ FALSE)) %>%
+  select(sample_accession = geo_accession,
+         subgroup,
+         study,
+         is_duplicate,
+         platform,
+         is_PDX,
+         subtype) %>%
   clean_mb_subgroups()
 
 ################################################################################
