@@ -9,6 +9,22 @@ run_many_models <- function(genex_df,
                             n_rules_min = 5,
                             n_rules_max = NA) {
   
+  # Wrapper function to run many modeling jobs in parallel. New train/test sets
+  # are created for each repeat. The same train/test data is used for each model.
+  #
+  # Inputs
+  #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
+  #  metadata_df: metadata including sample accession, platform, study, and subgroup
+  #  model_types: vector of model types
+  #  initial_seed: seed used to set train/test seeds and modeling seeds
+  #  n_repeats: how many times to repeat each modeling type
+  #  n_cores: number of cores to use
+  #  n_rules_min: minimum number of rules allowed for kTSP modeling
+  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #
+  # Output
+  #  Model list with levels for repeat number and model type
+  
   # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
   if (!is.vector(model_types) |
       !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
@@ -42,7 +58,8 @@ run_many_models <- function(genex_df,
     }
     
     # n_rules_max should be a positive integer and >= n_rules_min
-    # if n_rules_max is not given, set to n_rules_min
+    # if n_rules_max is not given, set n_rules_max equal to n_rules_min
+    # this enables setting a specific number of rules for the model to use
     if (is.na(n_rules_max)) {
       
       n_rules_max <- n_rules_min
@@ -60,6 +77,7 @@ run_many_models <- function(genex_df,
     
   }
   
+  # Read in gene map to convert gene names to ENTREZID for MM2S
   if ("mm2s" %in% model_types) {
     
     # set up gene name conversions    
@@ -73,14 +91,18 @@ run_many_models <- function(genex_df,
     
   }
   
+  # Set initial seed before creating test/train seeds and modeling seeds
   set.seed(initial_seed)
   
+  # Seeds used for determining test/train split for each repeat
   train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  # Seeds used at start of each modeling step (same seed re-used for all model types within each repeat)
   modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  # Out of all model repeats, one should be designated the "official" model for display, etc.
   official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
-  cl <- parallel::makeCluster(n_cores, outfile = "log")
+  cl <- parallel::makeCluster(n_cores) #, outfile = "log") # use log file for troubleshooting
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl,
                           c("get_train_test_samples",
@@ -90,15 +112,18 @@ run_many_models <- function(genex_df,
                             "run_mm2s",
                             "run_lasso"))
   
+  # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
     suppressMessages(library(magrittr))
-    suppressMessages(library(MM2S))
+    suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
     
+    # set up this repeat's train/test split
     train_test_samples_list <- get_train_test_samples(genex_df,
                                                       metadata_df,
                                                       train_test_seed = train_test_seeds[n])
     
+    # split genex and metadata by train/test status
     genex_df_train <- genex_df %>%
       dplyr::select(train_test_samples_list$train)
     genex_df_test <- genex_df %>%
@@ -108,6 +133,7 @@ run_many_models <- function(genex_df,
     metadata_df_test <- metadata_df %>%
       dplyr::filter(sample_accession %in% train_test_samples_list$test)
     
+    # run model types one at a time
     repeat_list <- purrr::map(model_types,
                               function(x) run_one_model(x,
                                                         genex_df_train,
@@ -119,8 +145,10 @@ run_many_models <- function(genex_df,
                                                         n_rules_max,
                                                         gene_map_df))
     
+    # set names of each list element corresponding to model type
     names(repeat_list) <- model_types
     
+    # add metadata about this repeat (seeds used, official model status)
     repeat_list[["train_test_seed"]] <- train_test_seeds[n]
     repeat_list[["modeling_seed"]] <- modeling_seeds[n]
     repeat_list[["official_model"]] <- (n == official_model_n)
@@ -141,39 +169,61 @@ get_train_test_samples <- function(genex_df,
                                    train_test_seed,
                                    proportion_of_studies_train = 0.5) {
   
+  # Split data into training and test sets. Data gets split at project level.
+  # Some proportion of projects become "training", remainder becomes "test".
+  # Projects from different platforms (array, RNA-seq) split independently.
+  #
+  # Inputs
+  #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
+  #  metadata_df: metadata including sample accession, platform, study, and subgroup
+  #  train_test_seed: seed used for reproducibility given same input data
+  #  proportion_of_studies_train: proportion of studies used as training data
+  #
+  # Outputs
+  #  List of samples used for "train" and "test" sets
+  
   set.seed(train_test_seed)
   
+  # Vector of array studies
   array_studies <- metadata_df %>%
     dplyr::filter(sample_accession %in% names(genex_df),
                   platform == "Array") %>%
     dplyr::pull(study) %>%
     unique()
   
+  # Vector of RNA-seq studies
   rnaseq_studies <- metadata_df %>%
     dplyr::filter(sample_accession %in% names(genex_df),
                   platform == "RNA-seq") %>%
     dplyr::pull(study) %>%
     unique()
   
+  # Number of studies from each platform
   n_array_studies <- length(array_studies)
   n_rnaseq_studies <- length(rnaseq_studies)
   
+  # Set number of training studies according to training proportion
   n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
   n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
   
+  # Randomly sample studies for training set
   array_studies_train <- sample(array_studies, size = n_array_studies_train)
   rnaseq_studies_train <- sample(rnaseq_studies, size = n_rnaseq_studies_train)
   
+  # Force other studies to be used as test set
   array_studies_test <- setdiff(array_studies, array_studies_train)
   rnaseq_studies_test <- setdiff(rnaseq_studies, rnaseq_studies_train)
   
+  # Create output list
   train_test_samples_list <- list()
   
+  # Save vector of samples used for training
   train_test_samples_list[["train"]] <- metadata_df %>%
     dplyr::filter(study %in% c(array_studies_train,
                                rnaseq_studies_train)) %>%
     dplyr::pull(sample_accession)
   
+  # Save vector of samples used for testing
   train_test_samples_list[["test"]] <- metadata_df %>%
     dplyr::filter(study %in% c(array_studies_test,
                                rnaseq_studies_test)) %>%
@@ -192,6 +242,22 @@ run_one_model <- function(type,
                           n_rules_min,
                           n_rules_max,
                           gene_map_df) {
+  
+  # Run a single model specified by the model type, input data, and parameters
+  #
+  # Inputs
+  #  type: model type, one of ktsp, rf, mm2s, or lasso
+  #  genex_df_train: gene expression matrix (train)
+  #  genex_df_test: gene expression matrix (test)
+  #  metadata_df_train: metadata data frame (train)
+  #  metadata_df_test: metadata data frame (test)
+  #  model_seed: seed re-used in each modeling step
+  #  n_rules_min: minimum number of rules allowed for kTSP modeling
+  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #  gene_map_df: gene map used to convert MM2S gene names
+  #
+  # Outputs
+  #  List of model elements, including the classifier, test results, and test confusion matrix
   
   if (type == "ktsp") {
     
@@ -243,6 +309,20 @@ run_ktsp <- function(genex_df_train,
                      model_seed,
                      n_rules_min,
                      n_rules_max) {
+  
+  # Run a kTSP model
+  #
+  # Inputs
+  #  genex_df_train: gene expression matrix (train)
+  #  genex_df_test: gene expression matrix (test)
+  #  metadata_df_train: metadata data frame (train)
+  #  metadata_df_test: metadata data frame (test)
+  #  model_seed: seed re-used in each modeling step
+  #  n_rules_min: minimum number of rules allowed for kTSP modeling
+  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #
+  # Outputs
+  #  List including classifier, test results, and test confusion matrix
   
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
@@ -298,6 +378,18 @@ run_rf <- function(genex_df_train,
                    metadata_df_train,
                    metadata_df_test,
                    model_seed) {
+  
+  # Run a Random Forest model
+  #
+  # Inputs
+  #  genex_df_train: gene expression matrix (train)
+  #  genex_df_test: gene expression matrix (test)
+  #  metadata_df_train: metadata data frame (train)
+  #  metadata_df_test: metadata data frame (test)
+  #  model_seed: seed re-used in each modeling step
+  #
+  # Outputs
+  #  List including classifier, test results, and test confusion matrix
   
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
@@ -365,9 +457,20 @@ run_rf <- function(genex_df_train,
 run_mm2s <- function(genex_df_test,
                      metadata_df_test,
                      model_seed,
-                     gene_map_df) {	
+                     gene_map_df) {
   
-  mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT")
+  # Run an MM2S model
+  #
+  # Inputs
+  #  metadata_df_train: metadata data frame (train)
+  #  metadata_df_test: metadata data frame (test)
+  #  model_seed: seed re-used in each modeling step
+  #  gene_map_df: gene map used to convert MM2S gene names
+  #
+  # Outputs
+  #  List including classifier, test results, and test confusion matrix
+  
+  mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT") # MM2S predicts "NORMAL" too
   
   set.seed(model_seed)
   
@@ -416,6 +519,18 @@ run_lasso <- function(genex_df_train,
                       metadata_df_train,
                       metadata_df_test,
                       model_seed) {
+  
+  # Run a LASSO model
+  #
+  # Inputs
+  #  genex_df_train: gene expression matrix (train)
+  #  genex_df_test: gene expression matrix (test)
+  #  metadata_df_train: metadata data frame (train)
+  #  metadata_df_test: metadata data frame (test)
+  #  model_seed: seed re-used in each modeling step
+  #
+  # Outputs
+  #  List including classifier, test results, and test confusion matrix
   
   mb_subgroups <- c("G3", "G4", "SHH", "WNT")
   
