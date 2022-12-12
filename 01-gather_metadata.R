@@ -4,7 +4,6 @@
 # November 2022
 
 suppressMessages(library(tidyverse))
-library(GEOquery)
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
@@ -17,8 +16,10 @@ sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.tx
 GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
 
 # output file names
-combined_metadata_output_filename <- file.path(processed_data_dir,
-                                               "combined_metadata.tsv")
+bulk_metadata_output_filename <- file.path(processed_data_dir,
+                                           "bulk_metadata.tsv")
+pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
+                                                 "pseudobulk_metadata.tsv")
 
 ################################################################################
 # functions
@@ -30,7 +31,7 @@ clean_mb_subgroups <- function(df){
     mutate(subgroup = case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
                                 subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
                                 subgroup %in% c("NORM") ~ "Normal",
-                                subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma") ~ "SHH",
+                                subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                 subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
                                 TRUE ~ subgroup))
 
@@ -200,23 +201,22 @@ sj_metadata <- read_tsv(file = sj_metadata_input_filename,
 # GSE119926
 ################################################################################
 
-GSE119926_metadata <- getGEO(filename=GSE119926_metadata_input_filename) %>%
+GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filename) %>%
   as.data.frame() %>%
-  mutate(subgroup = gsub("methylation subgroup: ", "", characteristics_ch1.2),
-         subtype = gsub("methylation subtype: ", "", characteristics_ch1.3),
-         is_duplicate = FALSE,
+  mutate(is_duplicate = FALSE,
          study = "GSE119926",
-         platform = "RNA-seq",
+         platform =  "Pseudo-bulk",
          is_PDX = case_when(str_detect(source_name_ch1, "patient-derived xenograft") ~ TRUE,
                             TRUE ~ FALSE)) %>%
   select(sample_accession = geo_accession,
-         subgroup,
+         subgroup = methylation.subgroup.ch1,
          study,
          is_duplicate,
          platform,
          is_PDX,
-         subtype) %>%
-  clean_mb_subgroups()
+         subtype = methylation.subtype.ch1) %>%
+  clean_mb_subgroups() %>%
+  write_tsv(file = pseudobulk_metadata_output_filename)
 
 ################################################################################
 # combine metadata and write to file
@@ -227,7 +227,6 @@ bind_rows(GSE124814_metadata,
           GSE164677_metadata,
           openpbta_mb_metadata,
           openpbta_lgg_metadata,
-          sj_metadata,
-          GSE119926_metadata) %>%
+          sj_metadata) %>%
   filter(!is_duplicate) %>% 
-  write_tsv(file = combined_metadata_output_filename)
+  write_tsv(file = bulk_metadata_output_filename)
