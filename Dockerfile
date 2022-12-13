@@ -40,6 +40,7 @@ RUN install2.r --error --deps TRUE --repos http://cran.r-project.org \
     doParallel \
     glmnet \
     here \
+    MM2S \
     multiclassPairs \
     optparse \
     patchwork
