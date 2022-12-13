@@ -55,3 +55,4 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     force = TRUE, \
     update = FALSE, \
     version = 3.16)"
+
