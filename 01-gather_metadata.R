@@ -209,6 +209,7 @@ GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filenam
          is_PDX = case_when(str_detect(source_name_ch1, "patient-derived xenograft") ~ TRUE,
                             TRUE ~ FALSE)) %>%
   select(sample_accession = geo_accession,
+         title,
          subgroup = methylation.subgroup.ch1,
          study,
          is_duplicate,
