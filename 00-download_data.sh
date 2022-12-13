@@ -92,6 +92,12 @@ while read accession download_source url; do
       sleep 1
       
     fi
+    
+    if [[ "${file_name##*.}" == tar ]]; then
+    
+    	tar -xf $file_name -C $data/$accession
+    
+    fi 
   
   else
   
