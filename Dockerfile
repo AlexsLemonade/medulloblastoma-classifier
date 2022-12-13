@@ -23,6 +23,7 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'AnnotationHub', \
     'Biobase', \
     'BiocStyle', \
+    'GSVA', \
     'GEOquery', \
     'leukemiasEset', \
     'switchBox'), \
