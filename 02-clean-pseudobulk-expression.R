@@ -18,8 +18,7 @@ expression_files <-
   list.files(file.path(data_dir, "GSE119926"), "GSM", full.names = TRUE)
 
 # read in individual expression files
-expression_df_list <-
-  purrr::map(expression_files[-c(4:5, 25, 28, 33)],
-             function(x)
-               readr::read_tsv(x, skip = 1, col_names = FALSE) %>%
-               tibble::column_to_rownames(var = "X1"))
+expression_df_list <- purrr::map(expression_files,
+                                 function(x)
+                                   readr::read_tsv(x, skip = 1, col_names = FALSE) %>%
+                                   tibble::column_to_rownames(var = "X1"))
