@@ -16,6 +16,8 @@ pseudobulk_metadata <- readr::read_tsv(file.path(processed_data_dir,
 # grab the names of the individual expression files
 expression_files <-
   list.files(file.path(data_dir, "GSE119926"), "GSM", full.names = TRUE)
+names(expression_files) <-
+  pseudobulk_metadata$title[stringr::str_detect(expression_files, pseudobulk_metadata$title)]
 
 # read in individual expression files
 expression_df_list <- purrr::map(expression_files,
@@ -23,10 +25,10 @@ expression_df_list <- purrr::map(expression_files,
                                    readr::read_tsv(x, skip = 1, col_names = FALSE) %>%
                                    tibble::column_to_rownames(var = "X1"))
 
-# revert log transformed-TPM values back to original TPM values -- working back
-# from the equation found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
-tpm_df_list <- lapply(expression_df_list, function(x) (2^((10+1)*x)))
+# revert log transformed-TPM values back to original TPM values using equation 
+# 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
+# found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
+tpm_df_list <- lapply(expression_df_list, function(x) 10*(2^x - 1))
 
 # average the TPM values across cells for each data frame
-average_tpm_list <- lapply(expression_df_list, function(x) rowMeans(x))
-names(average_tpm_list) <- pseudobulk_metadata$title
+average_tpm_list <- lapply(expression_df_list, rowMeans)
