@@ -1,3 +1,169 @@
+suppressMessages(library(foreach))
+
+run_many_models <- function(genex_df,
+                            metadata_df,
+                            model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                            initial_seed = 44,
+                            n_repeats = 1,
+                            n_cores = 1,
+                            n_rules_min = 5,
+                            n_rules_max = NA) {
+  
+  # Wrapper function to run many modeling jobs in parallel. New train/test sets
+  # are created for each repeat. The same train/test data is used for each model.
+  #
+  # Inputs
+  #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
+  #  metadata_df: metadata including sample accession, platform, study, and subgroup
+  #  model_types: vector of model types
+  #  initial_seed: seed used to set train/test seeds and modeling seeds
+  #  n_repeats: how many times to repeat each modeling type
+  #  n_cores: number of cores to use
+  #  n_rules_min: minimum number of rules allowed for kTSP modeling
+  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #
+  # Output
+  #  Model list with levels for repeat number and model type
+  
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  if (!is.vector(model_types) |
+      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+    
+    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    
+  }
+  
+  # n_repeats should be a positive integer <= 100
+  if (n_repeats < 1 | round(n_repeats) != n_repeats) {
+    
+    stop("n_repeats in run_models() should be a positive integer.")
+    
+  }
+  
+  # n_cores should not exceed parallel::detectCores() - 1
+  n_cores <- min(n_cores, parallel::detectCores() - 1)
+  
+  # n_rules_min is required for ktsp and is only used in ktsp
+  if ("ktsp" %in% model_types) {
+    
+    if (is.na(n_rules_min)) {
+      stop("n_rules_min in run_models() cannot be NA with ktsp model type.")
+    }
+    
+    # ktsp should be a positive integer  
+    if (n_rules_min < 1 | round(n_rules_min) != n_rules_min) {
+      
+      stop("n_rules_min in run_models() should be a positive integer.")
+      
+    }
+    
+    # n_rules_max should be a positive integer and >= n_rules_min
+    # if n_rules_max is not given, set n_rules_max equal to n_rules_min
+    # this enables setting a specific number of rules for the model to use
+    if (is.na(n_rules_max)) {
+      
+      n_rules_max <- n_rules_min
+      
+    } else if (n_rules_max < 1 | round(n_rules_max) != n_rules_max) {
+      
+      stop("n_rules_max in run_models() should be NA or a positive integer.")
+      
+    }
+    
+  } else {
+    
+    n_rules_min <- NA
+    n_rules_max <- NA
+    
+  }
+  
+  # Read in gene map to convert gene names to ENTREZID for MM2S
+  if ("mm2s" %in% model_types) {
+    
+    # set up gene name conversions    
+    gene_map_df <- readr::read_tsv(file.path("processed_data",
+                                             "gene_map.tsv"),
+                                   col_types = "c")
+    
+  } else {
+    
+    gene_map_df <- NULL
+    
+  }
+  
+  # Set initial seed before creating test/train seeds and modeling seeds
+  set.seed(initial_seed)
+  
+  # Seeds used for determining test/train split for each repeat
+  train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  # Seeds used at start of each modeling step (same seed re-used for all model types within each repeat)
+  modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  # Out of all model repeats, one should be designated the "official" model for display, etc.
+  official_model_n <- sample(1:n_repeats, size = 1)
+  
+  # parallel backend
+  cl <- parallel::makeCluster(n_cores) #, outfile = "log") # use log file for troubleshooting
+  doParallel::registerDoParallel(cl)
+  parallel::clusterExport(cl,
+                          c("get_train_test_samples",
+                            "run_one_model",
+                            "run_ktsp",
+                            "run_rf",
+                            "run_mm2s",
+                            "run_lasso"))
+  
+  # run n_repeats in parallel
+  model_list <- foreach(n = 1:n_repeats) %dopar% {
+    
+    suppressMessages(library(magrittr))
+    suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
+    
+    # set up this repeat's train/test split
+    train_test_samples_list <- get_train_test_samples(genex_df,
+                                                      metadata_df,
+                                                      train_test_seed = train_test_seeds[n])
+    
+    # split genex and metadata by train/test status
+    genex_df_train <- genex_df %>%
+      dplyr::select(train_test_samples_list$train)
+    genex_df_test <- genex_df %>%
+      dplyr::select(train_test_samples_list$test)
+    metadata_df_train <- metadata_df %>%
+      dplyr::filter(sample_accession %in% train_test_samples_list$train)
+    metadata_df_test <- metadata_df %>%
+      dplyr::filter(sample_accession %in% train_test_samples_list$test)
+    
+    # run model types one at a time
+    repeat_list <- purrr::map(model_types,
+                              function(x) run_one_model(x,
+                                                        genex_df_train,
+                                                        genex_df_test,
+                                                        metadata_df_train,
+                                                        metadata_df_test,
+                                                        modeling_seeds[n],
+                                                        n_rules_min,
+                                                        n_rules_max,
+                                                        gene_map_df))
+    
+    # set names of each list element corresponding to model type
+    names(repeat_list) <- model_types
+    
+    # add metadata about this repeat (seeds used, official model status)
+    repeat_list[["train_test_seed"]] <- train_test_seeds[n]
+    repeat_list[["modeling_seed"]] <- modeling_seeds[n]
+    repeat_list[["official_model"]] <- (n == official_model_n)
+    
+    return(repeat_list)
+    
+  }
+  
+  # stop parallel backend
+  parallel::stopCluster(cl)
+  
+  return(model_list)
+  
+}
+
 get_train_test_samples <- function(genex_df,
                                    metadata_df,
                                    train_test_seed,
