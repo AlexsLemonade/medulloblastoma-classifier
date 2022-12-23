@@ -3,15 +3,15 @@
 # Steven Foltz
 # November-December 2022
 
+library(magrittr)
+
 option_list <- list(
   optparse::make_option("--annotationhub_snapshot_date",
                         default = NA_character_,
                         help = "AnnotationHub snapshot date")
 )
 
-library(magrittr)
-
-opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
+opt <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 
 # set up directories and output filepaths
 processed_data_dir <- here::here("processed_data")
