@@ -1,7 +1,9 @@
 # Create data frame to map gene names
 #
 # Steven Foltz
-# November 2022
+# November-December 2022
+
+library(magrittr)
 
 option_list <- list(
   optparse::make_option("--annotationhub_snapshot_date",
@@ -9,9 +11,7 @@ option_list <- list(
                         help = "AnnotationHub snapshot date")
 )
 
-opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
-
-library(magrittr)
+opt <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 
 # set up directories and output filepaths
 processed_data_dir <- here::here("processed_data")

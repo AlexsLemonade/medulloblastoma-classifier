@@ -1,7 +1,7 @@
 # Download data (metadata and expression data) associated with several projects
 #
 # Steven Foltz
-# November 2022
+# November-December 2022
 #
 # Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv --ah_date "2022-10-26"
 # where data/data_sources.tsv is a TSV file with accession, data_source, and url columns
@@ -31,9 +31,9 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ ! -f $data_sources_file ]]; then
+if [[ ! -f ${data_sources_file} ]]; then
 
-  echo Input data_sources_file $data_sources_file does not exist.
+  echo Input data_sources_file ${data_sources_file} does not exist.
   exit 1
   
 fi
@@ -43,30 +43,30 @@ fi
 while read accession download_source url; do
 
   # skip over any header lines starting with hash
-  [[ $accession =~ ^#.* ]] && continue
+  [[ ${accession} =~ ^#.* ]] && continue
 
-  if [[ $accession == "E-MTAB-292" ]]; then
+  if [[ ${accession} == "E-MTAB-292" ]]; then
   
     # E-MTAB-292 is part of ArrayExpress.
     # We can come back to this dataset in the future.
     # For now it is not clear how to easily download processed expression data.
     echo Skipping over E-MTAB-292.
 
-  elif [[ $download_source == refine.bio ]]; then
+  elif [[ ${download_source} == refine.bio ]]; then
 
-    if [[ -d $data/$accession ]]; then
+    if [[ -d ${data}/${accession} ]]; then
   
-      echo Data for $accession already exists and will not be downloaded.
+      echo Data for ${accession} already exists and will not be downloaded.
   
     else
     
-      echo Downloading $accession from refine.bio...
+      echo Downloading ${accession} from refine.bio...
       refinebio create-token -s
     
       refinebio download-dataset \
         --email-address steven.foltz@ccdatalab.org \
         --path ${data}/${accession}.zip \
-        --experiments $accession \
+        --experiments ${accession} \
         --aggregation EXPERIMENT \
         --transformation NONE \
         --skip-quantile-normalization True
@@ -77,21 +77,21 @@ while read accession download_source url; do
       
     fi
 
-  elif [[ $download_source == url ]]; then
+  elif [[ ${download_source} == url ]]; then
 
-    mkdir -p $data/$accession
-    url_basename=$(basename $url)
-    file_name=$data/$accession/$url_basename
+    mkdir -p ${data}/${accession}
+    url_basename=$(basename ${url})
+    file_name=${data}/${accession}/${url_basename}
     
-    if [[ -f $file_name ]]; then
+    if [[ -f ${file_name} ]]; then
       
-      echo File $file_name already exists and will not be downloaded.
+      echo File ${file_name} already exists and will not be downloaded.
   
     else
     
-      echo Downloading $accession $url_basename...
+      echo Downloading ${accession} ${url_basename}...
       
-      curl -o $file_name --silent $url
+      curl -o ${file_name} --silent ${url}
       
       sleep 1
       
@@ -99,33 +99,33 @@ while read accession download_source url; do
     
     if [[ "${file_name##*.}" == tar ]]; then
     
-    	tar -xf $file_name -C $data/$accession
+    	tar -xf ${file_name} -C ${data}/${accession}
     
     fi 
   
   else
   
-    echo Error with: $accession $download_source $url
+    echo Error with: ${accession} ${download_source} ${url}
     exit 1
     
   fi
   
-done < $data_sources_file
+done < ${data_sources_file}
 
 ################################################################################
 # Gene map
 ################################################################################
 
-gene_map_file=$processed_data/gene_map.tsv
+gene_map_file=${processed_data}/gene_map.tsv
 
-if [[ -f $gene_map_file ]]; then
+if [[ -f ${gene_map_file} ]]; then
 
-  echo File $gene_map_file already exists and will not be re-created.
+  echo File ${gene_map_file} already exists and will not be re-created.
   
 else
 
   echo Creating new gene map file...
-  Rscript utils/create_gene_map.R --annotationhub_snapshot_date $ah_date
+  Rscript utils/create_gene_map.R --annotationhub_snapshot_date ${ah_date}
 
 fi
 
