@@ -41,11 +41,11 @@ get_genex_data <- function(genex_filepath,
 
   # we expect the structure of gene expression files read in this way to be:
   # genes (rows) x samples (columns)
-  # gene names are kept in column 1 with column header "gene"
+  # gene names are kept in column 1 with column header "Gene"
   # sample names are found in columns 2-N
-  if (names(genex_df_columns)[1] != "gene") {
+  if (names(genex_df_columns)[1] != "Gene") {
 
-    stop("First column name of gene expression data should be 'gene' in get_genex_data().")
+    stop("First column name of gene expression data should be 'Gene' in get_genex_data().")
     
   }
   
