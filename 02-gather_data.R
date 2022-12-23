@@ -1,0 +1,154 @@
+# Gather gene expression data from each data source
+#
+# Steven Foltz
+# November-December 2022
+
+suppressMessages(library(tidyverse))
+
+data_dir <- here::here("data")
+processed_data_dir <- here::here("processed_data")
+
+GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
+                                                            "GSE124814_experiment_accessions.tsv")
+bulk_metadata_input_filepath <- file.path(processed_data_dir,
+                                          "bulk_metadata.tsv")
+GSE164677_genex_input_filepath <- file.path(data_dir, "GSE164677",
+                                            "GSE164677_Asian_MB_RNA-seq.txt.gz")
+OpenPBTA_polya_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
+                                                 "pbta-gene-expression-rsem-tpm.polya.rds")
+OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
+                                                    "pbta-gene-expression-rsem-tpm.stranded.rds")
+
+gene_map_input_filepath <- file.path(processed_data_dir,
+                                     "gene_map.tsv")
+
+genex_df_output_filepath <- file.path(processed_data_dir,
+                                      "bulk_genex.tsv")
+
+################################################################################
+# functions
+################################################################################
+
+get_genex_data <- function(genex_filepath,
+                           mb_sample_accessions){
+  
+  # for a gene expression file located at genex_filepath,
+  # read in columns associated with sample accessions in the mb_sample_accessions vector
+  
+  genex_df_columns <- readr::read_tsv(genex_filepath,
+                                      col_types = "c",
+                                      n_max = 0)
+
+  # we expect the structure of gene expression files read in this way to be:
+  # genes (rows) x samples (columns)
+  # gene names are kept in column 1 with column header "Gene"
+  # sample names are found in columns 2-N
+  if (names(genex_df_columns)[1] != "Gene") {
+
+    stop("First column name of gene expression data should be 'Gene' in get_genex_data().")
+    
+  }
+  
+  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions  
+  
+  select_these_columns_types <- stringr::str_c(c("c", # for the gene column
+                                                 ifelse(select_these_samples_TF,
+                                                        "d",
+                                                        "-")),
+                                               collapse = "")
+  
+  genex_df <- readr::read_tsv(genex_filepath,
+                              col_types = select_these_columns_types) %>%
+    tibble::column_to_rownames(var = "Gene")
+  
+  return(genex_df)
+  
+}
+
+################################################################################
+# Read in metadata and gene map
+################################################################################
+
+bulk_metadata <- readr::read_tsv(bulk_metadata_input_filepath,
+                                 col_types = "c")
+
+gene_map_df <- readr::read_tsv(gene_map_input_filepath,
+                               col_types = "c")
+
+################################################################################
+# create a list containing each data set
+################################################################################
+
+### experiments part of GSE124814
+
+GSE124184_experiment_accession_ids <- readr::read_tsv(GSE124184_experiment_accessions_input_filepath,
+                                                      col_names = "experiment_accession",
+                                                      col_types = "c") %>%
+  dplyr::filter(experiment_accession != "E-MTAB-292")
+
+
+genex_data_list <- purrr::map(GSE124184_experiment_accession_ids$experiment_accession,
+                              function(x) get_genex_data(file.path(data_dir, x, x, stringr::str_c(x, ".tsv", sep = "")),
+                                                         bulk_metadata$sample_accession))
+
+names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accession
+
+### GSE164677
+
+genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath,
+                                                  col_names = TRUE,
+                                                  show_col_types = FALSE,
+                                                  skip = 1) %>%
+  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
+                   by = c("gene" = "SYMBOL")) %>%
+  dplyr::filter(!duplicated(gene),
+                !duplicated(ENSEMBL),
+                !is.na(ENSEMBL)) %>%
+  dplyr::select(-gene) %>%
+  tibble::column_to_rownames(var = "ENSEMBL")
+
+### OpenPBTA
+
+genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya_genex_input_filepath),
+                                                  readr::read_rds(OpenPBTA_stranded_genex_input_filepath)[,-1]) %>%
+  dplyr::mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) %>%
+  dplyr::filter(!duplicated(gene_id)) %>%
+  tibble::column_to_rownames(var = "gene_id") %>%
+  dplyr::select(bulk_metadata %>%
+                  dplyr::filter(study == "OpenPBTA") %>%
+                  dplyr::pull(sample_accession))
+
+### St. Jude
+
+genex_data_list[["St. Jude"]] <- bulk_metadata %>%
+  dplyr::filter(study == "St. Jude") %>%
+  dplyr::pull(sample_accession) %>%
+  purrr::map(function(x) readr::read_tsv(file.path(data_dir, "stjudecloud",
+                                                   stringr::str_c(x, ".RNA-Seq.feature-counts.txt")),
+                                         col_names = c("SYMBOL", x), show_col_types = FALSE) %>%
+               tibble::column_to_rownames("SYMBOL")) %>%
+  dplyr::bind_cols() %>%
+  tibble::rownames_to_column("SYMBOL") %>%
+  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
+                   by = "SYMBOL") %>%
+  dplyr::filter(!duplicated(SYMBOL),
+                !duplicated(ENSEMBL),
+                !is.na(ENSEMBL)) %>%
+  dplyr::select(-SYMBOL) %>%
+  tibble::column_to_rownames(var = "ENSEMBL")
+
+################################################################################
+# combine the list
+################################################################################
+
+### common genes
+common_genes <- genex_data_list %>%
+  purrr::map(row.names) %>%
+  purrr::reduce(intersect)
+
+### column bind the studies together using common genes
+lapply(genex_data_list,
+       function(x) x[common_genes,]) %>%
+  dplyr::bind_cols() %>%
+  tibble::rownames_to_column(var = "gene") %>%
+  readr::write_tsv(genex_df_output_filepath)
