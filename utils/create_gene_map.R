@@ -1,7 +1,7 @@
 # Create data frame to map gene names
 #
 # Steven Foltz
-# November 2022
+# November-December 2022
 
 option_list <- list(
   optparse::make_option("--annotationhub_snapshot_date",
