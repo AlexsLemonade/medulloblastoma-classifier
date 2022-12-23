@@ -38,8 +38,18 @@ get_genex_data <- function(genex_filepath,
   genex_df_columns <- readr::read_tsv(genex_filepath,
                                       col_types = "c",
                                       n_max = 0)
+
+  # we expect the structure of gene expression files read in this way to be:
+  # genes (rows) x samples (columns)
+  # gene names are kept in column 1 with column header "gene"
+  # sample names are found in columns 2-N
+  if (names(genex_df_columns)[1] != "gene") {
+
+    stop("First column name of gene expression data should be 'gene' in get_genex_data().")
+    
+  }
   
-  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions
+  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions  
   
   select_these_columns_types <- stringr::str_c(c("c", # for the gene column
                                                  ifelse(select_these_samples_TF,
