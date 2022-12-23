@@ -1,7 +1,7 @@
 # Download data (metadata and expression data) associated with several projects
 #
 # Steven Foltz
-# November 2022
+# November-December 2022
 #
 # Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv --ah_date "2022-10-26"
 # where data/data_sources.tsv is a TSV file with accession, data_source, and url columns

@@ -1,7 +1,7 @@
 # Gather gene expression data from each data source
 #
 # Steven Foltz
-# November 2022
+# November-December 2022
 
 suppressMessages(library(tidyverse))
 
