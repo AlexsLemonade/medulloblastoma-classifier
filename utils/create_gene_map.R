@@ -9,9 +9,9 @@ option_list <- list(
                         help = "AnnotationHub snapshot date")
 )
 
-opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
-
 library(magrittr)
+
+opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 
 # set up directories and output filepaths
 processed_data_dir <- here::here("processed_data")
