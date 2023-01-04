@@ -36,6 +36,7 @@ average_tpm_list <- lapply(tpm_df_list, rowMeans)
 
 # combine the list of TPM values into a single matrix
 pseudobulk_matrix <- as.data.frame(rbind(average_tpm_list))
+rownames(pseudobulk_matrix) <- NULL
 
 # save matrix object
 readr::write_tsv(pseudobulk_matrix, file.path(processed_data_dir, "pseudobulk_genex.tsv"))
