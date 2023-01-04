@@ -1,5 +1,5 @@
-# Read in and clean the pseudo-bulk expression files to prepare for the 
-# pseudo-bulk matrix generation.
+# Read in, clean the pseudo-bulk expression files and generate the pseudo-bulk
+# matrix.
 #
 # Chante Bethell
 # December 2022
@@ -33,3 +33,9 @@ tpm_df_list <- lapply(expression_df_list, function(x) 10*(2^x - 1))
 
 # average the TPM values across cells for each data frame
 average_tpm_list <- lapply(tpm_df_list, rowMeans)
+
+# combine the list of TPM values into a single matrix
+pseudobulk_matrix <- as.data.frame(rbind(average_tpm_list))
+
+# save matrix object
+readr::write_tsv(pseudobulk_matrix, file.path(processed_data_dir, "pseudobulk_genex.tsv"))
