@@ -1,38 +1,69 @@
-run_ktsp <- function(genex_df_train,
-                     genex_df_test,
-                     metadata_df_train,
-                     metadata_df_test,
-                     model_seed,
-                     n_rules_min,
-                     n_rules_max) {
+check_input_files <- function(genex_df,
+                              metatdata_df) {
   
-  # Run a kTSP model
+  if (!all(c("sample_accesion", "subgroup", "platform") %in% names(metadata_df))) {
+    stop("Metadata file must include sample_accession, subgroup, and platform columns")
+  }
+  
+  # check number of samples
+  if (ncol(genex_df) != nrow(metadata_df)) {
+    stop("Different number of samples in genex and metadata")
+  }
+  
+  # check order of samples
+  if (!all(names(genex_df) == metadata_df$sample_accession)) {
+    stop("Sample order does not match")
+  }
+}
+
+calculate_confusion_matrix <- function(predicted_labels,
+                                       true_labels,
+                                       labels) {
+  
+  # Create confusion matrix
   #
   # Inputs
-  #  genex_df_train: gene expression matrix (train)
-  #  genex_df_test: gene expression matrix (test)
-  #  metadata_df_train: metadata data frame (train)
-  #  metadata_df_test: metadata data frame (test)
-  #  model_seed: seed re-used in each modeling step
+  #  predicted_labels
+  #  true_labels
+  #  labels
+  # Outputs
+  #  Confusion matrix
+  
+  confusion_matrix <- caret::confusionMatrix(data = factor(predicted_labels, 
+                                                           levels = labels),
+                                             reference = factor(true_labels,
+                                                                levels = labels),
+                                             mode = "everything")
+  
+  return(confusion_matrix)
+  
+}
+
+train_ktsp <- function(genex_df_train,
+                       metadata_df_train,
+                       model_seed,
+                       n_rules_min,
+                       n_rules_max) {
+  # Train a kTSP model
+  #
+  # Inputs
+  #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_seed: seed used for reproducibility in training step
   #  n_rules_min: minimum number of rules allowed for kTSP modeling
   #  n_rules_max: maximum number of rules allowed for kTSP modeling
   #
   # Outputs
-  #  List including classifier, test results, and test confusion matrix
+  #  kTSP classifier object
   
-  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
-  
-  set.seed(model_seed)
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_train,
+                    metadata_df = metadata_df_train)
   
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
                                                  Labels = metadata_df_train$subgroup,
                                                  Platform = metadata_df_train$platform,
                                                  verbose = TRUE)
-  
-  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
-                                                Labels = metadata_df_test$subgroup,
-                                                Platform = metadata_df_test$platform,
-                                                verbose = TRUE)
   
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
                                                       filter = "one_vs_one",
@@ -50,24 +81,55 @@ run_ktsp <- function(genex_df_train,
                                                        seed = model_seed,
                                                        verbose = TRUE)
   
+  return(classifier)
+  
+}
+
+test_ktsp <- function(genex_df_test,
+                      metadata_df_test,
+                      labels) {
+  
+  # Test a kTSP model
+  #
+  # Inputs
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #
+  # Outputs
+  #  test_results: list containing "predicted_label" and "results" elements
+  #    "predicted_label" contains a data frame with one row for each sample and its predicted label (unified across methods)
+  #    "results" is the prediction object returned by this method
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
+  
+  set.seed(model_seed)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = TRUE)
+  
   test_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
                                                            Data = test_data_object,
                                                            tolerate_missed_genes = TRUE,
                                                            weighted_votes = TRUE,
-                                                           classes = mb_subgroups,
+                                                           classes = labels,
                                                            verbose = TRUE)
+
+  predicted_label_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                      predicted_label = test_results$max_score) # best guess
+    
+  test_results_list <- list(predicted_label_df = predicted_label_df,
+                            test_results = test_results)
   
-  test_cm <- caret::confusionMatrix(data = factor(test_results$max_score, 
-                                                  levels = mb_subgroups),
-                                    reference = factor(metadata_df_test$subgroup,
-                                                       levels = mb_subgroups),
-                                    mode = "everything")
-  
-  list(classifier = classifier,
-       test_results = test_results,
-       test_cm = test_cm)
+  return(test_results_list)
   
 }
+
+
 
 run_rf <- function(genex_df_train,
                    genex_df_test,
