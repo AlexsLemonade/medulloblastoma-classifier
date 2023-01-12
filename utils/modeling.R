@@ -1,19 +1,30 @@
 check_input_files <- function(genex_df,
                               metatdata_df) {
   
+  # Checks input files when performing modeling training and testin
+  #
+  # Inputs
+  #  genex_df: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #
+  # Output
+  #  None (functions calls stop if anything is wrong)
+  
+  # Check that metadata_df has all necessary columns
   if (!all(c("sample_accesion", "subgroup", "platform") %in% names(metadata_df))) {
     stop("Metadata file must include sample_accession, subgroup, and platform columns")
   }
   
-  # check number of samples
+  # Check that the number of samples matches from gene expression and metadata
   if (ncol(genex_df) != nrow(metadata_df)) {
     stop("Different number of samples in genex and metadata")
   }
   
-  # check order of samples
+  # Check that order of samples matches from gene expression and metadata
   if (!all(names(genex_df) == metadata_df$sample_accession)) {
     stop("Sample order does not match")
   }
+  
 }
 
 calculate_confusion_matrix <- function(predicted_labels,
