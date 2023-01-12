@@ -56,6 +56,7 @@ train_ktsp <- function(genex_df_train,
                        model_seed,
                        n_rules_min,
                        n_rules_max) {
+  
   # Train a kTSP model
   #
   # Inputs
@@ -99,6 +100,7 @@ train_ktsp <- function(genex_df_train,
 
 test_ktsp <- function(genex_df_test,
                       metadata_df_test,
+                      classifier,
                       labels) {
   
   # Test a kTSP model
@@ -106,18 +108,17 @@ test_ktsp <- function(genex_df_test,
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  classifier: kTSP classifier produced by train_ktsp()
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
-  #  test_results: list containing "predicted_label" and "results" elements
-  #    "predicted_label" contains a data frame with one row for each sample and its predicted label (unified across methods)
-  #    "results" is the prediction object returned by this method
+  #  test_results: list containing "predicted_label" and "model_output" elements
+  #    "predicted_label" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the prediction object returned by this method
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
-  
-  set.seed(model_seed)
   
   test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
                                                 Labels = metadata_df_test$subgroup,
@@ -135,7 +136,7 @@ test_ktsp <- function(genex_df_test,
                                       predicted_label = test_results$max_score) # best guess
     
   test_results_list <- list(predicted_label_df = predicted_label_df,
-                            test_results = test_results)
+                            model_output = test_results)
   
   return(test_results_list)
   
