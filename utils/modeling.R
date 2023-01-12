@@ -34,9 +34,10 @@ calculate_confusion_matrix <- function(predicted_labels,
   # Create confusion matrix
   #
   # Inputs
-  #  predicted_labels
-  #  true_labels
-  #  labels
+  #  predicted_labels: vector of best guess labels for each sample
+  #  true_labels: vector of true labels given for each sample
+  #  labels: vector of possible label values that could exist
+  #
   # Outputs
   #  Confusion matrix
   
