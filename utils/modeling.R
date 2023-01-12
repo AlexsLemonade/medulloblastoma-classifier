@@ -210,7 +210,7 @@ test_rf <- function(genex_df_test,
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
-  #  classifier: kTSP classifier produced by train_ktsp()
+  #  classifier: RF classifier produced by train_rf()
   #
   # Outputs
   #  List containing "predicted_labels" and "model_output" elements
@@ -355,5 +355,83 @@ run_lasso <- function(genex_df_train,
   list(classifier = classifier,
        test_results = test_results,
        test_cm = test_cm)
+  
+}
+
+train_lasso <- function(genex_df_train,
+                        metadata_df_train,
+                        model_seed) {
+  
+  # Train a LASSO model
+  #
+  # Inputs
+  #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_seed: seed used to generate additional modeling seeds for reproducibility
+  #
+  # Outputs
+  #  LASSO classifier object
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_train,
+                    metadata_df = metadata_df_train)
+  
+  set.seed(model_seed)
+  
+  # do basic normalization: make each column sums to 1
+  
+  genex_df_train <- apply(genex_df_train, 2, function(x) x/sum(x))
+  
+  classifier <- glmnet::cv.glmnet(x = t(genex_df_train),
+                                  y = metadata_df_train$subgroup,
+                                  family = "multinomial",
+                                  type.measure = "class",
+                                  alpha = 1) # lasso
+  
+  return(classifier)
+  
+}
+
+test_lasso <- function(genex_df_test,
+                       metadata_df_test,
+                       classifier,
+                       model_seed) {
+  
+  # Test a LASSO model
+  #
+  # Inputs
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  classifier: LASSO classifier produced by train_lasso()
+  #
+  # Outputs
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the prediction object returned by this method
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
+  
+  # do basic normalization: make each column sums to 1
+  genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
+  
+  # predict using classifier
+  test_results <- predict(classifier,
+                          t(genex_df_test),
+                          s = classifier$lambda.1se,
+                          type = "response")[,,1] %>%
+    as.data.frame() %>%
+    dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
+    tibble::rownames_to_column(var = "sample_accession") %>%
+    tibble::as_tibble()
+
+  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                       predicted_labels = test_results$prediction) # best guess
+  
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
+                            model_output = test_results)
+  
+  return(test_results_list)
   
 }
