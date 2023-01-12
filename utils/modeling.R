@@ -112,7 +112,7 @@ test_ktsp <- function(genex_df_test,
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
-  #  test_results: list containing "predicted_label" and "model_output" elements
+  #  List containing "predicted_label" and "model_output" elements
   #    "predicted_label" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
   
@@ -142,45 +142,39 @@ test_ktsp <- function(genex_df_test,
   
 }
 
-
-
-run_rf <- function(genex_df_train,
-                   genex_df_test,
-                   metadata_df_train,
-                   metadata_df_test,
-                   model_seed) {
+train_rf <- function(genex_df_train,
+                     metadata_df_train,
+                     model_seed) {
   
-  # Run a Random Forest model
+  # Train a Random Forest model
   #
   # Inputs
-  #  genex_df_train: gene expression matrix (train)
-  #  genex_df_test: gene expression matrix (test)
-  #  metadata_df_train: metadata data frame (train)
-  #  metadata_df_test: metadata data frame (test)
-  #  model_seed: seed re-used in each modeling step
+  #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_seed: seed used to generate additional modeling seeds for reproducibility
   #
   # Outputs
-  #  List including classifier, test results, and test confusion matrix
+  #  Random Forest classifier object
   
-  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_train,
+                    metadata_df = metadata_df_train)
   
+  # get additional seeds for modeling steps
+  n_seeds <- 2
   set.seed(model_seed)
+  seeds <- sample(1:1000, size = n_seeds, replace = FALSE)
   
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
                                                  Labels = metadata_df_train$subgroup,
                                                  Platform = metadata_df_train$platform,
                                                  verbose = TRUE)
   
-  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
-                                                Labels = metadata_df_test$subgroup,
-                                                Platform = metadata_df_test$platform,
-                                                verbose = TRUE)
-  
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
                                           rank_data = TRUE,
                                           platform_wise = TRUE,
                                           num.trees = 1000,
-                                          seed = model_seed,
+                                          seed = seeds[1],
                                           verbose = TRUE)
   
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
@@ -189,7 +183,7 @@ run_rf <- function(genex_df_train,
                                           genes_one_vs_rest = 50,
                                           platform_wise = TRUE,
                                           num.trees = 1000,
-                                          seed = model_seed,
+                                          seed = seeds[2],
                                           verbose = TRUE)
   
   classifier <- multiclassPairs::train_RF(data_object = train_data_object,
@@ -203,6 +197,35 @@ run_rf <- function(genex_df_train,
                                           num.trees = 1000,
                                           verbose = TRUE)
   
+  return(classifier)
+  
+}
+
+test_rf <- function(genex_df_test,
+                    metadata_df_test,
+                    classifier) {
+  
+  # Test a Random Forest model
+  #
+  # Inputs
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  classifier: kTSP classifier produced by train_ktsp()
+  #
+  # Outputs
+  #  List containing "predicted_label" and "model_output" elements
+  #    "predicted_label" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the prediction object returned by this method
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = TRUE)
+  
   test_results <- multiclassPairs::predict_RF(classifier = classifier, 
                                               Data = test_data_object)
   
@@ -212,16 +235,13 @@ run_rf <- function(genex_df_train,
   # pick the column with maximum probability
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
-  # test accuracy
-  test_cm <- caret::confusionMatrix(data = factor(test_prediction_labels,
-                                                  levels = mb_subgroups),
-                                    reference = factor(metadata_df_test$subgroup, 
-                                                       levels = mb_subgroups),
-                                    mode = "everything")
+  predicted_label_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                      predicted_label = test_prediction_labels) # best guess
   
-  list(classifier = classifier,
-       test_results = test_results,
-       test_cm = test_cm)
+  test_results_list <- list(predicted_label_df = predicted_label_df,
+                            model_output = test_pred) # test_results is too much info
+  
+  return(test_results_list)
   
 }
 
