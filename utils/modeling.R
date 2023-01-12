@@ -36,7 +36,7 @@ calculate_confusion_matrix <- function(predicted_labels,
   # Inputs
   #  predicted_labels: vector of best guess labels for each sample
   #  true_labels: vector of true labels given for each sample
-  #  labels: vector of possible label values that could exist
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
   #  Confusion matrix
@@ -112,8 +112,8 @@ test_ktsp <- function(genex_df_test,
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
-  #  List containing "predicted_label" and "model_output" elements
-  #    "predicted_label" contains a data frame with one row for each sample and its predicted label
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
   
   # ensure input files are properly formatted and sample orders match
@@ -131,11 +131,11 @@ test_ktsp <- function(genex_df_test,
                                                            weighted_votes = TRUE,
                                                            classes = labels,
                                                            verbose = TRUE)
-
-  predicted_label_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
-                                      predicted_label = test_results$max_score) # best guess
-    
-  test_results_list <- list(predicted_label_df = predicted_label_df,
+  
+  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                       predicted_labels = test_results$max_score) # best guess
+  
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_results)
   
   return(test_results_list)
@@ -213,8 +213,8 @@ test_rf <- function(genex_df_test,
   #  classifier: kTSP classifier produced by train_ktsp()
   #
   # Outputs
-  #  List containing "predicted_label" and "model_output" elements
-  #    "predicted_label" contains a data frame with one row for each sample and its predicted label
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
   
   # ensure input files are properly formatted and sample orders match
@@ -235,35 +235,37 @@ test_rf <- function(genex_df_test,
   # pick the column with maximum probability
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
-  predicted_label_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
-                                      predicted_label = test_prediction_labels) # best guess
+  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                       predicted_labels = test_prediction_labels) # best guess
   
-  test_results_list <- list(predicted_label_df = predicted_label_df,
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_pred) # test_results is too much info
   
   return(test_results_list)
   
 }
 
-run_mm2s <- function(genex_df_test,
-                     metadata_df_test,
-                     model_seed,
-                     gene_map_df) {
+test_mm2s <- function(genex_df_test,
+                      metadata_df_test,
+                      model_seed,
+                      gene_map_df) {
   
-  # Run an MM2S model
+  # Test an MM2S model
   #
   # Inputs
-  #  metadata_df_train: metadata data frame (train)
-  #  metadata_df_test: metadata data frame (test)
-  #  model_seed: seed re-used in each modeling step
-  #  gene_map_df: gene map used to convert MM2S gene names
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_seed: seed used for reproducibility in MM2S.human function
+  #  gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   #
   # Outputs
-  #  List including classifier, test results, and test confusion matrix
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the prediction object returned by this method
   
-  mb_subgroups <- c("G3", "G4", "NORMAL", "SHH", "WNT") # MM2S predicts "NORMAL" too
-  
-  set.seed(model_seed)
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
   
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
@@ -292,16 +294,13 @@ run_mm2s <- function(genex_df_test,
                   SHH,
                   WNT)
   
-  # test accuracy
-  test_cm <- caret::confusionMatrix(data = factor(test_results$MM2S_Prediction,
-                                                  levels = mb_subgroups),
-                                    reference = factor(metadata_df_test$subgroup,
-                                                       levels = mb_subgroups),
-                                    mode = "everything")
+  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+                                       predicted_labels = test_results$MM2S_Prediction) # best guess
   
-  list(classifier = NA,
-       test_results = test_results,
-       test_cm = test_cm)
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
+                            model_output = test_results)
+  
+  return(test_results_list)
   
 }
 
