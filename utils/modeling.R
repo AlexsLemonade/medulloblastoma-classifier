@@ -1,14 +1,14 @@
 check_input_files <- function(genex_df,
                               metatdata_df) {
   
-  # Checks input files when performing modeling training and testin
+  # Checks input files when performing modeling training and testing
   #
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #
   # Output
-  #  None (functions calls stop if anything is wrong)
+  #  None (functions call 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
   if (!all(c("sample_accesion", "subgroup", "platform") %in% names(metadata_df))) {
@@ -34,7 +34,7 @@ calculate_confusion_matrix <- function(predicted_labels,
   # Create confusion matrix
   #
   # Inputs
-  #  predicted_labels: vector of best guess labels for each sample
+  #  predicted_labels: vector of predicted best guess labels for each sample
   #  true_labels: vector of true labels given for each sample
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
@@ -73,11 +73,13 @@ train_ktsp <- function(genex_df_train,
   check_input_files(genex_df = genex_df_train,
                     metadata_df = metadata_df_train)
   
+  # create data object
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
                                                  Labels = metadata_df_train$subgroup,
                                                  Platform = metadata_df_train$platform,
                                                  verbose = TRUE)
   
+  # reduce genes to most useful features
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
                                                       filter = "one_vs_one",
                                                       platform_wise = TRUE,
@@ -85,6 +87,7 @@ train_ktsp <- function(genex_df_train,
                                                       UpDown = TRUE,
                                                       verbose = TRUE)
   
+  # train kTSP model
   classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
                                                        filtered_genes = filtered_genes,
                                                        k_range = n_rules_min:n_rules_max,
@@ -120,11 +123,13 @@ test_ktsp <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
   
+  # create data object
   test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
                                                 Labels = metadata_df_test$subgroup,
                                                 Platform = metadata_df_test$platform,
                                                 verbose = TRUE)
   
+  # use classifier to predict labels
   test_results <- multiclassPairs::predict_one_vs_rest_TSP(classifier = classifier,
                                                            Data = test_data_object,
                                                            tolerate_missed_genes = TRUE,
@@ -132,9 +137,11 @@ test_ktsp <- function(genex_df_test,
                                                            classes = labels,
                                                            verbose = TRUE)
   
+  # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$max_score) # best guess
   
+  # create output list with predicted labels and the modeling object
   test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_results)
   
@@ -165,11 +172,13 @@ train_rf <- function(genex_df_train,
   set.seed(model_seed)
   seeds <- sample(1:1000, size = n_seeds, replace = FALSE)
   
+  # create data object
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
                                                  Labels = metadata_df_train$subgroup,
                                                  Platform = metadata_df_train$platform,
                                                  verbose = TRUE)
   
+  # identify top genes used downstream
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
                                           rank_data = TRUE,
                                           platform_wise = TRUE,
@@ -177,6 +186,7 @@ train_rf <- function(genex_df_train,
                                           seed = seeds[1],
                                           verbose = TRUE)
   
+  # identify top gene pairs used downstream
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                           sorted_genes_RF = genes,
                                           genes_altogether = 50,
@@ -186,9 +196,10 @@ train_rf <- function(genex_df_train,
                                           seed = seeds[2],
                                           verbose = TRUE)
   
+  # train RF model
   classifier <- multiclassPairs::train_RF(data_object = train_data_object,
                                           sorted_rules_RF = rules,
-                                          gene_repetition = 1,
+                                          gene_repetition = 1, # genes used once
                                           rules_altogether = 50,
                                           rules_one_vs_rest = 50,
                                           run_boruta = TRUE,
@@ -221,11 +232,13 @@ test_rf <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
   
+  # create data object
   test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
                                                 Labels = metadata_df_test$subgroup,
                                                 Platform = metadata_df_test$platform,
                                                 verbose = TRUE)
   
+  # predict labels with classifier 
   test_results <- multiclassPairs::predict_RF(classifier = classifier, 
                                               Data = test_data_object)
   
@@ -235,9 +248,11 @@ test_rf <- function(genex_df_test,
   # pick the column with maximum probability
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
+  # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
                                        predicted_labels = test_prediction_labels) # best guess
   
+  # create output list with predicted labels and the modeling object
   test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_pred) # test_results is too much info
   
@@ -267,6 +282,7 @@ test_mm2s <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
   
+  # convert genex_df gene names to from ENSEMBL to ENTREZID
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
     dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
@@ -277,10 +293,12 @@ test_mm2s <- function(genex_df_test,
     dplyr::select(-ENSEMBL) %>%
     tibble::column_to_rownames(var = "ENTREZID")
   
+  # predict labels with existing MM2S.human classifier
   mm2s_predictions <- MM2S::MM2S.human(InputMatrix = genex_df_test_ENTREZID,
                                        parallelize = 1,
                                        seed = model_seed)
-  
+
+  # modify MM2S predictions to fit this project's medulloblastoma subgroup names  
   test_results <- dplyr::bind_cols(mm2s_predictions$MM2S_Subtype,
                                    mm2s_predictions$Predictions) %>%
     dplyr::mutate(MM2S_Prediction = dplyr::case_when(MM2S_Prediction == "Group3" ~ "G3",
@@ -294,67 +312,15 @@ test_mm2s <- function(genex_df_test,
                   SHH,
                   WNT)
   
+  # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$MM2S_Prediction) # best guess
   
+  # create output list with predicted labels and the modeling object
   test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_results)
   
   return(test_results_list)
-  
-}
-
-run_lasso <- function(genex_df_train,
-                      genex_df_test,
-                      metadata_df_train,
-                      metadata_df_test,
-                      model_seed) {
-  
-  # Run a LASSO model
-  #
-  # Inputs
-  #  genex_df_train: gene expression matrix (train)
-  #  genex_df_test: gene expression matrix (test)
-  #  metadata_df_train: metadata data frame (train)
-  #  metadata_df_test: metadata data frame (test)
-  #  model_seed: seed re-used in each modeling step
-  #
-  # Outputs
-  #  List including classifier, test results, and test confusion matrix
-  
-  mb_subgroups <- c("G3", "G4", "SHH", "WNT")
-  
-  set.seed(model_seed)
-  
-  # do basic normalization: make each column sums to 1
-  
-  genex_df_train <- apply(genex_df_train, 2, function(x) x/sum(x))
-  genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
-  
-  classifier <- glmnet::cv.glmnet(x = t(genex_df_train),
-                                  y = metadata_df_train$subgroup,
-                                  family = "multinomial",
-                                  type.measure = "class",
-                                  alpha = 1) # lasso
-  
-  test_results <- predict(classifier,
-                          t(genex_df_test),
-                          s = classifier$lambda.1se,
-                          type = "response")[,,1] %>%
-    as.data.frame() %>%
-    dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
-    tibble::rownames_to_column(var = "sample_accession") %>%
-    tibble::as_tibble()
-  
-  test_cm <- caret::confusionMatrix(factor(test_results$prediction,
-                                           levels = mb_subgroups),
-                                    factor(metadata_df_test$subgroup,
-                                           levels = mb_subgroups),
-                                    mode = "everything")
-  
-  list(classifier = classifier,
-       test_results = test_results,
-       test_cm = test_cm)
   
 }
 
@@ -367,7 +333,7 @@ train_lasso <- function(genex_df_train,
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
-  #  model_seed: seed used to generate additional modeling seeds for reproducibility
+  #  model_seed: seed used for reproducibility in training step
   #
   # Outputs
   #  LASSO classifier object
@@ -376,12 +342,15 @@ train_lasso <- function(genex_df_train,
   check_input_files(genex_df = genex_df_train,
                     metadata_df = metadata_df_train)
   
-  set.seed(model_seed)
-  
   # do basic normalization: make each column sums to 1
-  
   genex_df_train <- apply(genex_df_train, 2, function(x) x/sum(x))
   
+  
+  # set for reproducibility
+  set.seed(model_seed)
+  
+  
+  # train glmnet model with alpha = 1 for lasso
   classifier <- glmnet::cv.glmnet(x = t(genex_df_train),
                                   y = metadata_df_train$subgroup,
                                   family = "multinomial",
@@ -394,8 +363,7 @@ train_lasso <- function(genex_df_train,
 
 test_lasso <- function(genex_df_test,
                        metadata_df_test,
-                       classifier,
-                       model_seed) {
+                       classifier) {
   
   # Test a LASSO model
   #
@@ -416,7 +384,7 @@ test_lasso <- function(genex_df_test,
   # do basic normalization: make each column sums to 1
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
-  # predict using classifier
+  # predict using LASSO classifier
   test_results <- predict(classifier,
                           t(genex_df_test),
                           s = classifier$lambda.1se,
@@ -426,9 +394,11 @@ test_lasso <- function(genex_df_test,
     tibble::rownames_to_column(var = "sample_accession") %>%
     tibble::as_tibble()
 
+  # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$prediction) # best guess
   
+  # create output list with predicted labels and the modeling object
   test_results_list <- list(predicted_labels_df = predicted_labels_df,
                             model_output = test_results)
   
