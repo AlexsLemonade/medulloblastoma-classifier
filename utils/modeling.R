@@ -95,36 +95,76 @@ run_one_model <- function(type,
   
   if (type == "ktsp") {
     
-    model <- run_ktsp(genex_df_train,
-                      genex_df_test,
-                      metadata_df_train,
-                      metadata_df_test,
-                      model_seed,
-                      n_rules_min,
-                      n_rules_max)
+    ktsp_classifier <- train_ktsp(genex_df_train,
+                                  metadata_df_train,
+                                  model_seed,
+                                  n_rules_min,
+                                  n_rules_max)
+    
+    ktsp_results <- test_ktsp(genex_df_test,
+                              metadata_df_test,
+                              ktsp_classifier,
+                              labels = c("G3", "G4", "SHH", "WNT"))
+    
+    ktsp_cm <- calculate_confusion_matrix(ktsp_results$predicted_labels_df$predicted_labels,
+                                          metadata_df_test$subgroup,
+                                          labels = c("G3", "G4", "SHH", "WNT"))
+    
+    
+    model <- list(classifier = ktsp_classifier,
+                  test_results = ktsp_results,
+                  cm = ktsp_cm)
     
   } else if (type == "rf") {
     
-    model <- run_rf(genex_df_train,
-                    genex_df_test,
-                    metadata_df_train,
-                    metadata_df_test,
-                    model_seed)
+    rf_classifier <- train_rf(genex_df_train,
+                              metadata_df_train,
+                              model_seed)
+    
+    rf_results <- test_rf(genex_df_test,
+                          metadata_df_test,
+                          rf_classifier)
+    
+    rf_cm <- calculate_confusion_matrix(rf_results$predicted_labels_df$predicted_labels,
+                                        metadata_df_test$subgroup,
+                                        labels = c("G3", "G4", "SHH", "WNT"))
+    
+    model <- list(classifier = rf_classifier,
+                  test_results = rf_results,
+                  cm = rf_cm)
     
   } else if (type == "mm2s") {
     
-    model <- run_mm2s(genex_df_test,
-                      metadata_df_test,
-                      model_seed,
-                      gene_map_df)
+    mm2s_results <- test_mm2s(genex_df_test,
+                              metadata_df_test,
+                              model_seed,
+                              gene_map_df)
+    
+    mm2s_cm <- calculate_confusion_matrix(mm2s_results$predicted_labels_df$predicted_labels,
+                                          metadata_df_test$subgroup,
+                                          labels = c("G3", "G4", "NORMAL", "SHH", "WNT"))
+    
+    model <- list(test_results = mm2s_results,
+                  cm = mm2s_cm)
     
   } else if (type == "lasso") {
     
-    model <- run_lasso(genex_df_train,
-                       genex_df_test,
-                       metadata_df_train,
-                       metadata_df_test,
-                       model_seed)
+    
+    lasso_classifier <- train_lasso(genex_df_train,
+                                    metadata_df_train,
+                                    model_seed)
+    
+    lasso_results <- test_lasso(genex_df_test,
+                                metadata_df_test,
+                                lasso_classifier)
+    
+    lasso_cm <- calculate_confusion_matrix(lasso_results$predicted_labels_df$predicted_labels,
+                                           metadata_df_test$subgroup,
+                                           labels = c("G3", "G4", "SHH", "WNT"))
+    
+    model <- list(classifier = lasso_classifier,
+                  test_results = lasso_results,
+                  cm = lasso_cm)
     
   } else {
     
