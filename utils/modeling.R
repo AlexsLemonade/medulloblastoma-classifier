@@ -137,7 +137,7 @@ run_one_model <- function(type,
 }
 
 check_input_files <- function(genex_df,
-                              metatdata_df) {
+                              metadata_df) {
   
   # Checks input files when performing modeling training and testing
   #
@@ -149,7 +149,7 @@ check_input_files <- function(genex_df,
   #  None (functions call 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
-  if (!all(c("sample_accesion", "subgroup", "platform") %in% names(metadata_df))) {
+  if (!all(c("sample_accession", "subgroup", "platform") %in% names(metadata_df))) {
     stop("Metadata file must include sample_accession, subgroup, and platform columns")
   }
   
