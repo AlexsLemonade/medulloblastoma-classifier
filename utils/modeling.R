@@ -106,7 +106,7 @@ run_many_models <- function(genex_df,
   official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
-  cl <- parallel::makeCluster(n_cores) #, outfile = "log") # use log file for troubleshooting
+  cl <- parallel::makeCluster(n_cores, outfile = "log") # use log file for troubleshooting
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl,
                           c("get_train_test_samples",
