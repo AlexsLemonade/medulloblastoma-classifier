@@ -8,10 +8,11 @@ source("utils/modeling.R")
 
 processed_data_dir <- here::here("processed_data")
 models_dir <- here::here("models")
-models_list_output_filepath <- file.path(models, "baseline.rds")
 
 genex_df_input_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
 metadata_df_input_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
+
+models_list_output_filepath <- file.path(models_dir, "baseline.rds")
 
 # read in data
 genex_df <- read_tsv(genex_df_input_filepath) %>%
