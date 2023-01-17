@@ -124,8 +124,6 @@ run_many_models <- function(genex_df,
   # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    message(stringr::str_flatten(c("Repeat", n), collapse = " "))
-    
     suppressMessages(library(magrittr))
     suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
     
