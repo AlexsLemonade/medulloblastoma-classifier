@@ -38,7 +38,7 @@ gene_map_input_filepath <- file.path(processed_data_dir,
 bulk_genex_df_output_filepath <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
 pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
-                                                 "pseudobulk_genex.tsv")
+                                                 "pseudobulk_genex2.tsv")
 
 ################################################################################
 # functions
@@ -206,6 +206,16 @@ pseudobulk_gene_names <- names(average_tpm_list[[1]])
 pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
                                       average_tpm_list)
 
+# convert gene names from SYMBOL to ENSEMBL
+pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix %>%
+  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
+                   by = c("gene" = "SYMBOL")) %>%
+  dplyr::filter(!duplicated(gene),
+                !duplicated(ENSEMBL),
+                !is.na(ENSEMBL)) %>%
+  dplyr::select(-gene) %>%
+  dplyr::select(gene = ENSEMBL, everything())
+
 # save matrix object
-readr::write_tsv(pseudobulk_matrix,
+readr::write_tsv(pseudobulk_matrix_ENSEMBL,
                  pseudobulk_genex_df_output_filepath)
