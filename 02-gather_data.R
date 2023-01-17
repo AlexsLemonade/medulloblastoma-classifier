@@ -38,7 +38,7 @@ gene_map_input_filepath <- file.path(processed_data_dir,
 bulk_genex_df_output_filepath <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
 pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
-                                                 "pseudobulk_genex2.tsv")
+                                                 "pseudobulk_genex.tsv")
 
 ################################################################################
 # functions
