@@ -25,6 +25,10 @@ run_many_models <- function(genex_df,
   # Output
   #  Model list with levels for repeat number and model type
   
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df,
+                    metadata_df = metadata_df)
+  
   # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
   if (!is.vector(model_types) |
       !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
@@ -107,10 +111,15 @@ run_many_models <- function(genex_df,
   parallel::clusterExport(cl,
                           c("get_train_test_samples",
                             "run_one_model",
-                            "run_ktsp",
-                            "run_rf",
-                            "run_mm2s",
-                            "run_lasso"))
+                            "check_input_files",
+                            "calculate_confusion_matrix",
+                            "train_ktsp",
+                            "test_ktsp",
+                            "train_rf",
+                            "test_rf",
+                            "test_mm2s",
+                            "train_lasso",
+                            "test_lasso"))
   
   # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
