@@ -1,6 +1,8 @@
-# Gather gene expression data from each data source
+# 1. Gather bulk gene expression data from each data source
+# 2. Read in, clean the pseudo-bulk expression files, and generate the pseudo-bulk
+# matrix.
 #
-# Steven Foltz
+# Chante Bethell, Steven Foltz
 # November-December 2022
 
 suppressMessages(library(tidyverse))
@@ -8,10 +10,19 @@ suppressMessages(library(tidyverse))
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
-GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
-                                                            "GSE124814_experiment_accessions.tsv")
+################################################################################
+# set input and output filepaths
+################################################################################
+
+# metadata inputs
 bulk_metadata_input_filepath <- file.path(processed_data_dir,
                                           "bulk_metadata.tsv")
+pseudobulk_metadata_input_filepath <- file.path(processed_data_dir,
+                                                "pseudobulk_metadata.tsv")
+
+# bulk genex inputs
+GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
+                                                            "GSE124814_experiment_accessions.tsv")
 GSE164677_genex_input_filepath <- file.path(data_dir, "GSE164677",
                                             "GSE164677_Asian_MB_RNA-seq.txt.gz")
 OpenPBTA_polya_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
@@ -19,11 +30,15 @@ OpenPBTA_polya_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
 OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
                                                     "pbta-gene-expression-rsem-tpm.stranded.rds")
 
+# gene map input
 gene_map_input_filepath <- file.path(processed_data_dir,
                                      "gene_map.tsv")
 
-genex_df_output_filepath <- file.path(processed_data_dir,
+# genex outputs
+bulk_genex_df_output_filepath <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
+pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
+                                                 "pseudobulk_genex.tsv")
 
 ################################################################################
 # functions
@@ -151,4 +166,46 @@ lapply(genex_data_list,
        function(x) x[common_genes,]) %>%
   dplyr::bind_cols() %>%
   tibble::rownames_to_column(var = "gene") %>%
-  readr::write_tsv(genex_df_output_filepath)
+  readr::write_tsv(bulk_genex_df_output_filepath)
+
+################################################################################
+# Pseudobulk - generate pseudobulk data matrix from individual scRNA-seq data
+################################################################################
+
+# read in pseudo-bulk metadata file
+pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
+                                       show_col_types = FALSE)
+
+# grab the names of the individual expression files
+pseudobulk_expression_files <- file.path(data_dir, 
+                                         "GSE119926", 
+                                         str_c(pseudobulk_metadata$sample_accession, 
+                                               "_", pseudobulk_metadata$title, ".txt.gz"))
+names(pseudobulk_expression_files) <- pseudobulk_metadata$title
+
+# read in individual expression files
+pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
+                                            function(x)
+                                              readr::read_tsv(x,
+                                                              skip = 1,
+                                                              col_names = FALSE,
+                                                              show_col_types = FALSE) %>%
+                                              tibble::column_to_rownames(var = "X1"))
+
+# revert log transformed-TPM values back to original TPM values using equation 
+# 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
+# found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
+tpm_df_list <- lapply(pseudobulk_expression_df_list,
+                      function(x) 10*(2^x - 1))
+
+# average the TPM values across cells for each data frame
+average_tpm_list <- lapply(tpm_df_list, rowMeans)
+
+# combine the list of TPM values into a single matrix
+pseudobulk_gene_names <- names(average_tpm_list[[1]])
+pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
+                                      average_tpm_list)
+
+# save matrix object
+readr::write_tsv(pseudobulk_matrix,
+                 pseudobulk_genex_df_output_filepath)
