@@ -1,7 +1,7 @@
 # ESTIMATE tumor purity of bulk expression data
 #
 # Steven Foltz
-# November 2022
+# November 2022 - January 2023
 
 suppressMessages(library(magrittr))
 suppressMessages(library(estimate))
@@ -13,6 +13,8 @@ estimate_data_dir <- file.path(processed_data_dir, "estimate")
 
 genex_input_filename <- file.path(processed_data_dir, "bulk_genex.tsv")
 metadata_input_filename <- file.path(processed_data_dir, "bulk_metadata.tsv")
+
+gene_map_df_filename <- file.path(processed_data_dir, "gene_map.tsv")
 
 estimate_input_filename <- file.path(estimate_data_dir, "estimate_input.tsv")
 estimate_input_gct_filename <- file.path(estimate_data_dir, "estimate_input.gct")
@@ -33,58 +35,31 @@ metadata_df <- readr::read_tsv(metadata_input_filename,
                                show_col_types = FALSE) %>%
   dplyr::filter(sample_accession %in% names(genex_df))
 
-# check if estimate input files exist
-# if not, reformat genex data by converting ENSEMBL gene IDs to SYMBOL
-if (!file.exists(estimate_input_filename)) {
-  
-  # convert gene names
-  AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
-  ah <- AnnotationHub::AnnotationHub()
-  AnnotationHub::snapshotDate(ah) <- "2022-10-26" # reproducibility
-  hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]
-  map_ENSEMBL_SYMBOL_dedup_df <- AnnotationDbi::select(x = hs_orgdb,
-                                                       keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
-                                                       columns = "SYMBOL",
-                                                       keytype = "ENSEMBL") %>%
-    dplyr::mutate(dup_ENSEMBL = duplicated(ENSEMBL),
-                  dup_SYMBOL = duplicated(SYMBOL)) %>%
-    dplyr::filter(!dup_ENSEMBL, !dup_SYMBOL) %>%
-    dplyr::select(ENSEMBL, SYMBOL)
-  
-  genex_df_SYMBOL <- genex_df %>%
-    tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(map_ENSEMBL_SYMBOL_dedup_df,
-                     by = "ENSEMBL") %>%
-    dplyr::filter(!duplicated(ENSEMBL),
-                  !duplicated(SYMBOL),
-                  !is.na(SYMBOL)) %>%
-    dplyr::select(-ENSEMBL) %>%
-    dplyr::select(SYMBOL, tidyselect::everything()) %>%
-    readr::write_tsv(file = estimate_input_filename)  
-  
-} else { # let user know that the file already exists
-  
-  message(stringr::str_flatten(c("File ",
-                                 estimate_input_filename,
-                                 " already exists and was not recreated while estimating tumor purity.")))
-  
-}
+# reformat genex data by converting ENSEMBL gene IDs to SYMBOL
+
+# read in gene map
+# includes ENSEMBL, ENTREZID, and SYMBOL columns for gene name conversion
+gene_map_df <- readr::read_tsv(gene_map_df_filename,
+                               show_col_types = FALSE)
+
+# convert gene names
+genex_df_SYMBOL <- genex_df %>%
+  tibble::rownames_to_column(var = "ENSEMBL") %>%
+  dplyr::left_join(gene_map_df %>% # do not include ENTREZID here
+                     dplyr::select(ENSEMBL, SYMBOL),
+                   by = "ENSEMBL") %>%
+  dplyr::filter(!duplicated(ENSEMBL),
+                !duplicated(SYMBOL),
+                !is.na(SYMBOL)) %>%
+  dplyr::select(-ENSEMBL) %>%
+  dplyr::select(SYMBOL, tidyselect::everything()) %>%
+  readr::write_tsv(file = estimate_input_filename)
 
 # convert gene expression tsv to GCT file
-if (!file.exists(estimate_input_gct_filename)) {
-  
-  # filterCommonGenes reduces the input to only include genes used in ESTIMATE model 
-  estimate::filterCommonGenes(input.f = estimate_input_filename,
-                              output.f = estimate_input_gct_filename,
-                              id = "GeneSymbol") # "EntrezID" did not work
-  
-} else { # let user know that the file already exists
-  
-  message(stringr::str_flatten(c("File ",
-                                 estimate_input_gct_filename,
-                                 " already exists and was not recreated while estimating tumor purity.")))
-          
-}
+# filterCommonGenes reduces the input to only include genes used in ESTIMATE model 
+estimate::filterCommonGenes(input.f = estimate_input_filename,
+                            output.f = estimate_input_gct_filename,
+                            id = "GeneSymbol") # "EntrezID" did not work
 
 ################################################################################
 # run ESTIMATE
