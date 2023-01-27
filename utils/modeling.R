@@ -171,7 +171,13 @@ test_ktsp <- function(genex_df_test,
 
 train_rf <- function(genex_df_train,
                      metadata_df_train,
-                     model_seed = 4032) {
+                     model_seed = 4032,
+                     rf_num.trees = 500,
+                     rf_genes_altogether = 50,
+                     rf_genes_one_vs_rest = 50,
+                     rf_gene_repetition = 1,
+                     rf_rules_altogether = 50,
+                     rf_rules_one_vs_rest = 50) {
   
   # Train a Random Forest model
   #
@@ -179,9 +185,28 @@ train_rf <- function(genex_df_train,
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used to generate additional modeling seeds for reproducibility
+  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features)
+  #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #  rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #  rf_gene_repetition: number of time a gene can be used throughout set of rules
+  #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #
   # Outputs
   #  Random Forest classifier object
+  #
+  # Methodological choices
+  #
+  #  Sorting genes with multiclassPairs::sort_genes_RF()
+  #    - "rank_data" (TRUE) within each sample because we assume data are not normalized
+  #    - "platform_wise" (TRUE) favors genes that are important on every platform
+  #
+  #  Sorting rules with multiclassPairs::sort_rules_RF()
+  #    - "platform_wise" (TRUE) favors rules that are important on every platform
+  #
+  #  Training RF model with multiclassPairs::train_RF()
+  #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
+  #    - "probability" (TRUE) allows test data to get scores for each class
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
@@ -202,30 +227,29 @@ train_rf <- function(genex_df_train,
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
                                           rank_data = TRUE,
                                           platform_wise = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           seed = seeds[1],
                                           verbose = TRUE)
   
   # identify top gene pairs used downstream
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                           sorted_genes_RF = genes,
-                                          genes_altogether = 50,
-                                          genes_one_vs_rest = 50,
+                                          genes_altogether = rf_genes_altogether,
+                                          genes_one_vs_rest = rf_genes_one_vs_rest,
                                           platform_wise = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           seed = seeds[2],
                                           verbose = TRUE)
   
   # train RF model
   classifier <- multiclassPairs::train_RF(data_object = train_data_object,
                                           sorted_rules_RF = rules,
-                                          gene_repetition = 1, # genes used once
-                                          rules_altogether = 50,
-                                          rules_one_vs_rest = 50,
+                                          gene_repetition = rf_gene_repetition,
+                                          rules_altogether = rf_rules_altogether,
+                                          rules_one_vs_rest = rf_rules_one_vs_rest,
                                           run_boruta = TRUE,
-                                          plot_boruta = FALSE,
                                           probability = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           verbose = TRUE)
   
   return(classifier)
@@ -247,6 +271,11 @@ test_rf <- function(genex_df_test,
   #  List containing "predicted_labels" and "model_output" elements
   #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
+  #
+  # Methodological choices
+  #
+  #  Predicting labels with multiclassPairs::predict_RF()
+  #    - "impute" (TRUE) allows test data to be missing features by imputing with kNN
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
