@@ -8,7 +8,7 @@ check_input_files <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #
   # Output
-  #  None (functions call 'stop' if anything is wrong)
+  #  None (function calls 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
   if (!all(c("sample_accession", "subgroup", "platform") %in% names(metadata_df))) {
