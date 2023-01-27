@@ -138,7 +138,7 @@ test_ktsp <- function(genex_df_test,
                                                            verbose = TRUE)
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$max_score) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -249,7 +249,7 @@ test_rf <- function(genex_df_test,
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_prediction_labels) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -313,7 +313,7 @@ test_mm2s <- function(genex_df_test,
                   WNT)
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$MM2S_Prediction) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -395,7 +395,7 @@ test_lasso <- function(genex_df_test,
     tibble::as_tibble()
 
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$prediction) # best guess
   
   # create output list with predicted labels and the modeling object
