@@ -55,7 +55,8 @@ train_ktsp <- function(genex_df_train,
                        metadata_df_train,
                        model_seed,
                        n_rules_min,
-                       n_rules_max) {
+                       n_rules_max,
+                       filtered_feature_number = 1000) {
   
   # Train a kTSP model
   #
@@ -65,6 +66,7 @@ train_ktsp <- function(genex_df_train,
   #  model_seed: seed used for reproducibility in training step
   #  n_rules_min: minimum number of rules allowed for kTSP modeling
   #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #  filtered_feature_number: number of filtered features to return per class label
   #
   # Outputs
   #  kTSP classifier object
@@ -80,12 +82,19 @@ train_ktsp <- function(genex_df_train,
                                                  verbose = TRUE)
   
   # reduce genes to most useful features
-  filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
-                                                      filter = "one_vs_one",
-                                                      platform_wise = TRUE,
-                                                      featureNo = 1000,
-                                                      UpDown = TRUE,
-                                                      verbose = TRUE)
+  if (nrow(genex_df_train) >= filtered_feature_number) {
+    
+    filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
+                                                        filter = "one_vs_one",
+                                                        platform_wise = TRUE,
+                                                        featureNo = filtered_feature_number,
+                                                        UpDown = TRUE,
+                                                        verbose = TRUE) 
+  } else {
+    
+    filtered_genes <- NULL
+    
+  }
   
   # train kTSP model
   classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
