@@ -386,10 +386,10 @@ test_lasso <- function(genex_df_test,
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
   # predict using LASSO classifier
-  test_results <- glmnet::predict.cv.glmnet(classifier,
-                                            t(genex_df_test),
-                                            s = classifier$lambda.1se,
-                                            type = "response")[,,1] %>%
+  test_results <- predict(classifier,
+                          t(genex_df_test),
+                          s = classifier$lambda.1se,
+                          type = "response")[,,1] %>%
     as.data.frame() %>%
     dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
     tibble::rownames_to_column(var = "sample_accession") %>%
