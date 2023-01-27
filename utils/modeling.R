@@ -53,7 +53,7 @@ calculate_confusion_matrix <- function(predicted_labels,
 
 train_ktsp <- function(genex_df_train,
                        metadata_df_train,
-                       model_seed,
+                       model_seed = 2988,
                        n_rules_min,
                        n_rules_max) {
   
@@ -151,7 +151,7 @@ test_ktsp <- function(genex_df_test,
 
 train_rf <- function(genex_df_train,
                      metadata_df_train,
-                     model_seed) {
+                     model_seed = 4032) {
   
   # Train a Random Forest model
   #
@@ -263,7 +263,7 @@ test_rf <- function(genex_df_test,
 
 test_mm2s <- function(genex_df_test,
                       metadata_df_test,
-                      model_seed,
+                      model_seed = 4418,
                       gene_map_df) {
   
   # Test an MM2S model
@@ -327,7 +327,7 @@ test_mm2s <- function(genex_df_test,
 
 train_lasso <- function(genex_df_train,
                         metadata_df_train,
-                        model_seed) {
+                        model_seed = 2064) {
   
   # Train a LASSO model
   #
