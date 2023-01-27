@@ -209,7 +209,7 @@ calculate_confusion_matrix <- function(predicted_labels,
                                        true_labels,
                                        labels) {
   
-  # Create confusion matrix
+  # Calculates confusion matrix and statistics about model performance
   #
   # Inputs
   #  predicted_labels: vector of predicted best guess labels for each sample
@@ -217,7 +217,7 @@ calculate_confusion_matrix <- function(predicted_labels,
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
-  #  Confusion matrix
+  #  confusionMatrix object, including confusion matrix and model stats
   
   confusion_matrix <- caret::confusionMatrix(data = factor(predicted_labels, 
                                                            levels = labels),
@@ -231,21 +231,39 @@ calculate_confusion_matrix <- function(predicted_labels,
 
 train_ktsp <- function(genex_df_train,
                        metadata_df_train,
-                       model_seed,
-                       n_rules_min,
-                       n_rules_max) {
+                       model_seed = 2988,
+                       ktsp_featureNo = 1000,
+                       ktsp_n_rules_min = 5,
+                       ktsp_n_rules_max = 50) {
   
   # Train a kTSP model
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
-  #  model_seed: seed used for reproducibility in training step
-  #  n_rules_min: minimum number of rules allowed for kTSP modeling
-  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #  model_seed: seed used for reproducibility in training step (default: 2988)
+  #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #  ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #  ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
   #
   # Outputs
   #  kTSP classifier object
+  #
+  # Methodological choices
+  #
+  #  Filtering with multiclassPairs::filter_genes_TSP()
+  #    - "one_vs_one" filtering give more weight to smaller classes
+  #    - "platform_wise" (TRUE) filtering helps select genes relevant to each platform
+  #    - "UpDown" (TRUE) considers an equal number of up and down regulated genes
+  #
+  #  Training kTSP with multiclassPairs::train_one_vs_rest_TSP()
+  #    - "include_pivot" (FALSE) means only filtered features are used to make rules
+  #    - "one_vs_one_scores" (TRUE) gives more weight to small classes
+  #    - "platform_wise_scores" (TRUE) gives more weight to small platforms
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
@@ -261,14 +279,14 @@ train_ktsp <- function(genex_df_train,
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
                                                       filter = "one_vs_one",
                                                       platform_wise = TRUE,
-                                                      featureNo = 1000,
+                                                      featureNo = ktsp_featureNo,
                                                       UpDown = TRUE,
                                                       verbose = TRUE)
   
   # train kTSP model
   classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
                                                        filtered_genes = filtered_genes,
-                                                       k_range = n_rules_min:n_rules_max,
+                                                       k_range = ktsp_n_rules_min:ktsp_n_rules_max,
                                                        include_pivot = FALSE,
                                                        one_vs_one_scores = TRUE,
                                                        platform_wise_scores = TRUE,
@@ -296,6 +314,16 @@ test_ktsp <- function(genex_df_test,
   #  List containing "predicted_labels" and "model_output" elements
   #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
+  #
+  # Methodological choices
+  #
+  #  Predictions with multiclassPairs::predict_one_vs_rest_TSP()
+  #    - "tolerate_missed_genes" (TRUE) allows test data to be missing some features
+  #    - "weighted_votes" (TRUE) weights more informative (higher scoring) rules more than others
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
@@ -329,7 +357,13 @@ test_ktsp <- function(genex_df_test,
 
 train_rf <- function(genex_df_train,
                      metadata_df_train,
-                     model_seed) {
+                     model_seed = 4032,
+                     rf_num.trees = 500,
+                     rf_genes_altogether = 50,
+                     rf_genes_one_vs_rest = 50,
+                     rf_gene_repetition = 1,
+                     rf_rules_altogether = 50,
+                     rf_rules_one_vs_rest = 50) {
   
   # Train a Random Forest model
   #
@@ -337,18 +371,40 @@ train_rf <- function(genex_df_train,
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used to generate additional modeling seeds for reproducibility
+  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features)
+  #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #  rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #  rf_gene_repetition: number of time a gene can be used throughout set of rules
+  #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #
   # Outputs
   #  Random Forest classifier object
+  #
+  # Methodological choices
+  #
+  #  Sorting genes with multiclassPairs::sort_genes_RF()
+  #    - "rank_data" (TRUE) within each sample because we assume data are not normalized
+  #    - "platform_wise" (TRUE) favors genes that are important on every platform
+  #
+  #  Sorting rules with multiclassPairs::sort_rules_RF()
+  #    - "platform_wise" (TRUE) favors rules that are important on every platform
+  #
+  #  Training RF model with multiclassPairs::train_RF()
+  #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
+  #    - "probability" (TRUE) allows test data to get scores for each class
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
                     metadata_df = metadata_df_train)
   
   # get additional seeds for modeling steps
-  n_seeds <- 2
   set.seed(model_seed)
-  seeds <- sample(1:1000, size = n_seeds, replace = FALSE)
+  seeds <- sample(1:1000, size = 2, replace = FALSE)
   
   # create data object
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
@@ -360,30 +416,29 @@ train_rf <- function(genex_df_train,
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
                                           rank_data = TRUE,
                                           platform_wise = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           seed = seeds[1],
                                           verbose = TRUE)
   
   # identify top gene pairs used downstream
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                           sorted_genes_RF = genes,
-                                          genes_altogether = 50,
-                                          genes_one_vs_rest = 50,
+                                          genes_altogether = rf_genes_altogether,
+                                          genes_one_vs_rest = rf_genes_one_vs_rest,
                                           platform_wise = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           seed = seeds[2],
                                           verbose = TRUE)
   
   # train RF model
   classifier <- multiclassPairs::train_RF(data_object = train_data_object,
                                           sorted_rules_RF = rules,
-                                          gene_repetition = 1, # genes used once
-                                          rules_altogether = 50,
-                                          rules_one_vs_rest = 50,
+                                          gene_repetition = rf_gene_repetition,
+                                          rules_altogether = rf_rules_altogether,
+                                          rules_one_vs_rest = rf_rules_one_vs_rest,
                                           run_boruta = TRUE,
-                                          plot_boruta = FALSE,
                                           probability = TRUE,
-                                          num.trees = 1000,
+                                          num.trees = rf_num.trees,
                                           verbose = TRUE)
   
   return(classifier)
@@ -405,6 +460,15 @@ test_rf <- function(genex_df_test,
   #  List containing "predicted_labels" and "model_output" elements
   #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
+  #
+  # Methodological choices
+  #
+  #  Predicting labels with multiclassPairs::predict_RF()
+  #    - "impute" (TRUE) allows test data to be missing features by imputing with kNN
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
@@ -441,7 +505,7 @@ test_rf <- function(genex_df_test,
 
 test_mm2s <- function(genex_df_test,
                       metadata_df_test,
-                      model_seed,
+                      model_seed = 4418,
                       gene_map_df) {
   
   # Test an MM2S model
@@ -505,7 +569,7 @@ test_mm2s <- function(genex_df_test,
 
 train_lasso <- function(genex_df_train,
                         metadata_df_train,
-                        model_seed) {
+                        model_seed = 2064) {
   
   # Train a LASSO model
   #
@@ -564,10 +628,10 @@ test_lasso <- function(genex_df_test,
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
   # predict using LASSO classifier
-  test_results <- glmnet::predict.cv.glmnet(classifier,
-                                            t(genex_df_test),
-                                            s = classifier$lambda.1se,
-                                            type = "response")[,,1] %>%
+  test_results <- predict(classifier,
+                          t(genex_df_test),
+                          s = classifier$lambda.1se,
+                          type = "response")[,,1] %>%
     as.data.frame() %>%
     dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
     tibble::rownames_to_column(var = "sample_accession") %>%
