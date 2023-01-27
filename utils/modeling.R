@@ -55,8 +55,8 @@ train_ktsp <- function(genex_df_train,
                        metadata_df_train,
                        model_seed = 2988,
                        ktsp_featureNo = 1000,
-                       n_rules_min = 5,
-                       n_rules_max = 50) {
+                       ktsp_n_rules_min = 5,
+                       ktsp_n_rules_max = 50) {
   
   # Train a kTSP model
   #
@@ -65,8 +65,8 @@ train_ktsp <- function(genex_df_train,
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step (default: 2988)
   #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
-  #  n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
-  #  n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #  ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #  ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
   #
   # Outputs
   #  kTSP classifier object
@@ -82,6 +82,10 @@ train_ktsp <- function(genex_df_train,
   #    - "include_pivot" (FALSE) means only filtered features are used to make rules
   #    - "one_vs_one_scores" (TRUE) gives more weight to small classes
   #    - "platform_wise_scores" (TRUE) gives more weight to small platforms
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
@@ -104,7 +108,7 @@ train_ktsp <- function(genex_df_train,
   # train kTSP model
   classifier <- multiclassPairs::train_one_vs_rest_TSP(data_object = train_data_object,
                                                        filtered_genes = filtered_genes,
-                                                       k_range = n_rules_min:n_rules_max,
+                                                       k_range = ktsp_n_rules_min:ktsp_n_rules_max,
                                                        include_pivot = FALSE,
                                                        one_vs_one_scores = TRUE,
                                                        platform_wise_scores = TRUE,
@@ -138,6 +142,10 @@ test_ktsp <- function(genex_df_test,
   #  Predictions with multiclassPairs::predict_one_vs_rest_TSP()
   #    - "tolerate_missed_genes" (TRUE) allows test data to be missing some features
   #    - "weighted_votes" (TRUE) weights more informative (higher scoring) rules more than others
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
@@ -207,6 +215,10 @@ train_rf <- function(genex_df_train,
   #  Training RF model with multiclassPairs::train_RF()
   #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
   #    - "probability" (TRUE) allows test data to get scores for each class
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
@@ -275,6 +287,10 @@ test_rf <- function(genex_df_test,
   #
   #  Predicting labels with multiclassPairs::predict_RF()
   #    - "impute" (TRUE) allows test data to be missing features by imputing with kNN
+  #
+  # More information on multiclassPairs R package
+  #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
+  #  https://cran.r-project.org/web/packages/multiclassPairs/vignettes/Tutorial.html
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
