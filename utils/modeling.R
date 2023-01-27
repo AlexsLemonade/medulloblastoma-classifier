@@ -54,20 +54,34 @@ calculate_confusion_matrix <- function(predicted_labels,
 train_ktsp <- function(genex_df_train,
                        metadata_df_train,
                        model_seed = 2988,
-                       n_rules_min,
-                       n_rules_max) {
+                       ktsp_featureNo = 1000,
+                       n_rules_min = 5,
+                       n_rules_max = 50) {
   
   # Train a kTSP model
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
-  #  model_seed: seed used for reproducibility in training step
-  #  n_rules_min: minimum number of rules allowed for kTSP modeling
-  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #  model_seed: seed used for reproducibility in training step (default: 2988)
+  #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #  n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #  n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
   #
   # Outputs
   #  kTSP classifier object
+  #
+  # Methodological choices
+  #
+  #  Filtering with multiclassPairs::filter_genes_TSP()
+  #    - "one_vs_one" filtering give more weight to smaller classes
+  #    - "platform_wise" (TRUE) filtering helps select genes relevant to each platform
+  #    - "UpDown" (TRUE) considers an equal number of up and down regulated genes
+  #
+  #  Training kTSP with multiclassPairs::train_one_vs_rest_TSP()
+  #    - "include_pivot" (FALSE) means only filtered features are used to make rules
+  #    - "one_vs_one_scores" (TRUE) gives more weight to small classes
+  #    - "platform_wise_scores" (TRUE) gives more weight to small platforms
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_train,
@@ -83,7 +97,7 @@ train_ktsp <- function(genex_df_train,
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
                                                       filter = "one_vs_one",
                                                       platform_wise = TRUE,
-                                                      featureNo = 1000,
+                                                      featureNo = ktsp_featureNo,
                                                       UpDown = TRUE,
                                                       verbose = TRUE)
   
@@ -118,6 +132,12 @@ test_ktsp <- function(genex_df_test,
   #  List containing "predicted_labels" and "model_output" elements
   #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
   #    "model_output" is the prediction object returned by this method
+  #
+  # Methodological choices
+  #
+  #  Predictions with multiclassPairs::predict_one_vs_rest_TSP()
+  #    - "tolerate_missed_genes" (TRUE) allows test data to be missing some features
+  #    - "weighted_votes" (TRUE) weights more informative (higher scoring) rules more than others
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
