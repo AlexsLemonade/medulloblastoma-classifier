@@ -361,7 +361,7 @@ check_input_files <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #
   # Output
-  #  None (functions call 'stop' if anything is wrong)
+  #  None (function calls 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
   if (!all(c("sample_accession", "subgroup", "platform") %in% names(metadata_df))) {
@@ -491,7 +491,7 @@ test_ktsp <- function(genex_df_test,
                                                            verbose = TRUE)
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$max_score) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -593,7 +593,8 @@ test_rf <- function(genex_df_test,
   
   # predict labels with classifier 
   test_results <- multiclassPairs::predict_RF(classifier = classifier, 
-                                              Data = test_data_object)
+                                              Data = test_data_object,
+                                              impute = TRUE)
   
   # get the prediction matrix
   test_pred <- test_results$predictions
@@ -602,7 +603,7 @@ test_rf <- function(genex_df_test,
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_prediction_labels) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -666,7 +667,7 @@ test_mm2s <- function(genex_df_test,
                   WNT)
   
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$MM2S_Prediction) # best guess
   
   # create output list with predicted labels and the modeling object
@@ -738,17 +739,17 @@ test_lasso <- function(genex_df_test,
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
   # predict using LASSO classifier
-  test_results <- predict(classifier,
-                          t(genex_df_test),
-                          s = classifier$lambda.1se,
-                          type = "response")[,,1] %>%
+  test_results <- glmnet::predict.cv.glmnet(classifier,
+                                            t(genex_df_test),
+                                            s = classifier$lambda.1se,
+                                            type = "response")[,,1] %>%
     as.data.frame() %>%
     dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
     tibble::rownames_to_column(var = "sample_accession") %>%
     tibble::as_tibble()
 
   # create df with sample names and predicted labels
-  predicted_labels_df <- dplyr::tibble(sample_accesion = metadata_df_test$sample_accession,
+  predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
                                        predicted_labels = test_results$prediction) # best guess
   
   # create output list with predicted labels and the modeling object
