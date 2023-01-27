@@ -213,9 +213,8 @@ train_rf <- function(genex_df_train,
                     metadata_df = metadata_df_train)
   
   # get additional seeds for modeling steps
-  n_seeds <- 2
   set.seed(model_seed)
-  seeds <- sample(1:1000, size = n_seeds, replace = FALSE)
+  seeds <- sample(1:1000, size = 2, replace = FALSE)
   
   # create data object
   train_data_object <- multiclassPairs::ReadData(Data = genex_df_train,
