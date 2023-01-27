@@ -240,7 +240,8 @@ test_rf <- function(genex_df_test,
   
   # predict labels with classifier 
   test_results <- multiclassPairs::predict_RF(classifier = classifier, 
-                                              Data = test_data_object)
+                                              Data = test_data_object,
+                                              impute = TRUE)
   
   # get the prediction matrix
   test_pred <- test_results$predictions
