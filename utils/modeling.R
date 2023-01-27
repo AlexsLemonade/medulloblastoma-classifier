@@ -31,7 +31,7 @@ calculate_confusion_matrix <- function(predicted_labels,
                                        true_labels,
                                        labels) {
   
-  # Create confusion matrix
+  # Calculates confusion matrix and statistics about model performance
   #
   # Inputs
   #  predicted_labels: vector of predicted best guess labels for each sample
@@ -39,7 +39,7 @@ calculate_confusion_matrix <- function(predicted_labels,
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   # Outputs
-  #  Confusion matrix
+  #  confusionMatrix object, including confusion matrix and model stats
   
   confusion_matrix <- caret::confusionMatrix(data = factor(predicted_labels, 
                                                            levels = labels),
