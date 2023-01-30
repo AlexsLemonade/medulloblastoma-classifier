@@ -134,11 +134,13 @@ readr::write_tsv(x = estimate_df,
 # visualize results
 ################################################################################
 
-# plot tumor purity violins
-tumor_purity_plot_object <- estimate_df %>%
+estimate_metadata_plot_df <- estimate_df %>%
   dplyr::left_join(metadata_df,
                    by = "sample_accession") %>%
-  dplyr::filter(!is.na(subgroup)) %>%
+  dplyr::filter(!is.na(subgroup))
+
+# plot tumor purity violins
+tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = subgroup,
                                y = TumorPurity,
                                color = subgroup)) +
@@ -154,10 +156,7 @@ ggplot2::ggsave(filename = tumor_purity_plot_filename,
                 plot = tumor_purity_plot_object)
 
 # plot stromal vs. immune scores
-stromal_immune_plot_object <- estimate_df %>%
-  dplyr::left_join(metadata_df,
-                   by = "sample_accession") %>%
-  dplyr::filter(!is.na(subgroup)) %>%
+stromal_immune_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = StromalScore,
                                y = ImmuneScore,
                                color = subgroup)) +
@@ -169,10 +168,7 @@ ggplot2::ggsave(filename = stromal_immune_plot_filename,
                 plot = stromal_immune_plot_object)
 
 # plot estimate score vs. tumor purity
-estimate_score_tumor_purity_plot_object <- estimate_df %>%
-  dplyr::left_join(metadata_df,
-                   by = "sample_accession") %>%
-  dplyr::filter(!is.na(subgroup)) %>%
+estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = ESTIMATEScore,
                                y = TumorPurity,
                                color = subgroup)) +
