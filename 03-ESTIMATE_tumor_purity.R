@@ -139,6 +139,9 @@ estimate_metadata_plot_df <- estimate_df %>%
                    by = "sample_accession") %>%
   dplyr::filter(!is.na(subgroup))
 
+# set a consistent baseline theme
+ggplot2::theme_set(ggplot2::theme_bw())
+
 # plot tumor purity violins
 tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = subgroup,
@@ -149,8 +152,7 @@ tumor_purity_plot_object <- estimate_metadata_plot_df %>%
                        height = 0,
                        width = 0.1,
                        show.legend = FALSE) +
-  ggplot2::facet_wrap(~ vars(platform)) +
-  ggplot2::theme_bw()
+  ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = tumor_purity_plot_filename,
                 plot = tumor_purity_plot_object)
@@ -161,8 +163,7 @@ stromal_immune_plot_object <- estimate_metadata_plot_df %>%
                                y = ImmuneScore,
                                color = subgroup)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::facet_wrap(~ vars(platform)) +
-  ggplot2::theme_bw()
+  ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = stromal_immune_plot_filename,
                 plot = stromal_immune_plot_object)
@@ -173,8 +174,7 @@ estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
                                y = TumorPurity,
                                color = subgroup)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::facet_wrap(~ vars(platform)) +
-  ggplot2::theme_bw()
+  ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
                 plot = estimate_score_tumor_purity_plot_object)
