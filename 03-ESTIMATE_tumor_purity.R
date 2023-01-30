@@ -155,7 +155,9 @@ tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = tumor_purity_plot_filename,
-                plot = tumor_purity_plot_object)
+                plot = tumor_purity_plot_object,
+                width = 7.5,
+                height = 7.5)
 
 # plot stromal vs. immune scores
 stromal_immune_plot_object <- estimate_metadata_plot_df %>%
@@ -166,7 +168,9 @@ stromal_immune_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = stromal_immune_plot_filename,
-                plot = stromal_immune_plot_object)
+                plot = stromal_immune_plot_object,
+                width = 7.5,
+                height = 7.5)
 
 # plot estimate score vs. tumor purity
 estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
@@ -177,4 +181,6 @@ estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::facet_wrap(~ vars(platform))
 
 ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
-                plot = estimate_score_tumor_purity_plot_object)
+                plot = estimate_score_tumor_purity_plot_object,
+                width = 7.5,
+                height = 7.5)
