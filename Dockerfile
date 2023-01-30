@@ -24,6 +24,7 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'Biobase', \
     'BiocStyle', \
     'GSVA', \
+    'GenomicFeatures', \
     'GEOquery', \
     'leukemiasEset', \
     'switchBox'), \
