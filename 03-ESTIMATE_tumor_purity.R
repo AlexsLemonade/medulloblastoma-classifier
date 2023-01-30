@@ -9,22 +9,29 @@ suppressMessages(library(estimate))
 # set up directories and file names
 
 processed_data_dir <- here::here("processed_data")
+plot_dir <- here::here("plots")
 estimate_data_dir <- file.path(processed_data_dir, "estimate")
+estimate_plot_dir <- file.path(plot_dir, "estimate")
 
+# bulk gene expression and metadata file names
 genex_input_filename <- file.path(processed_data_dir, "bulk_genex.tsv")
 metadata_input_filename <- file.path(processed_data_dir, "bulk_metadata.tsv")
 
+# gene map for converting gene names
 gene_map_df_filename <- file.path(processed_data_dir, "gene_map.tsv")
 
+# files used by ESTIMATE functions
 estimate_input_filename <- file.path(estimate_data_dir, "estimate_input.tsv")
 estimate_input_gct_filename <- file.path(estimate_data_dir, "estimate_input.gct")
 
+# files produced by ESTIMATE functions (.gct) and after some reshaping (.tsv)
 estimate_results_output_gct_filename <- file.path(estimate_data_dir, "estimate_results.gct")
 estimate_results_output_filename <- file.path(estimate_data_dir, "estimate_results.tsv")
 
-tumor_purity_plot_filename <- file.path(estimate_data_dir, "tumor_purity_by_subgroup.pdf")
-stromal_immune_plot_filename <- file.path(estimate_data_dir, "stromal_score_by_immune_score.pdf")
-estimate_score_tumor_purity_plot_filename <- file.path(estimate_data_dir, "estimate_score_by_tumor_purity.pdf")
+# output plot file names
+tumor_purity_plot_filename <- file.path(estimate_plot_dir, "tumor_purity_by_subgroup.pdf")
+stromal_immune_plot_filename <- file.path(estimate_plot_dir, "stromal_score_by_immune_score.pdf")
+estimate_score_tumor_purity_plot_filename <- file.path(estimate_plot_dir, "estimate_score_by_tumor_purity.pdf")
 
 # read in bulk genex and metadata
 genex_df <- readr::read_tsv(genex_input_filename,
