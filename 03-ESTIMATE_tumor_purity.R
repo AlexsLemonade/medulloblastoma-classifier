@@ -39,8 +39,7 @@ genex_df <- readr::read_tsv(genex_input_filename,
   tibble::column_to_rownames(var = "gene")
 
 metadata_df <- readr::read_tsv(metadata_input_filename,
-                               show_col_types = FALSE) %>%
-  dplyr::filter(sample_accession %in% names(genex_df))
+                               show_col_types = FALSE)
 
 # reformat genex data by converting ENSEMBL gene IDs to SYMBOL
 
@@ -58,8 +57,7 @@ genex_df_SYMBOL <- genex_df %>%
   dplyr::filter(!duplicated(ENSEMBL),
                 !duplicated(SYMBOL),
                 !is.na(SYMBOL)) %>%
-  dplyr::select(-ENSEMBL) %>%
-  dplyr::select(SYMBOL, tidyselect::everything())
+  dplyr::select(SYMBOL, tidyselect::everything(), -ENSEMBL)
 
 readr::write_tsv(x = genex_df_SYMBOL,
                  file = estimate_input_filename)
