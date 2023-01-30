@@ -72,8 +72,14 @@ estimate::filterCommonGenes(input.f = estimate_input_filename,
 # run ESTIMATE
 ################################################################################
 
-# the only way to get tumor purity scores (i.e., a number between 0 and 1) is by
-# setting platform = "affymetrix" (default) (even though some data are RNA-seq)
+# ESTIMATE publication: https://www.nature.com/articles/ncomms3612
+# ESTIMATE generates Stromal and Immune scores using ssGSEA, regardless of platform
+# Stromal + Immune scores = ESTIMATE score
+# The model converting ESTIMATE scores to tumor purity was trained on Affymetrix data
+# That model is: tumor purity = cos(0.6049872018 + 0.0001467884 * ESTIMATE)
+# To return tumor purity scores, we must set platform = "affymetrix" (default)
+#   even though some data are RNA-seq, otherwise the TP conversion is not done
+
 estimate::estimateScore(input.ds = estimate_input_gct_filename,
                         output.ds = estimate_results_output_gct_filename,
                         platform = "affymetrix")
