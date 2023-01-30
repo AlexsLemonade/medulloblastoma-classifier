@@ -374,7 +374,7 @@ train_rf <- function(genex_df_train,
   #  rf_num.trees: number of trees used in RF modeling (use more trees given more features)
   #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
   #  rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
-  #  rf_gene_repetition: number of time a gene can be used throughout set of rules
+  #  rf_gene_repetition: number of times a gene can be used throughout set of rules
   #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
   #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #
@@ -489,6 +489,7 @@ test_rf <- function(genex_df_test,
   test_pred <- test_results$predictions
   
   # pick the column with maximum probability
+  set.seed(1) # max.col randomly uses random selection in case of ties
   test_prediction_labels <- colnames(test_pred)[max.col(test_pred)]
   
   # create df with sample names and predicted labels
@@ -526,6 +527,7 @@ test_mm2s <- function(genex_df_test,
                     metadata_df = metadata_df_test)
   
   # convert genex_df gene names to from ENSEMBL to ENTREZID
+  # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
     dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
