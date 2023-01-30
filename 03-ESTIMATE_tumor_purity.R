@@ -84,15 +84,46 @@ estimate::estimateScore(input.ds = estimate_input_gct_filename,
                         output.ds = estimate_results_output_gct_filename,
                         platform = "affymetrix")
 
-# reshape ESTIMATE GCT file (wide format) into something tidy
+# reshape ESTIMATE GCT file into something tidy
+# https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats
+
+# There are four variables (Stromal, Immune, ESTIMATE, and tumor purity)
+#   associated with each observation (one sample) but GCT is an untidy format
+#   and we need to skip the first two metadata lines (version and data dimensions)
+
+# We need to convert from this:
+# #1.2
+# n_features       n_samples
+# NAME             Description    sample1 sample2
+# StromalScore     StromalScore   w1      w2
+# ImmuneScore      ImmuneScore    x1      x2
+# ESTIMATEScore    ESTIMATEScore  y1      y2
+# TumorPurity      TumorPurity    z1      z2
+
+# Into this (intermediate step):
+# NAME             sample_accession value
+# StromalScore     sample1          w1
+# ImmuneScore      sample1          x1
+# ESTIMATEScore    sample1          y1
+# TumorPurity      sample1          z1
+# StromalScore     sample2          w2
+# ImmuneScore      sample2          x2
+# ESTIMATEScore    sample2          y2
+# TumorPurity      sample2          z2
+
+# Into this (tidy format):
+# sample_accession StromalScore ImmuneScore ESTIMATEScore TumorPurity
+# sample1          w1           x1          y1            z1
+# sample2          w2           x2          y2            z2
+
 estimate_df <- readr::read_tsv(estimate_results_output_gct_filename,
                                show_col_types = FALSE,
                                skip = 2) %>% # skip two metadata lines
   dplyr::select(-Description) %>% # Description column is redundant
-  tidyr::pivot_longer(cols = -NAME,
+  tidyr::pivot_longer(cols = -NAME, #create a column of sample accessions
                       names_to = "sample_accession") %>%
-  tidyr::pivot_wider(names_from = NAME,
-                     values_from = value) %>%
+  tidyr::pivot_wider(names_from = NAME, # collect variables from each sample
+                     values_from = value) %>% # into a single row
   readr::write_tsv(file = estimate_results_output_filename)
 
 ################################################################################
