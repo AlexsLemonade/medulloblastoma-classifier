@@ -59,8 +59,10 @@ genex_df_SYMBOL <- genex_df %>%
                 !duplicated(SYMBOL),
                 !is.na(SYMBOL)) %>%
   dplyr::select(-ENSEMBL) %>%
-  dplyr::select(SYMBOL, tidyselect::everything()) %>%
-  readr::write_tsv(file = estimate_input_filename)
+  dplyr::select(SYMBOL, tidyselect::everything())
+
+readr::write_tsv(x = genex_df_SYMBOL,
+                 file = estimate_input_filename)
 
 # convert gene expression tsv to GCT file
 # filterCommonGenes reduces the input to only include genes used in ESTIMATE model 
@@ -123,8 +125,10 @@ estimate_df <- readr::read_tsv(estimate_results_output_gct_filename,
   tidyr::pivot_longer(cols = -NAME, #create a column of sample accessions
                       names_to = "sample_accession") %>%
   tidyr::pivot_wider(names_from = NAME, # collect variables from each sample
-                     values_from = value) %>% # into a single row
-  readr::write_tsv(file = estimate_results_output_filename)
+                     values_from = value) # into a single row
+
+readr::write_tsv(x = estimate_df,
+                 file = estimate_results_output_filename)
 
 ################################################################################
 # visualize results
