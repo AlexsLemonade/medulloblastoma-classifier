@@ -804,16 +804,12 @@ test_lasso <- function(genex_df_test,
   # do basic normalization: make each column sums to 1
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
-  # subgroups
-  lasso_subgroups <- row.names(classifier$glmnet.fit$a0)
-  
   # predict using LASSO classifier
   test_results <- predict(classifier,
                           t(genex_df_test),
                           s = classifier$lambda.1se,
-                          type = "response") %>%
+                          type = "response")[,,1] %>%
     as.data.frame() %>%
-    setNames(lasso_subgroups) %>%
     dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
     tibble::rownames_to_column(var = "sample_accession") %>%
     tibble::as_tibble()
