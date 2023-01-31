@@ -150,7 +150,7 @@ tumor_purity_plot_object <- estimate_metadata_plot_df %>%
                        height = 0,
                        width = 0.1,
                        show.legend = FALSE) +
-  ggplot2::facet_wrap(~ vars(platform))
+  ggplot2::facet_wrap(ggplot2::vars(platform))
 
 ggplot2::ggsave(filename = tumor_purity_plot_filename,
                 plot = tumor_purity_plot_object,
@@ -163,7 +163,7 @@ stromal_immune_plot_object <- estimate_metadata_plot_df %>%
                                y = ImmuneScore,
                                color = subgroup)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::facet_wrap(~ vars(platform))
+  ggplot2::facet_wrap(ggplot2::vars(platform))
 
 ggplot2::ggsave(filename = stromal_immune_plot_filename,
                 plot = stromal_immune_plot_object,
@@ -176,7 +176,7 @@ estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
                                y = TumorPurity,
                                color = subgroup)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::facet_wrap(~ vars(platform))
+  ggplot2::facet_wrap(ggplot2::vars(platform))
 
 ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
                 plot = estimate_score_tumor_purity_plot_object,
