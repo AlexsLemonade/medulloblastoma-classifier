@@ -365,6 +365,13 @@ test_mm2s <- function(genex_df_test,
                                        parallelize = 1,
                                        seed = model_seed)
 
+  # give MM2S_Subtype data frame structure if only one test sample
+  if(ncol(genex_df_test) == 1) {
+    
+    mm2s_predictions$MM2S_Subtype <- data.frame(as.list(mm2s_predictions$MM2S_Subtype))
+    
+  }
+  
   # modify MM2S predictions to fit this project's medulloblastoma subgroup names  
   test_results <- dplyr::bind_cols(mm2s_predictions$MM2S_Subtype,
                                    mm2s_predictions$Predictions) %>%
