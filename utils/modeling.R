@@ -718,6 +718,13 @@ test_mm2s <- function(genex_df_test,
                                        parallelize = 1,
                                        seed = model_seed)
 
+  # give MM2S_Subtype data frame structure if only one test sample
+  if(ncol(genex_df_test) == 1) {
+    
+    mm2s_predictions$MM2S_Subtype <- data.frame(as.list(mm2s_predictions$MM2S_Subtype))
+    
+  }
+  
   # modify MM2S predictions to fit this project's medulloblastoma subgroup names  
   test_results <- dplyr::bind_cols(mm2s_predictions$MM2S_Subtype,
                                    mm2s_predictions$Predictions) %>%
@@ -804,12 +811,16 @@ test_lasso <- function(genex_df_test,
   # do basic normalization: make each column sums to 1
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
   
+  # get model subgroup labels
+  lasso_subgroups <- row.names(classifier$glmnet.fit$a0)
+  
   # predict using LASSO classifier
   test_results <- predict(classifier,
                           t(genex_df_test),
                           s = classifier$lambda.1se,
-                          type = "response")[,,1] %>%
+                          type = "response") %>%
     as.data.frame() %>%
+    setNames(lasso_subgroups) %>%
     dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
     tibble::rownames_to_column(var = "sample_accession") %>%
     tibble::as_tibble()
