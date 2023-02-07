@@ -10,7 +10,8 @@ suppressMessages(library(tidyverse))
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
-source(file.path("utils", "single-cell.R"))
+utils_dir <- here::here("utils")
+source(file.path(utils_dir, "single-cell.R"))
 
 # Check that the pseudobulk SCE output directory exists
 if (!dir.exists(pseudobulk_sce_output_dir)) {
@@ -200,7 +201,7 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
                                               tibble::column_to_rownames(var = "X1"))
 
 # convert matrices to SingleCellExperiment objects and write to output files
-sce_list <- convert_to_sce(pseudobulk_expression_df_list, pseudobulk_sce_output_dir)
+sce_list <- convert_dataframe_list_to_sce(pseudobulk_expression_df_list, pseudobulk_sce_output_dir)
 
 # revert log transformed-TPM values back to original TPM values using equation 
 # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
