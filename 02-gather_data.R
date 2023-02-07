@@ -13,11 +13,6 @@ pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
 source(file.path(utils_dir, "single-cell.R"))
 
-# Check that the pseudobulk SCE output directory exists
-if (!dir.exists(pseudobulk_sce_output_dir)) {
-  dir.create(pseudobulk_sce_output_dir, recursive = TRUE)
-}
-
 ################################################################################
 # set input and output filepaths
 ################################################################################
