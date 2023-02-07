@@ -3,7 +3,7 @@
 # Chante Bethell
 # February 2023
 
-convert_to_sce <- function(df_list, results_dir) {
+convert_dataframe_list_to_sce <- function(df_list, results_dir) {
   # Purpose: Convert a list of data frame objects into SingleCellExperiment
   # objects and write to file
   
@@ -21,6 +21,17 @@ convert_to_sce <- function(df_list, results_dir) {
   
   # write each SingleCellExperiment object to file
   for (i in 1:length(output_filenames)) {
+    if (is.null(sce_list[[i]]) |
+        !(class(sce_list[[i]]) == "SingleCellExperiment")) {
+      stop(
+        glue::glue(
+          "There is at least one empty SingleCellExperiment object. For 
+          successful conversion, please ensure that the input for the following 
+          is an expression matrix with genes as rownames:
+          {names(sce_list)[[i]]}"
+        )
+      )
+    }
     write_rds(sce_list[[i]], file.path(results_dir, output_filenames[[i]]))
   }
   
