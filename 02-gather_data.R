@@ -195,14 +195,14 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
                                                               show_col_types = FALSE) %>%
                                               tibble::column_to_rownames(var = "X1"))
 
-# convert matrices to SingleCellExperiment objects and write to output files
-sce_list <- convert_dataframe_list_to_sce(pseudobulk_expression_df_list, pseudobulk_sce_output_dir)
-
 # revert log transformed-TPM values back to original TPM values using equation 
 # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
 # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
 tpm_df_list <- lapply(pseudobulk_expression_df_list,
                       function(x) 10*(2^x - 1))
+
+# convert matrices to SingleCellExperiment objects and write to output files
+sce_list <- convert_dataframe_list_to_sce(tpm_df_list, pseudobulk_sce_output_dir)
 
 # average the TPM values across cells for each data frame
 average_tpm_list <- lapply(tpm_df_list, rowMeans)
