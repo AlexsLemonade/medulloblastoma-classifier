@@ -24,6 +24,7 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'Biobase', \
     'BiocStyle', \
     'GSVA', \
+    'GenomicFeatures', \
     'GEOquery', \
     'leukemiasEset', \
     'switchBox'), \
@@ -31,11 +32,11 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     version = 3.16)"
 
 # R packages (R-forge)
-RUN install2.r --error --deps TRUE --repos http://r-forge.r-project.org \
+RUN install2.r --error --deps TRUE --repos https://r-forge.r-project.org \
     estimate
     
 # R packages (CRAN)
-RUN install2.r --error --deps TRUE --repos http://cran.r-project.org \
+RUN install2.r --error --deps TRUE --repos https://cran.r-project.org \
     caret \
     doParallel \
     glmnet \
