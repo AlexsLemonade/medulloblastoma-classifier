@@ -201,9 +201,6 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
 tpm_df_list <- lapply(pseudobulk_expression_df_list,
                       function(x) 10*(2^x - 1))
 
-# convert matrices to SingleCellExperiment objects and write to output files
-sce_list <- convert_dataframe_list_to_sce(tpm_df_list, pseudobulk_sce_output_dir)
-
 # average the TPM values across cells for each data frame
 average_tpm_list <- lapply(tpm_df_list, rowMeans)
 
@@ -225,3 +222,53 @@ pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix %>%
 # save matrix object
 readr::write_tsv(pseudobulk_matrix_ENSEMBL,
                  pseudobulk_genex_df_output_filepath)
+
+# convert matrices to SingleCellExperiment objects and write to output files
+sce_list <- convert_dataframe_list_to_sce(tpm_df_list, pseudobulk_sce_output_dir)
+
+# calculate UMAP results
+sce_list_umap <- purrr::map(sce_list, function(x) add_sce_umap(x))
+
+# perform clustering
+sce_list_clustered <- purrr::map(sce_list_umap, function(x) perform_graph_clustering(x))
+
+# define the names of the 3 funky samples, as well as one sample from each 
+# MB subgroup for testing
+sample_names_for_comparison <-
+  c("BCH825",
+    "Med2312FH",
+    "SJ625",
+    "BCH1205",
+    "BCH1031",
+    "MUV41",
+    "BCH807")
+
+# create plot list of UMAPs with cluster assignments for each defined sample
+plot_list <- purrr::map(sample_names_for_comparison, function(x)
+  scater::plotReducedDim(
+    sce_list_clustered[[x]],
+    dimred = "UMAP",
+    colour_by = "louvain_10",
+    text_by = "louvain_10",
+    text_size = 2,
+    point_size = 0.4,
+    point_alpha = 0.5,
+    
+  ) + theme_bw() +
+    labs(caption = paste0("louvain clustering with a nearest neighbours value of 10 for sample ",
+                          x)) +
+    theme(text = element_text(size = 6),
+          plot.caption = element_text(hjust = 0.5)) +
+    guides(col = guide_legend(
+      "Cluster assignment", override.aes = list(size = 0.5)
+    )))
+
+# use cowplot to combine plots and save as PDF
+pdf(file.path(pseudobulk_sce_output_dir, "pseudobulk_umap_plots.pdf"))
+cowplot::plot_grid(
+  plotlist = plot_list,
+  ncol = 2,
+  byrow = FALSE,
+  vjust = 0
+) 
+dev.off()
