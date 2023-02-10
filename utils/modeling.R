@@ -125,10 +125,10 @@ run_one_model <- function(type,
     ktsp_classifier <- train_ktsp(genex_df_train,
                                   metadata_df_train,
                                   model_seed,
-                                  ktsp_featureNo = 1000,
-                                  ktsp_n_rules_min = 5,
-                                  ktsp_n_rules_max = 50,
-                                  ktsp_weighted = TRUE)
+                                  ktsp_featureNo,
+                                  ktsp_n_rules_min,
+                                  ktsp_n_rules_max,
+                                  ktsp_weighted)
     
     ktsp_results <- test_ktsp(genex_df_test,
                               metadata_df_test,
