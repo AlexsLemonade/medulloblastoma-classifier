@@ -5,7 +5,7 @@ get_train_test_samples <- function(genex_df,
   
   # Split data into training and test sets. Data gets split at project level.
   # Some proportion of projects become "training", remainder becomes "test".
-  # Projects from different platforms (array, RNA-seq) split independently.
+  # Projects from different platforms (array, RNA-seq) are split separately.
   #
   # Inputs
   #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
@@ -73,23 +73,50 @@ run_one_model <- function(type,
                           metadata_df_train,
                           metadata_df_test,
                           model_seed,
-                          n_rules_min,
-                          n_rules_max,
-                          gene_map_df) {
+                          labels,
+                          ktsp_featureNo = 1000,
+                          ktsp_n_rules_min = 5,
+                          ktsp_n_rules_max = 50,
+                          ktsp_weighted = TRUE,
+                          rf_num.trees = 500,
+                          rf_genes_altogether = 50,
+                          rf_genes_one_vs_rest = 50,
+                          rf_gene_repetition = 1,
+                          rf_rules_altogether = 50,
+                          rf_rules_one_vs_rest = 50,
+                          rf_weighted = TRUE,
+                          mm2s_gene_map_df) {
   
   # Run a single model specified by the model type, input data, and parameters
   #
   # Inputs
-  #  type: model type, one of ktsp, rf, mm2s, or lasso
-  #  genex_df_train: gene expression matrix (train)
-  #  genex_df_test: gene expression matrix (test)
-  #  metadata_df_train: metadata data frame (train)
-  #  metadata_df_test: metadata data frame (test)
-  #  model_seed: seed re-used in each modeling step
-  #  n_rules_min: minimum number of rules allowed for kTSP modeling
-  #  n_rules_max: maximum number of rules allowed for kTSP modeling
-  #  gene_map_df: gene map used to convert MM2S gene names
+  #  type: model type, one of "ktsp", "rf", "mm2s", or "lasso"
+  #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_seed: seed used for reproducibility in training step
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
+  #  kTSP parameters:
+  #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #    ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #    ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #    ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  RF parameters:
+  #    rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
+  #    rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #    rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #    rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
+  #    rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  MM2S parameters:
+  #    mm2s_gene_map_df: gene map used to convert MM2S gene names
+  
+  
   # Outputs
   #  List of model elements, including the classifier, test results, and test confusion matrix
   
@@ -99,17 +126,20 @@ run_one_model <- function(type,
                                   metadata_df_train,
                                   model_seed,
                                   n_rules_min,
-                                  n_rules_max)
+                                  n_rules_max,
+                                  ktsp_featureNo = 1000,
+                                  ktsp_n_rules_min = 5,
+                                  ktsp_n_rules_max = 50,
+                                  ktsp_weighted = TRUE)
     
     ktsp_results <- test_ktsp(genex_df_test,
                               metadata_df_test,
                               ktsp_classifier,
-                              labels = c("G3", "G4", "SHH", "WNT"))
+                              labels)
     
     ktsp_cm <- calculate_confusion_matrix(ktsp_results$predicted_labels_df$predicted_labels,
                                           metadata_df_test$subgroup,
-                                          labels = c("G3", "G4", "SHH", "WNT"))
-    
+                                          labels)
     
     model <- list(classifier = ktsp_classifier,
                   test_results = ktsp_results,
@@ -119,7 +149,14 @@ run_one_model <- function(type,
     
     rf_classifier <- train_rf(genex_df_train,
                               metadata_df_train,
-                              model_seed)
+                              model_seed,
+                              rf_num.trees,
+                              rf_genes_altogether,
+                              rf_genes_one_vs_rest,
+                              rf_gene_repetition,
+                              rf_rules_altogether,
+                              rf_rules_one_vs_rest,
+                              rf_weighted)
     
     rf_results <- test_rf(genex_df_test,
                           metadata_df_test,
@@ -127,7 +164,7 @@ run_one_model <- function(type,
     
     rf_cm <- calculate_confusion_matrix(rf_results$predicted_labels_df$predicted_labels,
                                         metadata_df_test$subgroup,
-                                        labels = c("G3", "G4", "SHH", "WNT"))
+                                        labels)
     
     model <- list(classifier = rf_classifier,
                   test_results = rf_results,
@@ -138,7 +175,7 @@ run_one_model <- function(type,
     mm2s_results <- test_mm2s(genex_df_test,
                               metadata_df_test,
                               model_seed,
-                              gene_map_df)
+                              mm2s_gene_map_df)
     
     mm2s_cm <- calculate_confusion_matrix(mm2s_results$predicted_labels_df$predicted_labels,
                                           metadata_df_test$subgroup,
@@ -160,7 +197,7 @@ run_one_model <- function(type,
     
     lasso_cm <- calculate_confusion_matrix(lasso_results$predicted_labels_df$predicted_labels,
                                            metadata_df_test$subgroup,
-                                           labels = c("G3", "G4", "SHH", "WNT"))
+                                           labels)
     
     model <- list(classifier = lasso_classifier,
                   test_results = lasso_results,
@@ -168,7 +205,7 @@ run_one_model <- function(type,
     
   } else {
     
-    stop("Type of model must be ktsp, rf, mm2s, or lasso.")
+    stop("Type of model must be 'ktsp', 'rf', 'mm2s', or 'lasso'.")
     
   }
   
@@ -384,13 +421,13 @@ train_rf <- function(genex_df_train,
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used to generate additional modeling seeds for reproducibility
-  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features)
+  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
   #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
   #  rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
-  #  rf_gene_repetition: number of times a gene can be used throughout set of rules
+  #  rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
   #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
   #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
-  #  rf_weighted: logical, if TRUE use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #  rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Outputs
   #  Random Forest classifier object
@@ -544,7 +581,7 @@ test_rf <- function(genex_df_test,
 test_mm2s <- function(genex_df_test,
                       metadata_df_test,
                       model_seed = 4418,
-                      gene_map_df) {
+                      mm2s_gene_map_df) {
   
   # Test an MM2S model
   #
@@ -552,7 +589,7 @@ test_mm2s <- function(genex_df_test,
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in MM2S.human function
-  #  gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
+  #  mm2s_gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   #
   # Outputs
   #  List containing "predicted_labels" and "model_output" elements
@@ -567,7 +604,7 @@ test_mm2s <- function(genex_df_test,
   # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
+    dplyr::left_join(mm2s_gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
