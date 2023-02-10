@@ -9,6 +9,9 @@ suppressMessages(library(tidyverse))
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
+pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
+utils_dir <- here::here("utils")
+source(file.path(utils_dir, "single-cell.R"))
 
 ################################################################################
 # set input and output filepaths
@@ -197,6 +200,9 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
 # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
 tpm_df_list <- lapply(pseudobulk_expression_df_list,
                       function(x) 10*(2^x - 1))
+
+# convert matrices to SingleCellExperiment objects and write to output files
+sce_list <- convert_dataframe_list_to_sce(tpm_df_list, pseudobulk_sce_output_dir)
 
 # average the TPM values across cells for each data frame
 average_tpm_list <- lapply(tpm_df_list, rowMeans)
