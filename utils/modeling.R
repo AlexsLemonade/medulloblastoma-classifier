@@ -61,47 +61,42 @@ run_many_models <- function(genex_df,
     
   }
   
-  # n_repeats should be a positive integer <= 100
+  # n_repeats should be a positive integer
   if (n_repeats < 1 | round(n_repeats) != n_repeats) {
     
-    stop("n_repeats in run_models() should be a positive integer.")
+    stop("n_repeats in run_many_models() should be a positive integer.")
     
   }
   
   # n_cores should not exceed parallel::detectCores() - 1
   n_cores <- min(n_cores, parallel::detectCores() - 1)
   
-  # n_rules_min is required for ktsp and is only used in ktsp
+  # ktsp_n_rules_min is required for ktsp and is only used in ktsp
   if ("ktsp" %in% model_types) {
     
-    if (is.na(n_rules_min)) {
-      stop("n_rules_min in run_models() cannot be NA with ktsp model type.")
+    if (is.na(ktsp_n_rules_min)) {
+      stop("ktsp_n_rules_min in run_many_models() cannot be NA with ktsp model type.")
     }
     
     # ktsp should be a positive integer  
-    if (n_rules_min < 1 | round(n_rules_min) != n_rules_min) {
+    if (ktsp_n_rules_min < 1 | round(ktsp_n_rules_min) != ktsp_n_rules_min) {
       
-      stop("n_rules_min in run_models() should be a positive integer.")
+      stop("ktsp_n_rules_min in run_models() should be a positive integer.")
       
     }
     
-    # n_rules_max should be a positive integer and >= n_rules_min
-    # if n_rules_max is not given, set n_rules_max equal to n_rules_min
+    # n_rules_max should be a positive integer and >= ktsp_n_rules_min
+    # if n_rules_max is not given, set n_rules_max equal to ktsp_n_rules_min
     # this enables setting a specific number of rules for the model to use
-    if (is.na(n_rules_max)) {
+    if (is.na(ktsp_n_rules_max)) {
       
-      n_rules_max <- n_rules_min
+      ktsp_n_rules_max <- ktsp_n_rules_min
       
-    } else if (n_rules_max < 1 | round(n_rules_max) != n_rules_max) {
+    } else if (ktsp_n_rules_max < 1 | round(ktsp_n_rules_max) != ktsp_n_rules_max) {
       
-      stop("n_rules_max in run_models() should be NA or a positive integer.")
+      stop("ktsp_n_rules_max in run_many_models() should be NA or a positive integer.")
       
     }
-    
-  } else {
-    
-    n_rules_min <- NA
-    n_rules_max <- NA
     
   }
   
@@ -109,13 +104,13 @@ run_many_models <- function(genex_df,
   if ("mm2s" %in% model_types) {
     
     # set up gene name conversions    
-    gene_map_df <- readr::read_tsv(file.path("processed_data",
-                                             "gene_map.tsv"),
-                                   col_types = "c")
+    mm2s_gene_map_df <- readr::read_tsv(file.path("processed_data",
+                                                  "gene_map.tsv"),
+                                        col_types = "c")
     
   } else {
     
-    gene_map_df <- NULL
+    mm2s_gene_map_df <- NULL
     
   }
   
@@ -174,9 +169,19 @@ run_many_models <- function(genex_df,
                                                         metadata_df_train,
                                                         metadata_df_test,
                                                         modeling_seeds[n],
-                                                        n_rules_min,
-                                                        n_rules_max,
-                                                        gene_map_df))
+                                                        labels,
+                                                        ktsp_featureNo,
+                                                        ktsp_n_rules_min,
+                                                        ktsp_n_rules_max,
+                                                        ktsp_weighted,
+                                                        rf_num.trees,
+                                                        rf_genes_altogether,
+                                                        rf_genes_one_vs_rest,
+                                                        rf_gene_repetition,
+                                                        rf_rules_altogether,
+                                                        rf_rules_one_vs_rest,
+                                                        rf_weighted,
+                                                        mm2s_gene_map_df))
     
     # set names of each list element corresponding to model type
     names(repeat_list) <- model_types
@@ -323,7 +328,7 @@ run_one_model <- function(type,
     ktsp_classifier <- train_ktsp(genex_df_train,
                                   metadata_df_train,
                                   model_seed,
-                                  n_rules_min,
+                                  ktsp_n_rules_min,
                                   n_rules_max,
                                   ktsp_featureNo = 1000,
                                   ktsp_n_rules_min = 5,
