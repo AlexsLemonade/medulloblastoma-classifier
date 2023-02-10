@@ -6,25 +6,49 @@ run_many_models <- function(genex_df,
                             initial_seed = 44,
                             n_repeats = 1,
                             n_cores = 1,
-                            n_rules_min = 5,
-                            n_rules_max = NA) {
+                            labels,
+                            ktsp_featureNo = 1000,
+                            ktsp_n_rules_min = 5,
+                            ktsp_n_rules_max = 50,
+                            ktsp_weighted = TRUE,
+                            rf_num.trees = 500,
+                            rf_genes_altogether = 50,
+                            rf_genes_one_vs_rest = 50,
+                            rf_gene_repetition = 1,
+                            rf_rules_altogether = 50,
+                            rf_rules_one_vs_rest = 50,
+                            rf_weighted = TRUE) {
   
   # Wrapper function to run many modeling jobs in parallel. New train/test sets
   # are created for each repeat. The same train/test data is used for each model.
   #
   # Inputs
-  #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
-  #  metadata_df: metadata including sample accession, platform, study, and subgroup
-  #  model_types: vector of model types
-  #  initial_seed: seed used to set train/test seeds and modeling seeds
-  #  n_repeats: how many times to repeat each modeling type
-  #  n_cores: number of cores to use
-  #  n_rules_min: minimum number of rules allowed for kTSP modeling
-  #  n_rules_max: maximum number of rules allowed for kTSP modeling
+  #  genex_df: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
+  #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
+  #  n_repeats: how many times to repeat each modeling type (default: 1)
+  #  n_cores: number of cores to use (default: 1)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #
+  #  kTSP parameters:
+  #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #    ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #    ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #    ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  RF parameters:
+  #    rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
+  #    rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #    rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #    rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
+  #    rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Output
   #  Model list with levels for repeat number and model type
-  
+
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df,
                     metadata_df = metadata_df)
@@ -290,7 +314,6 @@ run_one_model <- function(type,
   #
   #  MM2S parameters:
   #    mm2s_gene_map_df: gene map used to convert MM2S gene names
-  
   
   # Outputs
   #  List of model elements, including the classifier, test results, and test confusion matrix
