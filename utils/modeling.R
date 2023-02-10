@@ -234,7 +234,8 @@ train_ktsp <- function(genex_df_train,
                        model_seed = 2988,
                        ktsp_featureNo = 1000,
                        ktsp_n_rules_min = 5,
-                       ktsp_n_rules_max = 50) {
+                       ktsp_n_rules_max = 50,
+                       ktsp_weighted = TRUE) {
   
   # Train a kTSP model
   #
@@ -245,6 +246,7 @@ train_ktsp <- function(genex_df_train,
   #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
   #  ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
   #  ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #  ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Outputs
   #  kTSP classifier object
@@ -252,14 +254,24 @@ train_ktsp <- function(genex_df_train,
   # Methodological choices
   #
   #  Filtering with multiclassPairs::filter_genes_TSP()
-  #    - "one_vs_one" filtering give more weight to smaller classes
-  #    - "platform_wise" (TRUE) filtering helps select genes relevant to each platform
   #    - "UpDown" (TRUE) considers an equal number of up and down regulated genes
+  #    - ktsp_weighted controls the following parameters:
+  #      - if ktsp_weighted = TRUE
+  #        - "filter" set to "one_vs_one", which gives more weight to smaller classes
+  #        - "platform_wise" set to TRUE, which helps select genes relevant to all platforms
+  #      - if ktsp_weighted = FALSE
+  #        - "filter" set to "one_vs_rest"
+  #        - "platform_wise" set to FALSE, which selects most relevant genes without considering relevance across platforms
   #
   #  Training kTSP with multiclassPairs::train_one_vs_rest_TSP()
   #    - "include_pivot" (FALSE) means only filtered features are used to make rules
-  #    - "one_vs_one_scores" (TRUE) gives more weight to small classes
-  #    - "platform_wise_scores" (TRUE) gives more weight to small platforms
+  #    - ktsp_weighted controls the following parameters:
+  #      - if ktsp_weighted = TRUE
+  #        - "one_vs_one_scores" set to TRUE, rule scores calculated as mean of one vs one comparisons (giving more weight to smaller classes)
+  #        - "platform_wise_scores" set to TRUE, rule scores calculated as mean of within-platform scores (which gives more weight to smaller platforms)
+  #      - if ktsp_weighted = FALSE
+  #        - "one_vs_one_scores" set to FALSE, rule scores calculated from one vs rest comparison
+  #        - "platform_wise_scores" set to TRUE, rule scores calculated without respect to platform
   #
   # More information on multiclassPairs R package
   #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
@@ -277,8 +289,8 @@ train_ktsp <- function(genex_df_train,
   
   # reduce genes to most useful features
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
-                                                      filter = "one_vs_one",
-                                                      platform_wise = TRUE,
+                                                      filter = ifelse(ktsp_weighted, "one_vs_one", "one_vs_rest"),
+                                                      platform_wise = ktsp_weighted,
                                                       featureNo = ktsp_featureNo,
                                                       UpDown = TRUE,
                                                       verbose = TRUE)
@@ -288,8 +300,8 @@ train_ktsp <- function(genex_df_train,
                                                        filtered_genes = filtered_genes,
                                                        k_range = ktsp_n_rules_min:ktsp_n_rules_max,
                                                        include_pivot = FALSE,
-                                                       one_vs_one_scores = TRUE,
-                                                       platform_wise_scores = TRUE,
+                                                       one_vs_one_scores = ktsp_weighted,
+                                                       platform_wise_scores = ktsp_weighted,
                                                        seed = model_seed,
                                                        verbose = TRUE)
   
@@ -363,7 +375,8 @@ train_rf <- function(genex_df_train,
                      rf_genes_one_vs_rest = 50,
                      rf_gene_repetition = 1,
                      rf_rules_altogether = 50,
-                     rf_rules_one_vs_rest = 50) {
+                     rf_rules_one_vs_rest = 50,
+                     rf_weighted = TRUE) {
   
   # Train a Random Forest model
   #
@@ -377,6 +390,7 @@ train_rf <- function(genex_df_train,
   #  rf_gene_repetition: number of times a gene can be used throughout set of rules
   #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
   #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #  rf_weighted: logical, if TRUE use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Outputs
   #  Random Forest classifier object
@@ -385,14 +399,33 @@ train_rf <- function(genex_df_train,
   #
   #  Sorting genes with multiclassPairs::sort_genes_RF()
   #    - "rank_data" (TRUE) within each sample because we assume data are not normalized
-  #    - "platform_wise" (TRUE) favors genes that are important on every platform
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE (default)
+  #        - "featureNo_one_vs_rest" set to number of genes (return all genes, sorted)
+  #        - "platform_wise" set to TRUE, which favors genes that are important across all platforms
+  #      - if rf_weighted = FALSE
+  #        - "featureNo_one_vs_rest" set to 0 (do not do one vs rest comparison)
+  #        - "platform_wise" set to FALSE, which does not account platform in sorting genes
   #
   #  Sorting rules with multiclassPairs::sort_rules_RF()
-  #    - "platform_wise" (TRUE) favors rules that are important on every platform
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE
+  #        - "genes_one_vs_rest" set by rf_genes_one_vs_rest parameter
+  #        - "run_one_vs_rest" set to TRUE, which sorts rules based on importance within each class
+  #        - "platform_wise" set to TRUE, which favors rules that are important on every platform
+  #      - if rf_weighted = FALSE
+  #        - "genes_one_vs_rest" set to 0 (do not do one vs rest comparison)
+  #        - "run_one_vs_rest" set to FALSE, which sorts rules based on overall importance
+  #        - "platform_wise" set to FALSE, which does not account for platform when sorting rules
   #
   #  Training RF model with multiclassPairs::train_RF()
   #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
   #    - "probability" (TRUE) allows test data to get scores for each class
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE
+  #        - "rules_one_vs_rest" set by rf_rules_one_vs_rest parameter
+  #      - if rf_weighted = FALSE
+  #        - "rules_one_vs_rest" set to 0 (do not use rules from one vs rest comparison)
   #
   # More information on multiclassPairs R package
   #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
@@ -413,9 +446,11 @@ train_rf <- function(genex_df_train,
                                                  verbose = TRUE)
   
   # identify top genes used downstream
+  n_complete_genes <- sum(complete.cases(train_data_object$data$Data))
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
+                                          featureNo_one_vs_rest = ifelse(rf_weighted, n_complete_genes, 0),
                                           rank_data = TRUE,
-                                          platform_wise = TRUE,
+                                          platform_wise = rf_weighted,
                                           num.trees = rf_num.trees,
                                           seed = seeds[1],
                                           verbose = TRUE)
@@ -424,8 +459,10 @@ train_rf <- function(genex_df_train,
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                           sorted_genes_RF = genes,
                                           genes_altogether = rf_genes_altogether,
-                                          genes_one_vs_rest = rf_genes_one_vs_rest,
-                                          platform_wise = TRUE,
+                                          genes_one_vs_rest = ifelse(rf_weighted, rf_genes_one_vs_rest, 0),
+                                          run_altogether = TRUE, # default
+                                          run_one_vs_rest = rf_weighted,
+                                          platform_wise = rf_weighted,
                                           num.trees = rf_num.trees,
                                           seed = seeds[2],
                                           verbose = TRUE)
@@ -435,7 +472,7 @@ train_rf <- function(genex_df_train,
                                           sorted_rules_RF = rules,
                                           gene_repetition = rf_gene_repetition,
                                           rules_altogether = rf_rules_altogether,
-                                          rules_one_vs_rest = rf_rules_one_vs_rest,
+                                          rules_one_vs_rest = ifelse(rf_weighted, rf_rules_one_vs_rest, 0),
                                           run_boruta = TRUE,
                                           probability = TRUE,
                                           num.trees = rf_num.trees,
