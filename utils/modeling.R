@@ -212,13 +212,23 @@ get_train_test_samples <- function(genex_df,
   # Projects from different platforms (array, RNA-seq) are split separately.
   #
   # Inputs
-  #  genex_df: genes x samples matrix (not segregated by train/test, etc.)
-  #  metadata_df: metadata including sample accession, platform, study, and subgroup
+  #  genex_df: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  train_test_seed: seed used for reproducibility given same input data
   #  proportion_of_studies_train: proportion of studies used as training data
   #
   # Outputs
   #  List of samples used for "train" and "test" sets
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df,
+                    metadata_df = metadata_df)
+  
+  # check proportion_of_studies_train is numeric and 0 < p < 1
+  if (!is.numeric(proportion_of_studies_train) | 
+      proportion_of_studies_train < 0 | proportion_of_studies_train > 1) {
+    stop("proportion_of_studies_train must be numeric and in the range [0,1]")
+  }
   
   set.seed(train_test_seed)
   
