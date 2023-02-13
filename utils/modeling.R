@@ -234,8 +234,8 @@ check_input_files <- function(genex_df,
   #  None (function calls 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
-  if (!all(c("sample_accession", "subgroup", "platform") %in% names(metadata_df))) {
-    stop("Metadata file must include sample_accession, subgroup, and platform columns")
+  if (!all(c("sample_accession", "study", "subgroup", "platform") %in% names(metadata_df))) {
+    stop("Metadata file must include sample_accession, study, subgroup, and platform columns")
   }
   
   # Check that the number of samples matches from gene expression and metadata
