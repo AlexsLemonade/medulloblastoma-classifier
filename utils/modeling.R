@@ -95,7 +95,7 @@ run_one_model <- function(type,
                           rf_rules_altogether = 50,
                           rf_rules_one_vs_rest = 50,
                           rf_weighted = TRUE,
-                          mm2s_gene_map_df) {
+                          mm2s_gene_map_df = NULL) {
   
   # Run a single model specified by the model type, input data, and parameters
   #
@@ -130,24 +130,30 @@ run_one_model <- function(type,
   # Outputs
   #  List of model elements, including the classifier, test results, and test confusion matrix
   
+  if (type == "mm2s" & is.null(mm2s_gene_map_df)) {
+    
+    stop("Gene map parameter mm2s_gene_map_df must be specified when running MM2S model in run_one_model().")
+    
+  }
+  
   if (type == "ktsp") {
     
-    ktsp_classifier <- train_ktsp(genex_df_train,
-                                  metadata_df_train,
-                                  model_seed,
-                                  ktsp_featureNo,
-                                  ktsp_n_rules_min,
-                                  ktsp_n_rules_max,
-                                  ktsp_weighted)
+    ktsp_classifier <- train_ktsp(genex_df_train = genex_df_train,
+                                  metadata_df_train = metadata_df_train,
+                                  model_seed = model_seed,
+                                  ktsp_featureNo = ktsp_featureNo,
+                                  ktsp_n_rules_min = ktsp_n_rules_min,
+                                  ktsp_n_rules_max = ktsp_n_rules_max,
+                                  ktsp_weighted = ktsp_weighted)
     
-    ktsp_results <- test_ktsp(genex_df_test,
-                              metadata_df_test,
-                              ktsp_classifier,
-                              labels)
+    ktsp_results <- test_ktsp(genex_df_test = genex_df_test,
+                              metadata_df_test = metadata_df_test,
+                              classifier = ktsp_classifier,
+                              labels = labels)
     
-    ktsp_cm <- calculate_confusion_matrix(ktsp_results$predicted_labels_df$predicted_labels,
-                                          metadata_df_test$subgroup,
-                                          labels)
+    ktsp_cm <- calculate_confusion_matrix(predicted_labels = ktsp_results$predicted_labels_df$predicted_labels,
+                                          true_labels = metadata_df_test$subgroup,
+                                          labels = labels)
     
     model <- list(classifier = ktsp_classifier,
                   test_results = ktsp_results,
@@ -155,24 +161,24 @@ run_one_model <- function(type,
     
   } else if (type == "rf") {
     
-    rf_classifier <- train_rf(genex_df_train,
-                              metadata_df_train,
-                              model_seed,
-                              rf_num.trees,
-                              rf_genes_altogether,
-                              rf_genes_one_vs_rest,
-                              rf_gene_repetition,
-                              rf_rules_altogether,
-                              rf_rules_one_vs_rest,
-                              rf_weighted)
+    rf_classifier <- train_rf(genex_df_train = genex_df_train,
+                              metadata_df_train = metadata_df_train,
+                              model_seed = model_seed,
+                              rf_num.trees = rf_num.trees,
+                              rf_genes_altogether = rf_genes_altogether,
+                              rf_genes_one_vs_rest = rf_genes_one_vs_rest,
+                              rf_gene_repetition = rf_gene_repetition,
+                              rf_rules_altogether = rf_rules_altogether,
+                              rf_rules_one_vs_rest = rf_rules_one_vs_rest,
+                              rf_weighted = rf_weighted)
     
-    rf_results <- test_rf(genex_df_test,
-                          metadata_df_test,
-                          rf_classifier)
+    rf_results <- test_rf(genex_df_test = genex_df_test,
+                          metadata_df_test = metadata_df_test,
+                          classifier = rf_classifier)
     
-    rf_cm <- calculate_confusion_matrix(rf_results$predicted_labels_df$predicted_labels,
-                                        metadata_df_test$subgroup,
-                                        labels)
+    rf_cm <- calculate_confusion_matrix(predicted_labels = rf_results$predicted_labels_df$predicted_labels,
+                                        true_labels = metadata_df_test$subgroup,
+                                        labels = labels)
     
     model <- list(classifier = rf_classifier,
                   test_results = rf_results,
@@ -180,13 +186,13 @@ run_one_model <- function(type,
     
   } else if (type == "mm2s") {
     
-    mm2s_results <- test_mm2s(genex_df_test,
-                              metadata_df_test,
-                              model_seed,
-                              mm2s_gene_map_df)
+    mm2s_results <- test_mm2s(genex_df_test = genex_df_test,
+                              metadata_df_test = metadata_df_test,
+                              model_seed = model_seed,
+                              gene_map_df = mm2s_gene_map_df)
     
-    mm2s_cm <- calculate_confusion_matrix(mm2s_results$predicted_labels_df$predicted_labels,
-                                          metadata_df_test$subgroup,
+    mm2s_cm <- calculate_confusion_matrix(predicted_labels = mm2s_results$predicted_labels_df$predicted_labels,
+                                          true_labels = metadata_df_test$subgroup,
                                           labels = c("G3", "G4", "NORMAL", "SHH", "WNT"))
     
     model <- list(test_results = mm2s_results,
@@ -195,17 +201,17 @@ run_one_model <- function(type,
   } else if (type == "lasso") {
     
     
-    lasso_classifier <- train_lasso(genex_df_train,
-                                    metadata_df_train,
-                                    model_seed)
+    lasso_classifier <- train_lasso(genex_df_train = genex_df_train,
+                                    metadata_df_train = metadata_df_train,
+                                    model_seed = model_seed)
     
-    lasso_results <- test_lasso(genex_df_test,
-                                metadata_df_test,
-                                lasso_classifier)
+    lasso_results <- test_lasso(genex_df_test = genex_df_test,
+                                metadata_df_test = metadata_df_test,
+                                classifier = lasso_classifier)
     
-    lasso_cm <- calculate_confusion_matrix(lasso_results$predicted_labels_df$predicted_labels,
-                                           metadata_df_test$subgroup,
-                                           labels)
+    lasso_cm <- calculate_confusion_matrix(predicted_labels = lasso_results$predicted_labels_df$predicted_labels,
+                                           true_labels = metadata_df_test$subgroup,
+                                           labels = labels)
     
     model <- list(classifier = lasso_classifier,
                   test_results = lasso_results,
@@ -589,7 +595,7 @@ test_rf <- function(genex_df_test,
 test_mm2s <- function(genex_df_test,
                       metadata_df_test,
                       model_seed = 4418,
-                      mm2s_gene_map_df) {
+                      gene_map_df) {
   
   # Test an MM2S model
   #
@@ -597,7 +603,7 @@ test_mm2s <- function(genex_df_test,
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in MM2S.human function
-  #  mm2s_gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
+  #  gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   #
   # Outputs
   #  List containing "predicted_labels" and "model_output" elements
@@ -612,7 +618,7 @@ test_mm2s <- function(genex_df_test,
   # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
   genex_df_test_ENTREZID <- genex_df_test %>%
     tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(mm2s_gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
+    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
                      by = "ENSEMBL") %>%
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
