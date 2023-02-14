@@ -16,16 +16,18 @@ convert_dataframe_list_to_sce <- function(df_list) {
   sce_list <- lapply(df_list, function(x) SingleCellExperiment::SingleCellExperiment(assays=list(counts=x)))
   
   # write each SingleCellExperiment object to file
-  if (is.null(sce_list[[i]]) |
-      !("SingleCellExperiment" %in% class(sce_list[[i]]))) {
-    stop(
-      glue::glue(
-        "SingleCellExperiment object conversion failed (result is NULL or is not a SingleCellExperiment). For
+  for (i in 1:length(sce_list)) {
+    if (is.null(sce_list[[i]]) |
+        !("SingleCellExperiment" %in% class(sce_list[[i]]))) {
+      stop(
+        glue::glue(
+          "SingleCellExperiment object conversion failed (result is NULL or is not a SingleCellExperiment). For
           successful conversion, please ensure that the input for the following sample
           is an expression matrix with genes as rownames:
           {names(sce_list)[[i]]}"
+        )
       )
-    )
+    }
   }
   return(sce_list)
 }
