@@ -15,6 +15,17 @@ get_train_test_samples <- function(genex_df,
   #
   # Outputs
   #  List of samples used for "train" and "test" sets
+  #
+  # Methodological choices
+  #
+  #  When determining the number of studies allocated to train and test sets,
+  #  sometimes the number of studies is not a whole number. In that case, we use
+  #  the ceiling() function to round up on the number of studies allocated to
+  #  the training set, which necessarily rounds down the number of test studies.
+  #  For example, with 3 RNA-seq studies and a 50% split for train and test,
+  #  ceiling(3*0.5) = ceiling(1.5) = 2 studies are allocated to training, while
+  #  3 - 2 = 1 study is allocated to testing. Note: ceiling() always rounds up,
+  #  to the next whole number, not necessarily to the nearest whole number.
   
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df,
@@ -47,6 +58,7 @@ get_train_test_samples <- function(genex_df,
   n_rnaseq_studies <- length(rnaseq_studies)
   
   # Set number of training studies according to training proportion
+  # ceiling() rounds the number of training studies up to the next whole number
   n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
   n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
   
