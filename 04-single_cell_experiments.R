@@ -6,31 +6,23 @@
 
 suppressMessages(library(tidyverse))
 
-data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
-pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
+pseudobulk_sce_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
+pseudobulk_metadata_input_filepath <- file.path(processed_data_dir,
+                                                "pseudobulk_metadata.tsv")
 source(file.path(utils_dir, "single-cell.R"))
 
 # read in pseudo-bulk metadata file
 pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
                                        show_col_types = FALSE)
 
-# grab the names of the individual expression files
-pseudobulk_expression_files <- file.path(data_dir, 
-                                         "GSE119926", 
-                                         str_c(pseudobulk_metadata$sample_accession, 
-                                               "_", pseudobulk_metadata$title, ".txt.gz"))
-names(pseudobulk_expression_files) <- pseudobulk_metadata$title
+# read in individual SCE objects
+pseudobulk_sce_list <- purrr::map(pseudobulk_metadata$title,
+                                  function(x)
+                                  readr::read_rds(file.path(pseudobulk_sce_dir, paste0(x, "_sce.rds"))))
 
-# read in individual expression files
-pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
-                                            function(x)
-                                              readr::read_tsv(x,
-                                                              skip = 1,
-                                                              col_names = FALSE,
-                                                              show_col_types = FALSE) %>%
-                                              tibble::column_to_rownames(var = "X1"))
+names(pseudobulk_sce_list) <- pseudobulk_metadata$title
 
 # define the names of the 3 funky samples, as well as one sample from each 
 # MB subgroup for testing
@@ -46,7 +38,7 @@ sample_names_for_comparison <-
 # create plot list of UMAPs with cluster assignments for each defined sample
 plot_list <- purrr::map(sample_names_for_comparison, function(x)
   scater::plotReducedDim(
-    sce_list_clustered[[x]],
+    pseudobulk_sce_list[[x]],
     dimred = "UMAP",
     colour_by = "louvain_10",
     text_by = "louvain_10",
@@ -64,7 +56,7 @@ plot_list <- purrr::map(sample_names_for_comparison, function(x)
     )))
 
 # use cowplot to combine plots and save as PDF
-pdf(file.path(pseudobulk_sce_output_dir, "pseudobulk_umap_plots.pdf"))
+pdf(file.path(pseudobulk_sce_dir, "pseudobulk_umap_plots.pdf"))
 cowplot::plot_grid(
   plotlist = plot_list,
   ncol = 2,
