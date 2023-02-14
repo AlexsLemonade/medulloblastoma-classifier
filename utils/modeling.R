@@ -307,7 +307,7 @@ train_ktsp <- function(genex_df_train,
   #  Filtering with multiclassPairs::filter_genes_TSP()
   #    - "UpDown" (TRUE) considers an equal number of up and down regulated genes
   #    - ktsp_weighted controls the following parameters:
-  #      - if ktsp_weighted = TRUE
+  #      - if ktsp_weighted = TRUE (default)
   #        - "filter" set to "one_vs_one", which gives more weight to smaller classes
   #        - "platform_wise" set to TRUE, which helps select genes relevant to all platforms
   #      - if ktsp_weighted = FALSE
@@ -317,12 +317,12 @@ train_ktsp <- function(genex_df_train,
   #  Training kTSP with multiclassPairs::train_one_vs_rest_TSP()
   #    - "include_pivot" (FALSE) means only filtered features are used to make rules
   #    - ktsp_weighted controls the following parameters:
-  #      - if ktsp_weighted = TRUE
+  #      - if ktsp_weighted = TRUE (default)
   #        - "one_vs_one_scores" set to TRUE, rule scores calculated as mean of one vs one comparisons (giving more weight to smaller classes)
   #        - "platform_wise_scores" set to TRUE, rule scores calculated as mean of within-platform scores (which gives more weight to smaller platforms)
   #      - if ktsp_weighted = FALSE
   #        - "one_vs_one_scores" set to FALSE, rule scores calculated from one vs rest comparison
-  #        - "platform_wise_scores" set to TRUE, rule scores calculated without respect to platform
+  #        - "platform_wise_scores" set to FALSE, rule scores calculated without respect to platform
   #
   # More information on multiclassPairs R package
   #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
@@ -460,7 +460,7 @@ train_rf <- function(genex_df_train,
   #
   #  Sorting rules with multiclassPairs::sort_rules_RF()
   #    - rf_weighted controls the following parameters:
-  #      - if rf_weighted = TRUE
+  #      - if rf_weighted = TRUE (default)
   #        - "genes_one_vs_rest" set by rf_genes_one_vs_rest parameter
   #        - "run_one_vs_rest" set to TRUE, which sorts rules based on importance within each class
   #        - "platform_wise" set to TRUE, which favors rules that are important on every platform
@@ -473,7 +473,7 @@ train_rf <- function(genex_df_train,
   #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
   #    - "probability" (TRUE) allows test data to get scores for each class
   #    - rf_weighted controls the following parameters:
-  #      - if rf_weighted = TRUE
+  #      - if rf_weighted = TRUE (default)
   #        - "rules_one_vs_rest" set by rf_rules_one_vs_rest parameter
   #      - if rf_weighted = FALSE
   #        - "rules_one_vs_rest" set to 0 (do not use rules from one vs rest comparison)
