@@ -23,10 +23,13 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
     'AnnotationHub', \
     'Biobase', \
     'BiocStyle', \
+    'bluster', \
     'GSVA', \
     'GenomicFeatures', \
     'GEOquery', \
     'leukemiasEset', \
+    'scater', \
+    'scran', \
     'switchBox'), \
     update = FALSE, \
     version = 3.16)"
