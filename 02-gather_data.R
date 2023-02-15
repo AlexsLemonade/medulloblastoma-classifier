@@ -201,9 +201,6 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
 tpm_df_list <- lapply(pseudobulk_expression_df_list,
                       function(x) 10*(2^x - 1))
 
-# convert matrices to SingleCellExperiment objects and write to output files
-sce_list <- convert_dataframe_list_to_sce(tpm_df_list, pseudobulk_sce_output_dir)
-
 # average the TPM values across cells for each data frame
 average_tpm_list <- lapply(tpm_df_list, rowMeans)
 
@@ -225,3 +222,21 @@ pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix %>%
 # save matrix object
 readr::write_tsv(pseudobulk_matrix_ENSEMBL,
                  pseudobulk_genex_df_output_filepath)
+
+# convert matrices to SingleCellExperiment objects
+sce_list <- convert_dataframe_list_to_sce(tpm_df_list)
+
+# calculate UMAP results
+sce_list_umap <- purrr::map(sce_list, function(x) add_sce_umap(x))
+
+# perform clustering
+sce_list_clustered <- purrr::map(sce_list_umap, function(x) perform_graph_clustering(x))
+
+# define output file names for SCE objects
+output_filenames <- paste0(names(sce_list_clustered), "_sce.rds")
+
+# write SCE objects to file
+for (i in 1:length(sce_list_clustered)) {
+  readr::write_rds(sce_list_clustered[[i]],
+                   file.path(pseudobulk_sce_output_dir, output_filenames[[i]]))
+}
