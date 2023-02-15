@@ -1,4 +1,4 @@
-# Functions to convert expression counts to TPM (transcripts per million) values
+# Functions to convert gene expression counts to TPM (transcripts per million) values
 #
 # Steven Foltz
 # February 2023
@@ -8,12 +8,11 @@
 # St. Jude RNA-seq workflow v2.0.0 https://stjudecloud.github.io/rfcs/0001-rnaseq-workflow-v2.0.0.html
 # which uses htseq-count with https://www.gencodegenes.org/human/release_31.html to create gene level counts.
 # One approach to deriving gene lengths: https://www.biostars.org/p/83901/
+# Description of TPM values: https://www.rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/
 
 # put up top in 02-gather_data.R
 gencode_annotation_gtf_filepath <- file.path(data_dir, "GENCODE", "gencode.v31.annotation.gtf.gz")
 GENCODE_gene_length_filepath <- file.path(data_dir, "GENCODE", "GENCODE_gene_lengths.tsv")
-
-
 
 get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath) {
   # If a GENCODE gene length file does not already exist, create one using GTF
@@ -81,7 +80,7 @@ convert_gene_counts_to_TPM <- function(genex_df, gene_lengths_df){
   # reduce gene expression df to those genes with a known length
   genex_df <- genex_df[rownames(genex_df) %in% gene_length_df$ENSEMBL,]
   
-  # reorder gene_length_df genes to match genex_df
+  # harmonize the order of genes and pull out a vector gene lengths
   gene_length_vector <- tibble::tibble(genex_genes = rownames(genex_df)) %>%
     dplyr::left_join(gene_length_df,
                      by = c("genex_genes" = "ENSEMBL")) %>%
