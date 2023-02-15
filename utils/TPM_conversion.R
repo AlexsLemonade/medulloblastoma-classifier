@@ -10,10 +10,6 @@
 # One approach to deriving gene lengths: https://www.biostars.org/p/83901/
 # Description of TPM values: https://www.rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/
 
-# put up top in 02-gather_data.R
-gencode_annotation_gtf_filepath <- file.path(data_dir, "GENCODE", "gencode.v31.annotation.gtf.gz")
-GENCODE_gene_length_filepath <- file.path(data_dir, "GENCODE", "GENCODE_gene_lengths.tsv")
-
 get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath) {
   # If a GENCODE gene length file does not already exist, create one using GTF
   # 
