@@ -11,7 +11,9 @@ data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
+
 source(file.path(utils_dir, "single-cell.R"))
+source(file.path(utils_dir, "TPM_conversion.R"))
 
 ################################################################################
 # set input and output filepaths
