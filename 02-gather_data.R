@@ -144,6 +144,9 @@ genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya
 
 ### St. Jude
 
+GENCODE_gene_length_df <- get_GENCODE_gene_lengths(gtf_filepath = gencode_annotation_gtf_filepath,
+                                                   GENCODE_gene_length_filepath = GENCODE_gene_length_filepath)
+
 genex_data_list[["St. Jude"]] <- bulk_metadata %>%
   dplyr::filter(study == "St. Jude") %>%
   dplyr::pull(sample_accession) %>%
@@ -160,7 +163,7 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
                 !is.na(ENSEMBL)) %>%
   dplyr::select(-SYMBOL) %>%
   tibble::column_to_rownames(var = "ENSEMBL") %>%
-  
+  convert_gene_counts_to_TPM(gene_lengths_df = GENCODE_gene_length_df)
 
 ################################################################################
 # combine the list
