@@ -26,7 +26,7 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath)
     message(glue::glue(c(GENCODE_gene_length_filepath),
                        " already exists and will not be re-created."))
     
-    GENCODE_gene_length_df <- readr::read_tsv(GENCODE_gene_length_filepath,
+    GENCODE_gene_lengths_df <- readr::read_tsv(GENCODE_gene_length_filepath,
                                               show_col_types = FALSE)
     
   } else {
@@ -48,7 +48,7 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath)
     # Some ENSEMBLE IDs have a version like .20_PAR_Y,
     #   which all have duplicate ENSGs that have regular versions like .20,
     #   so we can drop PAR_Y versions and keep regular versions to avoid multi-mapping ENSGs
-    GENCODE_gene_length_df <- dplyr::tibble(ENSEMBL_with_version = names(exonic.gene.sizes),
+    GENCODE_gene_lengths_df <- dplyr::tibble(ENSEMBL_with_version = names(exonic.gene.sizes),
                                             gene_length = as.vector(exonic.gene.sizes)) %>%
       tidyr::separate(ENSEMBL_with_version,
                       into = c("ENSEMBL", "version"),
@@ -58,7 +58,7 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath)
     
   }
   
-  return(GENCODE_gene_length_df)
+  return(GENCODE_gene_lengths_df)
 
 }
 
@@ -74,11 +74,11 @@ convert_gene_counts_to_TPM <- function(genex_df, gene_lengths_df){
   #   Returns a gene expression matrix with TPM values
   
   # reduce gene expression df to those genes with a known length
-  genex_df <- genex_df[rownames(genex_df) %in% gene_length_df$ENSEMBL,]
+  genex_df <- genex_df[rownames(genex_df) %in% gene_lengths_df$ENSEMBL,]
   
   # harmonize the order of genes and pull out a vector gene lengths
   gene_length_vector <- tibble::tibble(genex_genes = rownames(genex_df)) %>%
-    dplyr::left_join(gene_length_df,
+    dplyr::left_join(gene_lengths_df,
                      by = c("genex_genes" = "ENSEMBL")) %>%
     pull(gene_length)
   
