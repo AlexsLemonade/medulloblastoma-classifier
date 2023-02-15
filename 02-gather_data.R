@@ -37,6 +37,12 @@ OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
 gene_map_input_filepath <- file.path(processed_data_dir,
                                      "gene_map.tsv")
 
+# GENCODE annotations for St. Jude RNA-seq counts to TPM conversion
+gencode_annotation_gtf_filepath <- file.path(data_dir, "GENCODE",
+                                             "gencode.v31.annotation.gtf.gz")
+GENCODE_gene_length_filepath <- file.path(data_dir, "GENCODE",
+                                          "GENCODE_gene_lengths.tsv")
+
 # genex outputs
 bulk_genex_df_output_filepath <- file.path(processed_data_dir,
                                       "bulk_genex.tsv")
@@ -153,7 +159,8 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
                 !duplicated(ENSEMBL),
                 !is.na(ENSEMBL)) %>%
   dplyr::select(-SYMBOL) %>%
-  tibble::column_to_rownames(var = "ENSEMBL")
+  tibble::column_to_rownames(var = "ENSEMBL") %>%
+  
 
 ################################################################################
 # combine the list
