@@ -10,23 +10,23 @@
 # One approach to deriving gene lengths: https://www.biostars.org/p/83901/
 # Description of TPM values: https://www.rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/
 
-get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath) {
+get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath) {
   # If a GENCODE gene length file does not already exist, create one using GTF
   # 
   # Inputs
   #   gtf_filepath: file path to GTF file (can be .gz)
-  #   GENCODE_gene_length_filepath: GENCODE gene length file path to read from or write to
+  #   GENCODE_gene_lengths_filepath: GENCODE gene length file path to read from or write to
   #
   # Outputs
   #   Returns a GENCODE gene length data frame
-  #   May write GENCODE gene length data frame to GENCODE_gene_length_filepath
+  #   May write GENCODE gene length data frame to GENCODE_gene_lengths_filepath
   
-  if (file.exists(GENCODE_gene_length_filepath) ) {
+  if (file.exists(GENCODE_gene_lengths_filepath) ) {
     
-    message(glue::glue(c(GENCODE_gene_length_filepath),
+    message(glue::glue(c(GENCODE_gene_lengths_filepath),
                        " already exists and will not be re-created."))
     
-    GENCODE_gene_lengths_df <- readr::read_tsv(GENCODE_gene_length_filepath,
+    GENCODE_gene_lengths_df <- readr::read_tsv(GENCODE_gene_lengths_filepath,
                                               show_col_types = FALSE)
     
   } else {
@@ -54,7 +54,7 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_length_filepath)
                       into = c("ENSEMBL", "version"),
                       sep = "\\.") %>%
       filter(!stringr::str_detect(version, "_PAR_Y")) %>% # remove Y paralogs
-      readr::write_tsv(file = GENCODE_gene_length_filepath)    
+      readr::write_tsv(file = GENCODE_gene_lengths_filepath)    
     
   }
   
@@ -95,7 +95,7 @@ convert_gene_counts_to_TPM <- function(genex_df, gene_lengths_df){
   
   # divide the values in each row by the corresponding scaling factor
   # transpose back to get genes x samples shape
-  tpm_df <- t(apply(reads_per_kilobase_df, 1, function(x) x/per_million_scaling_factor))
+  tpm_df <- as.data.frame(t(apply(reads_per_kilobase_df, 1, function(x) x/per_million_scaling_factor)))
   
   return(tpm_df)
   
