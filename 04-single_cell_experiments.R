@@ -55,12 +55,8 @@ plot_list <- purrr::map(sample_names_for_comparison, function(x)
       "Cluster assignment", override.aes = list(size = 0.5)
     )))
 
-# use cowplot to combine plots and save as PDF
-pdf(file.path(pseudobulk_sce_dir, "pseudobulk_umap_plots.pdf"))
-cowplot::plot_grid(
-  plotlist = plot_list,
-  ncol = 2,
-  byrow = FALSE,
-  vjust = 0
-) 
-dev.off()
+# use patchwork to combine plots and save as PDF
+ggplot2::ggsave(
+  filename = file.path(pseudobulk_sce_dir, "pseudobulk_umap_plots.patchwork.pdf"),
+  plot = patchwork::wrap_plots(plot_list, ncol = 2, byrow = FALSE)
+)

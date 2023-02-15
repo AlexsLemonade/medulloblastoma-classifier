@@ -32,11 +32,15 @@ convert_dataframe_list_to_sce <- function(df_list) {
   return(sce_list)
 }
 
-add_sce_umap <- function(sce) {
+add_sce_umap <- function(sce, seed = 2023) {
   # Purpose: Add UMAP results to SingleCellExperiment object
   
   # Args:
   #   sce: the SingleCellExperiment object with counts data
+  #   seed: an integer to set the seed as for reproducibility
+  
+  # set the seed for reproducible results
+  set.seed(seed)
   
   # keep positive counts for `logNormCounts()`
   sce <- sce[, colSums(SingleCellExperiment::counts(sce)) > 0]
