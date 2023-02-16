@@ -24,7 +24,7 @@ run_many_models <- function(genex_df,
   #
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
   #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
@@ -328,8 +328,8 @@ run_one_model <- function(type,
   #  type: model type, one of "ktsp", "rf", "mm2s", or "lasso"
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
@@ -458,7 +458,7 @@ check_input_files <- function(genex_df,
   #
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #
   # Output
   #  None (function calls 'stop' if anything is wrong)
@@ -516,7 +516,7 @@ train_ktsp <- function(genex_df_train,
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step (default: 2988)
   #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
   #  ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
@@ -593,7 +593,7 @@ test_ktsp <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: kTSP classifier produced by train_ktsp()
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
@@ -657,7 +657,7 @@ train_rf <- function(genex_df_train,
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used to generate additional modeling seeds for reproducibility
   #  rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
   #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
@@ -765,7 +765,7 @@ test_rf <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: RF classifier produced by train_rf()
   #
   # Outputs
@@ -825,7 +825,7 @@ test_mm2s <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in MM2S.human function
   #  gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   #
@@ -896,7 +896,7 @@ train_lasso <- function(genex_df_train,
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step
   #
   # Outputs
@@ -933,7 +933,7 @@ test_lasso <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: LASSO classifier produced by train_lasso()
   #
   # Outputs
