@@ -35,7 +35,7 @@ run_many_models <- function(genex_df,
   #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
   #    ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
   #    ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
-  #    ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #    ktsp_weighted: logical, if TRUE (default) use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   #  RF parameters:
   #    rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
@@ -98,6 +98,10 @@ run_many_models <- function(genex_df,
       
     }
     
+  } else if (ktsp_n_rules_max > ktsp_n_rules_min) {
+    
+    stop("ktsp_n_rules_max cannot be greater than ktsp_n_rules_min in run_many_models()")
+    
   }
   
   # Read in gene map to convert gene names to ENTREZID for MM2S
@@ -118,6 +122,8 @@ run_many_models <- function(genex_df,
   set.seed(initial_seed)
   
   # Seeds used for determining test/train split for each repeat
+  # if n_repeats > 1000, then that becomes the max value for sampling seeds
+  # alternatively we could just sample between 1:n_repeats every time
   train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
   # Seeds used at start of each modeling step (same seed re-used for all model types within each repeat)
   modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
@@ -147,9 +153,10 @@ run_many_models <- function(genex_df,
     suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
     
     # set up this repeat's train/test split
-    train_test_samples_list <- get_train_test_samples(genex_df,
-                                                      metadata_df,
-                                                      train_test_seed = train_test_seeds[n])
+    train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
+                                                      metadata_df = metadata_df,
+                                                      train_test_seed = train_test_seeds[n],
+                                                      proportion_of_studies_train = 0.5)
     
     # split genex and metadata by train/test status
     genex_df_train <- genex_df %>%
@@ -163,25 +170,25 @@ run_many_models <- function(genex_df,
     
     # run model types one at a time
     repeat_list <- purrr::map(model_types,
-                              function(x) run_one_model(x,
-                                                        genex_df_train,
-                                                        genex_df_test,
-                                                        metadata_df_train,
-                                                        metadata_df_test,
-                                                        modeling_seeds[n],
-                                                        labels,
-                                                        ktsp_featureNo,
-                                                        ktsp_n_rules_min,
-                                                        ktsp_n_rules_max,
-                                                        ktsp_weighted,
-                                                        rf_num.trees,
-                                                        rf_genes_altogether,
-                                                        rf_genes_one_vs_rest,
-                                                        rf_gene_repetition,
-                                                        rf_rules_altogether,
-                                                        rf_rules_one_vs_rest,
-                                                        rf_weighted,
-                                                        mm2s_gene_map_df))
+                              function(x) run_one_model(type = x,
+                                                        genex_df_train = genex_df_train,
+                                                        genex_df_test = genex_df_test,
+                                                        metadata_df_train = metadata_df_train,
+                                                        metadata_df_test = metadata_df_test,
+                                                        model_seed = modeling_seeds[n],
+                                                        labels = labels,
+                                                        ktsp_featureNo = ktsp_featureNo,
+                                                        ktsp_n_rules_min = ktsp_n_rules_min,
+                                                        ktsp_n_rules_max = ktsp_n_rules_max,
+                                                        ktsp_weighted = ktsp_weighted,
+                                                        rf_num.trees = rf_num.trees,
+                                                        rf_genes_altogether = rf_genes_altogether,
+                                                        rf_genes_one_vs_rest = rf_genes_one_vs_rest,
+                                                        rf_gene_repetition = rf_gene_repetition,
+                                                        rf_rules_altogether = rf_rules_altogether,
+                                                        rf_rules_one_vs_rest = rf_rules_one_vs_rest,
+                                                        rf_weighted = rf_weighted,
+                                                        mm2s_gene_map_df = mm2s_gene_map_df))
     
     # set names of each list element corresponding to model type
     names(repeat_list) <- model_types
@@ -190,6 +197,8 @@ run_many_models <- function(genex_df,
     repeat_list[["train_test_seed"]] <- train_test_seeds[n]
     repeat_list[["modeling_seed"]] <- modeling_seeds[n]
     repeat_list[["official_model"]] <- (n == official_model_n)
+    repeat_list[["train_metadata"]] <- metadata_df_train
+    repeat_list[["test_metadata"]] <- metadata_df_test
     
     return(repeat_list)
     
@@ -213,7 +222,7 @@ get_train_test_samples <- function(genex_df,
   #
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  train_test_seed: seed used for reproducibility given same input data
   #  proportion_of_studies_train: proportion of studies used as training data
   #
