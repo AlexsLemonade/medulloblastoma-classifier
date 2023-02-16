@@ -2,11 +2,11 @@ suppressMessages(library(foreach))
 
 run_many_models <- function(genex_df,
                             metadata_df,
+                            labels,
                             model_types = c("ktsp", "rf", "mm2s", "lasso"),
                             initial_seed = 44,
                             n_repeats = 1,
                             n_cores = 1,
-                            labels,
                             ktsp_featureNo = 1000,
                             ktsp_n_rules_min = 5,
                             ktsp_n_rules_max = 50,
@@ -25,11 +25,11 @@ run_many_models <- function(genex_df,
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
   #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
   #  n_repeats: how many times to repeat each modeling type (default: 1)
   #  n_cores: number of cores to use (default: 1)
-  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
   #  kTSP parameters:
   #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
