@@ -36,11 +36,12 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath
     # create transcriptome database from GTF file
     txdb <- GenomicFeatures::makeTxDbFromGFF(gtf_filepath, format = "gtf")
     
-    # gather exons from each transcript at gene level
-    exons.list.per.gene <- GenomicFeatures::exonsBy(txdb, by = "gene")
-    
+    # gather exons from each transcript at gene level and
     # collapse each gene's exons to form union of bases covered
-    exonic.gene.sizes <- sum(IRanges::width(GenomicRanges::reduce(exons.list.per.gene)))
+    exonic.gene.sizes <- GenomicFeatures::exonsBy(txdb, by = "gene") %>%
+      GenomicRanges::reduce() %>%
+      IRanges::width() %>%
+      sum()
     
     # create data frame of gene lengths
     # ENSEMBL IDs are given with a version, like .1 or .2,
@@ -49,11 +50,12 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath
     #   which all have duplicate ENSGs that have regular versions like .20,
     #   so we can drop PAR_Y versions and keep regular versions to avoid multi-mapping ENSGs
     GENCODE_gene_lengths_df <- dplyr::tibble(ENSEMBL_with_version = names(exonic.gene.sizes),
-                                            gene_length = as.vector(exonic.gene.sizes)) %>%
+                                             gene_length = as.vector(exonic.gene.sizes)) %>%
       tidyr::separate(ENSEMBL_with_version,
                       into = c("ENSEMBL", "version"),
                       sep = "\\.") %>%
-      filter(!stringr::str_detect(version, "_PAR_Y")) %>% # remove Y paralogs
+      dplyr::filter(!stringr::str_detect(version, "_PAR_Y")) %>% # remove Y paralogs
+      select(ENSEMBL, gene_length) %>%
       readr::write_tsv(file = GENCODE_gene_lengths_filepath)    
     
   }
