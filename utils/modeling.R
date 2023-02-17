@@ -17,7 +17,8 @@ run_many_models <- function(genex_df,
                             rf_gene_repetition = 1,
                             rf_rules_altogether = 50,
                             rf_rules_one_vs_rest = 50,
-                            rf_weighted = TRUE) {
+                            rf_weighted = TRUE,
+                            mm2s_gene_map_filepath = "processed_data/gene_map.tsv") {
   
   # Wrapper function to run many modeling jobs in parallel. New train/test sets
   # are created for each repeat. The same train/test data is used for each model.
@@ -45,6 +46,10 @@ run_many_models <- function(genex_df,
   #    rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
   #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  MM2S parameters:
+  #    mm2s_gene_map_filepath: file path to gene map used to convert MM2S gene names, relative to project root directory
+  #      (default value "processed_data/gene_map.tsv" created by 00-download_data.sh script)
   #
   # Output
   #  Model list with levels for repeat number and model type
@@ -108,8 +113,7 @@ run_many_models <- function(genex_df,
   if ("mm2s" %in% model_types) {
     
     # set up gene name conversions    
-    mm2s_gene_map_df <- readr::read_tsv(file.path("processed_data",
-                                                  "gene_map.tsv"),
+    mm2s_gene_map_df <- readr::read_tsv(mm2s_gene_map_filepath,
                                         col_types = "c")
     
   } else {
