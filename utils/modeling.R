@@ -49,7 +49,7 @@ run_many_models <- function(genex_df,
   #
   #  MM2S parameters:
   #    mm2s_gene_map_filepath: file path to gene map used to convert MM2S gene names,
-  #      relative to where the function is called from (default: NULL)
+  #      relative to the working directory where the function is called from (default: NULL)
   #
   # Output
   #  Model list with levels for repeat number and model type
