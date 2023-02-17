@@ -188,10 +188,8 @@ run_many_models <- function(genex_df,
                                                         rf_rules_altogether = rf_rules_altogether,
                                                         rf_rules_one_vs_rest = rf_rules_one_vs_rest,
                                                         rf_weighted = rf_weighted,
-                                                        mm2s_gene_map_df = mm2s_gene_map_df))
-    
-    # set names of each list element corresponding to model type
-    names(repeat_list) <- model_types
+                                                        mm2s_gene_map_df = mm2s_gene_map_df)) %>%
+      purrr::set_names(model_types) # set names of each list element corresponding to model type
     
     # add metadata about this repeat (seeds used, official model status)
     repeat_list[["train_test_seed"]] <- train_test_seeds[n]
