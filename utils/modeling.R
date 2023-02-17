@@ -131,8 +131,6 @@ run_many_models <- function(genex_df,
   train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
   # Seeds used at start of each modeling step (same seed re-used for all model types within each repeat)
   modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
-  # Out of all model repeats, one should be designated the "official" model for display, etc.
-  official_model_n <- sample(1:n_repeats, size = 1)
   
   # parallel backend
   cl <- parallel::makeCluster(n_cores, outfile = "log") # use log file for troubleshooting
