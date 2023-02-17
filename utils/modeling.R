@@ -18,7 +18,7 @@ run_many_models <- function(genex_df,
                             rf_rules_altogether = 50,
                             rf_rules_one_vs_rest = 50,
                             rf_weighted = TRUE,
-                            mm2s_gene_map_filepath = "processed_data/gene_map.tsv") {
+                            mm2s_gene_map_filepath = NULL) {
   
   # Wrapper function to run many modeling jobs in parallel. New train/test sets
   # are created for each repeat. The same train/test data is used for each model.
@@ -48,8 +48,8 @@ run_many_models <- function(genex_df,
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   #  MM2S parameters:
-  #    mm2s_gene_map_filepath: file path to gene map used to convert MM2S gene names, relative to project root directory
-  #      (default value "processed_data/gene_map.tsv" created by 00-download_data.sh script)
+  #    mm2s_gene_map_filepath: file path to gene map used to convert MM2S gene names,
+  #      relative to where the function is called from (default: NULL)
   #
   # Output
   #  Model list with levels for repeat number and model type
@@ -109,12 +109,26 @@ run_many_models <- function(genex_df,
     
   }
   
-  # Read in gene map to convert gene names to ENTREZID for MM2S
+  # Read in gene map to convert gene names from ENSEMBL to ENTREZID for MM2S
   if ("mm2s" %in% model_types) {
     
-    # set up gene name conversions    
-    mm2s_gene_map_df <- readr::read_tsv(mm2s_gene_map_filepath,
-                                        col_types = "c")
+    if (is.null()) {
+      
+      stop("mm2s_gene_map_filepath with must be supplied if modeling with MM2S")
+      
+    } else {
+      
+      # set up gene name conversions    
+      mm2s_gene_map_df <- readr::read_tsv(mm2s_gene_map_filepath,
+                                          col_types = "c")
+      
+      if(!all(c("ENSEMBL", "ENTREZID") %in% names(mm2s_gene_map_df))) {
+        
+        stop("mm2s_gene_map_df must contain ENSEMBL and ENTREZID columns")
+        
+      }
+      
+    }
     
   } else {
     
@@ -349,7 +363,7 @@ run_one_model <- function(type,
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   #  MM2S parameters:
-  #    mm2s_gene_map_df: gene map used to convert MM2S gene names
+  #    mm2s_gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   
   # Outputs
   #  List of model elements, including the classifier, test results, and test confusion matrix
