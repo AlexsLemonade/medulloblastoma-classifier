@@ -11,7 +11,9 @@ data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
+
 source(file.path(utils_dir, "single-cell.R"))
+source(file.path(utils_dir, "TPM_conversion.R"))
 
 ################################################################################
 # set input and output filepaths
@@ -37,9 +39,15 @@ OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
 gene_map_input_filepath <- file.path(processed_data_dir,
                                      "gene_map.tsv")
 
+# GENCODE annotations for St. Jude RNA-seq counts to TPM conversion
+gencode_annotation_gtf_filepath <- file.path(data_dir, "GENCODE",
+                                             "gencode.v31.annotation.gtf.gz")
+GENCODE_gene_lengths_filepath <- file.path(data_dir, "GENCODE",
+                                           "GENCODE_gene_lengths.tsv")
+
 # genex outputs
 bulk_genex_df_output_filepath <- file.path(processed_data_dir,
-                                      "bulk_genex.tsv")
+                                           "bulk_genex.tsv")
 pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
                                                  "pseudobulk_genex.tsv")
 
@@ -56,13 +64,13 @@ get_genex_data <- function(genex_filepath,
   genex_df_columns <- readr::read_tsv(genex_filepath,
                                       col_types = "c",
                                       n_max = 0)
-
+  
   # we expect the structure of gene expression files read in this way to be:
   # genes (rows) x samples (columns)
   # gene names are kept in column 1 with column header "Gene"
   # sample names are found in columns 2-N
   if (names(genex_df_columns)[1] != "Gene") {
-
+    
     stop("First column name of gene expression data should be 'Gene' in get_genex_data().")
     
   }
@@ -138,6 +146,9 @@ genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya
 
 ### St. Jude
 
+GENCODE_gene_lengths_df <- get_GENCODE_gene_lengths(gtf_filepath = gencode_annotation_gtf_filepath,
+                                                    GENCODE_gene_lengths_filepath = GENCODE_gene_lengths_filepath)
+
 genex_data_list[["St. Jude"]] <- bulk_metadata %>%
   dplyr::filter(study == "St. Jude") %>%
   dplyr::pull(sample_accession) %>%
@@ -153,7 +164,8 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
                 !duplicated(ENSEMBL),
                 !is.na(ENSEMBL)) %>%
   dplyr::select(-SYMBOL) %>%
-  tibble::column_to_rownames(var = "ENSEMBL")
+  tibble::column_to_rownames(var = "ENSEMBL") %>%
+  convert_gene_counts_to_TPM(gene_lengths_df = GENCODE_gene_lengths_df)
 
 ################################################################################
 # combine the list
