@@ -1,3 +1,469 @@
+suppressMessages(library(foreach))
+
+run_many_models <- function(genex_df,
+                            metadata_df,
+                            labels,
+                            model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                            initial_seed = 44,
+                            n_repeats = 1,
+                            n_cores = 1,
+                            ktsp_featureNo = 1000,
+                            ktsp_n_rules_min = 5,
+                            ktsp_n_rules_max = 50,
+                            ktsp_weighted = TRUE,
+                            rf_num.trees = 500,
+                            rf_genes_altogether = 50,
+                            rf_genes_one_vs_rest = 50,
+                            rf_gene_repetition = 1,
+                            rf_rules_altogether = 50,
+                            rf_rules_one_vs_rest = 50,
+                            rf_weighted = TRUE,
+                            mm2s_gene_map_filepath = NULL) {
+  
+  # Wrapper function to run many modeling jobs in parallel. New train/test sets
+  # are created for each repeat. The same train/test data is used for each model.
+  #
+  # Inputs
+  #  genex_df: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
+  #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
+  #  n_repeats: how many times to repeat each modeling type (default: 1)
+  #  n_cores: number of cores to use (default: 1)
+  #
+  #  kTSP parameters:
+  #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #    ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #    ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #    ktsp_weighted: logical, if TRUE (default) use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  RF parameters:
+  #    rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
+  #    rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #    rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #    rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
+  #    rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  MM2S parameters:
+  #    mm2s_gene_map_filepath: file path to gene map used to convert MM2S gene names,
+  #      relative to the working directory where the function is called from (default: NULL)
+  #
+  # Output
+  #  Model list with levels for repeat number and model type
+
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df,
+                    metadata_df = metadata_df)
+  
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  if (!is.vector(model_types) |
+      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+    
+    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    
+  }
+  
+  # n_repeats should be a positive integer
+  if (n_repeats < 1 | round(n_repeats) != n_repeats) {
+    
+    stop("n_repeats in run_many_models() should be a positive integer.")
+    
+  }
+  
+  # n_cores should not exceed parallel::detectCores() - 1
+  n_cores <- min(n_cores, parallel::detectCores() - 1)
+  
+  # ktsp_n_rules_min is required for ktsp and is only used in ktsp
+  if ("ktsp" %in% model_types) {
+    
+    if (is.na(ktsp_n_rules_min)) {
+      stop("ktsp_n_rules_min in run_many_models() cannot be NA with ktsp model type.")
+    }
+    
+    # ktsp should be a positive integer  
+    if (ktsp_n_rules_min < 1 | round(ktsp_n_rules_min) != ktsp_n_rules_min) {
+      
+      stop("ktsp_n_rules_min in run_models() should be a positive integer.")
+      
+    }
+    
+    # n_rules_max should be a positive integer and >= ktsp_n_rules_min
+    # if n_rules_max is not given, set n_rules_max equal to ktsp_n_rules_min
+    # this enables setting a specific number of rules for the model to use
+    if (is.na(ktsp_n_rules_max)) {
+      
+      ktsp_n_rules_max <- ktsp_n_rules_min
+      
+    } else if (ktsp_n_rules_max < 1 | round(ktsp_n_rules_max) != ktsp_n_rules_max) {
+      
+      stop("ktsp_n_rules_max in run_many_models() should be NA or a positive integer.")
+      
+    }
+    
+  } else if (ktsp_n_rules_max < ktsp_n_rules_min) {
+    
+    stop("ktsp_n_rules_max cannot be less than ktsp_n_rules_min in run_many_models()")
+    
+  }
+  
+  # Read in gene map to convert gene names from ENSEMBL to ENTREZID for MM2S
+  if ("mm2s" %in% model_types) {
+    
+    if (is.null(mm2s_gene_map_filepath)) {
+      
+      stop("mm2s_gene_map_filepath with must be supplied if modeling with MM2S")
+      
+    } else {
+      
+      # set up gene name conversions    
+      mm2s_gene_map_df <- readr::read_tsv(mm2s_gene_map_filepath,
+                                          col_types = "c")
+      
+      if(!all(c("ENSEMBL", "ENTREZID") %in% names(mm2s_gene_map_df))) {
+        
+        stop("mm2s_gene_map_df must contain ENSEMBL and ENTREZID columns")
+        
+      }
+      
+    }
+    
+  } else {
+    
+    mm2s_gene_map_df <- NULL
+    
+  }
+  
+  # Set initial seed before creating test/train seeds and modeling seeds
+  set.seed(initial_seed)
+  
+  # Seeds used for determining test/train split for each repeat
+  # if n_repeats > 1000, then that becomes the max value for sampling seeds
+  # alternatively we could just sample between 1:n_repeats every time
+  train_test_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  # Seeds used at start of each modeling step (same seed re-used for all model types within each repeat)
+  modeling_seeds <- sample(1:max(1000, n_repeats), size = n_repeats)
+  
+  # parallel backend
+  cl <- parallel::makeCluster(n_cores, outfile = "log") # use log file for troubleshooting
+  doParallel::registerDoParallel(cl)
+  parallel::clusterExport(cl,
+                          c("get_train_test_samples",
+                            "run_one_model",
+                            "check_input_files",
+                            "calculate_confusion_matrix",
+                            "train_ktsp",
+                            "test_ktsp",
+                            "train_rf",
+                            "test_rf",
+                            "test_mm2s",
+                            "train_lasso",
+                            "test_lasso"))
+  
+  # run n_repeats in parallel
+  model_list <- foreach(n = 1:n_repeats) %dopar% {
+    
+    suppressMessages(library(magrittr))
+    suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
+    
+    # set up this repeat's train/test split
+    train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
+                                                      metadata_df = metadata_df,
+                                                      train_test_seed = train_test_seeds[n],
+                                                      proportion_of_studies_train = 0.5)
+    
+    # split genex and metadata by train/test status
+    genex_df_train <- genex_df %>%
+      dplyr::select(train_test_samples_list$train)
+    genex_df_test <- genex_df %>%
+      dplyr::select(train_test_samples_list$test)
+    metadata_df_train <- metadata_df %>%
+      dplyr::filter(sample_accession %in% train_test_samples_list$train)
+    metadata_df_test <- metadata_df %>%
+      dplyr::filter(sample_accession %in% train_test_samples_list$test)
+    
+    # run model types one at a time
+    repeat_list <- purrr::map(model_types,
+                              function(x) run_one_model(type = x,
+                                                        genex_df_train = genex_df_train,
+                                                        genex_df_test = genex_df_test,
+                                                        metadata_df_train = metadata_df_train,
+                                                        metadata_df_test = metadata_df_test,
+                                                        model_seed = modeling_seeds[n],
+                                                        labels = labels,
+                                                        ktsp_featureNo = ktsp_featureNo,
+                                                        ktsp_n_rules_min = ktsp_n_rules_min,
+                                                        ktsp_n_rules_max = ktsp_n_rules_max,
+                                                        ktsp_weighted = ktsp_weighted,
+                                                        rf_num.trees = rf_num.trees,
+                                                        rf_genes_altogether = rf_genes_altogether,
+                                                        rf_genes_one_vs_rest = rf_genes_one_vs_rest,
+                                                        rf_gene_repetition = rf_gene_repetition,
+                                                        rf_rules_altogether = rf_rules_altogether,
+                                                        rf_rules_one_vs_rest = rf_rules_one_vs_rest,
+                                                        rf_weighted = rf_weighted,
+                                                        mm2s_gene_map_df = mm2s_gene_map_df)) %>%
+      purrr::set_names(model_types) # set names of each list element corresponding to model type
+    
+    # add metadata about this repeat (seeds used, train/test metadata)
+    repeat_list[["train_test_seed"]] <- train_test_seeds[n]
+    repeat_list[["modeling_seed"]] <- modeling_seeds[n]
+    repeat_list[["train_metadata"]] <- metadata_df_train
+    repeat_list[["test_metadata"]] <- metadata_df_test
+    
+    return(repeat_list)
+    
+  }
+  
+  # stop parallel backend
+  parallel::stopCluster(cl)
+  
+  return(model_list)
+  
+}
+
+get_train_test_samples <- function(genex_df,
+                                   metadata_df,
+                                   train_test_seed,
+                                   proportion_of_studies_train = 0.5) {
+  
+  # Split data into training and test sets. Data gets split at project level.
+  # Some proportion of projects become "training", remainder becomes "test".
+  # Projects from different platforms (array, RNA-seq) are split separately.
+  #
+  # Inputs
+  #  genex_df: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  train_test_seed: seed used for reproducibility given same input data
+  #  proportion_of_studies_train: proportion of studies used as training data
+  #
+  # Outputs
+  #  List of samples used for "train" and "test" sets
+  #
+  # Methodological choices
+  #
+  #  When determining the number of studies allocated to train and test sets,
+  #  sometimes the number of studies is not a whole number. In that case, we use
+  #  the ceiling() function to round up on the number of studies allocated to
+  #  the training set, which necessarily rounds down the number of test studies.
+  #  For example, with 3 RNA-seq studies and a 50% split for train and test,
+  #  ceiling(3*0.5) = ceiling(1.5) = 2 studies are allocated to training, while
+  #  3 - 2 = 1 study is allocated to testing. Note: ceiling() always rounds up,
+  #  to the next whole number, not necessarily to the nearest whole number.
+  
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df,
+                    metadata_df = metadata_df)
+  
+  # check proportion_of_studies_train is numeric and 0 < p < 1
+  if (!is.numeric(proportion_of_studies_train) | 
+      proportion_of_studies_train < 0 | proportion_of_studies_train > 1) {
+    stop("proportion_of_studies_train must be numeric and in the range [0,1]")
+  }
+  
+  set.seed(train_test_seed)
+  
+  # Vector of array studies
+  array_studies <- metadata_df %>%
+    dplyr::filter(sample_accession %in% names(genex_df),
+                  platform == "Array") %>%
+    dplyr::pull(study) %>%
+    unique()
+  
+  # Vector of RNA-seq studies
+  rnaseq_studies <- metadata_df %>%
+    dplyr::filter(sample_accession %in% names(genex_df),
+                  platform == "RNA-seq") %>%
+    dplyr::pull(study) %>%
+    unique()
+  
+  # Number of studies from each platform
+  n_array_studies <- length(array_studies)
+  n_rnaseq_studies <- length(rnaseq_studies)
+  
+  # Set number of training studies according to training proportion
+  # ceiling() rounds the number of training studies up to the next whole number
+  n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
+  n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
+  
+  # Randomly sample studies for training set
+  array_studies_train <- sample(array_studies, size = n_array_studies_train)
+  rnaseq_studies_train <- sample(rnaseq_studies, size = n_rnaseq_studies_train)
+  
+  # Force other studies to be used as test set
+  array_studies_test <- setdiff(array_studies, array_studies_train)
+  rnaseq_studies_test <- setdiff(rnaseq_studies, rnaseq_studies_train)
+  
+  # Create output list
+  train_test_samples_list <- list()
+  
+  # Save vector of samples used for training
+  train_test_samples_list[["train"]] <- metadata_df %>%
+    dplyr::filter(study %in% c(array_studies_train,
+                               rnaseq_studies_train)) %>%
+    dplyr::pull(sample_accession)
+  
+  # Save vector of samples used for testing
+  train_test_samples_list[["test"]] <- metadata_df %>%
+    dplyr::filter(study %in% c(array_studies_test,
+                               rnaseq_studies_test)) %>%
+    dplyr::pull(sample_accession)
+  
+  return(train_test_samples_list)
+  
+}
+
+run_one_model <- function(type,
+                          genex_df_train,
+                          genex_df_test,
+                          metadata_df_train,
+                          metadata_df_test,
+                          model_seed,
+                          labels,
+                          ktsp_featureNo = 1000,
+                          ktsp_n_rules_min = 5,
+                          ktsp_n_rules_max = 50,
+                          ktsp_weighted = TRUE,
+                          rf_num.trees = 500,
+                          rf_genes_altogether = 50,
+                          rf_genes_one_vs_rest = 50,
+                          rf_gene_repetition = 1,
+                          rf_rules_altogether = 50,
+                          rf_rules_one_vs_rest = 50,
+                          rf_weighted = TRUE,
+                          mm2s_gene_map_df = NULL) {
+  
+  # Run a single model specified by the model type, input data, and parameters
+  #
+  # Inputs
+  #  type: model type, one of "ktsp", "rf", "mm2s", or "lasso"
+  #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  model_seed: seed used for reproducibility in training step
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #
+  #  kTSP parameters:
+  #    ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
+  #    ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
+  #    ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #    ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  RF parameters:
+  #    rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
+  #    rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
+  #    rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
+  #    rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
+  #    rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
+  #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
+  #
+  #  MM2S parameters:
+  #    mm2s_gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
+  
+  # Outputs
+  #  List of model elements, including the classifier, test results, and test confusion matrix
+  
+  if (type == "mm2s" & is.null(mm2s_gene_map_df)) {
+    
+    stop("Gene map parameter mm2s_gene_map_df must be specified when running MM2S model in run_one_model().")
+    
+  }
+  
+  if (type == "ktsp") {
+    
+    ktsp_classifier <- train_ktsp(genex_df_train = genex_df_train,
+                                  metadata_df_train = metadata_df_train,
+                                  model_seed = model_seed,
+                                  ktsp_featureNo = ktsp_featureNo,
+                                  ktsp_n_rules_min = ktsp_n_rules_min,
+                                  ktsp_n_rules_max = ktsp_n_rules_max,
+                                  ktsp_weighted = ktsp_weighted)
+    
+    ktsp_results <- test_ktsp(genex_df_test = genex_df_test,
+                              metadata_df_test = metadata_df_test,
+                              classifier = ktsp_classifier,
+                              labels = labels)
+    
+    ktsp_cm <- calculate_confusion_matrix(predicted_labels = ktsp_results$predicted_labels_df$predicted_labels,
+                                          true_labels = metadata_df_test$subgroup,
+                                          labels = labels)
+    
+    model <- list(classifier = ktsp_classifier,
+                  test_results = ktsp_results,
+                  cm = ktsp_cm)
+    
+  } else if (type == "rf") {
+    
+    rf_classifier <- train_rf(genex_df_train = genex_df_train,
+                              metadata_df_train = metadata_df_train,
+                              model_seed = model_seed,
+                              rf_num.trees = rf_num.trees,
+                              rf_genes_altogether = rf_genes_altogether,
+                              rf_genes_one_vs_rest = rf_genes_one_vs_rest,
+                              rf_gene_repetition = rf_gene_repetition,
+                              rf_rules_altogether = rf_rules_altogether,
+                              rf_rules_one_vs_rest = rf_rules_one_vs_rest,
+                              rf_weighted = rf_weighted)
+    
+    rf_results <- test_rf(genex_df_test = genex_df_test,
+                          metadata_df_test = metadata_df_test,
+                          classifier = rf_classifier)
+    
+    rf_cm <- calculate_confusion_matrix(predicted_labels = rf_results$predicted_labels_df$predicted_labels,
+                                        true_labels = metadata_df_test$subgroup,
+                                        labels = labels)
+    
+    model <- list(classifier = rf_classifier,
+                  test_results = rf_results,
+                  cm = rf_cm)
+    
+  } else if (type == "mm2s") {
+    
+    mm2s_results <- test_mm2s(genex_df_test = genex_df_test,
+                              metadata_df_test = metadata_df_test,
+                              model_seed = model_seed,
+                              gene_map_df = mm2s_gene_map_df)
+    
+    mm2s_cm <- calculate_confusion_matrix(predicted_labels = mm2s_results$predicted_labels_df$predicted_labels,
+                                          true_labels = metadata_df_test$subgroup,
+                                          labels = c("G3", "G4", "NORMAL", "SHH", "WNT"))
+    
+    model <- list(test_results = mm2s_results,
+                  cm = mm2s_cm)
+    
+  } else if (type == "lasso") {
+    
+    
+    lasso_classifier <- train_lasso(genex_df_train = genex_df_train,
+                                    metadata_df_train = metadata_df_train,
+                                    model_seed = model_seed)
+    
+    lasso_results <- test_lasso(genex_df_test = genex_df_test,
+                                metadata_df_test = metadata_df_test,
+                                classifier = lasso_classifier)
+    
+    lasso_cm <- calculate_confusion_matrix(predicted_labels = lasso_results$predicted_labels_df$predicted_labels,
+                                           true_labels = metadata_df_test$subgroup,
+                                           labels = labels)
+    
+    model <- list(classifier = lasso_classifier,
+                  test_results = lasso_results,
+                  cm = lasso_cm)
+    
+  } else {
+    
+    stop("Type of model must be 'ktsp', 'rf', 'mm2s', or 'lasso'.")
+    
+  }
+  
+  return(model)
+  
+}
+
 check_input_files <- function(genex_df,
                               metadata_df) {
   
@@ -5,14 +471,14 @@ check_input_files <- function(genex_df,
   #
   # Inputs
   #  genex_df: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #
   # Output
   #  None (function calls 'stop' if anything is wrong)
   
   # Check that metadata_df has all necessary columns
-  if (!all(c("sample_accession", "subgroup", "platform") %in% names(metadata_df))) {
-    stop("Metadata file must include sample_accession, subgroup, and platform columns")
+  if (!all(c("sample_accession", "study", "subgroup", "platform") %in% names(metadata_df))) {
+    stop("Metadata file must include sample_accession, study, subgroup, and platform columns")
   }
   
   # Check that the number of samples matches from gene expression and metadata
@@ -56,17 +522,19 @@ train_ktsp <- function(genex_df_train,
                        model_seed = 2988,
                        ktsp_featureNo = 1000,
                        ktsp_n_rules_min = 5,
-                       ktsp_n_rules_max = 50) {
+                       ktsp_n_rules_max = 50,
+                       ktsp_weighted = TRUE) {
   
   # Train a kTSP model
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step (default: 2988)
   #  ktsp_featureNo: number of most informative features to filter down to (kTSP only) (default: 1000)
   #  ktsp_n_rules_min: minimum number of rules allowed for kTSP modeling (default: 5)
   #  ktsp_n_rules_max: maximum number of rules allowed for kTSP modeling (default: 50)
+  #  ktsp_weighted: logical, if TRUE use one-vs-one and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Outputs
   #  kTSP classifier object
@@ -74,14 +542,24 @@ train_ktsp <- function(genex_df_train,
   # Methodological choices
   #
   #  Filtering with multiclassPairs::filter_genes_TSP()
-  #    - "one_vs_one" filtering give more weight to smaller classes
-  #    - "platform_wise" (TRUE) filtering helps select genes relevant to each platform
   #    - "UpDown" (TRUE) considers an equal number of up and down regulated genes
+  #    - ktsp_weighted controls the following parameters:
+  #      - if ktsp_weighted = TRUE (default)
+  #        - "filter" set to "one_vs_one", which gives more weight to smaller classes
+  #        - "platform_wise" set to TRUE, which helps select genes relevant to all platforms
+  #      - if ktsp_weighted = FALSE
+  #        - "filter" set to "one_vs_rest"
+  #        - "platform_wise" set to FALSE, which selects most relevant genes without considering relevance across platforms
   #
   #  Training kTSP with multiclassPairs::train_one_vs_rest_TSP()
   #    - "include_pivot" (FALSE) means only filtered features are used to make rules
-  #    - "one_vs_one_scores" (TRUE) gives more weight to small classes
-  #    - "platform_wise_scores" (TRUE) gives more weight to small platforms
+  #    - ktsp_weighted controls the following parameters:
+  #      - if ktsp_weighted = TRUE (default)
+  #        - "one_vs_one_scores" set to TRUE, rule scores calculated as mean of one vs one comparisons (giving more weight to smaller classes)
+  #        - "platform_wise_scores" set to TRUE, rule scores calculated as mean of within-platform scores (which gives more weight to smaller platforms)
+  #      - if ktsp_weighted = FALSE
+  #        - "one_vs_one_scores" set to FALSE, rule scores calculated from one vs rest comparison
+  #        - "platform_wise_scores" set to FALSE, rule scores calculated without respect to platform
   #
   # More information on multiclassPairs R package
   #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
@@ -99,8 +577,8 @@ train_ktsp <- function(genex_df_train,
   
   # reduce genes to most useful features
   filtered_genes <- multiclassPairs::filter_genes_TSP(data_object = train_data_object,
-                                                      filter = "one_vs_one",
-                                                      platform_wise = TRUE,
+                                                      filter = ifelse(ktsp_weighted, "one_vs_one", "one_vs_rest"),
+                                                      platform_wise = ktsp_weighted,
                                                       featureNo = ktsp_featureNo,
                                                       UpDown = TRUE,
                                                       verbose = TRUE)
@@ -110,8 +588,8 @@ train_ktsp <- function(genex_df_train,
                                                        filtered_genes = filtered_genes,
                                                        k_range = ktsp_n_rules_min:ktsp_n_rules_max,
                                                        include_pivot = FALSE,
-                                                       one_vs_one_scores = TRUE,
-                                                       platform_wise_scores = TRUE,
+                                                       one_vs_one_scores = ktsp_weighted,
+                                                       platform_wise_scores = ktsp_weighted,
                                                        seed = model_seed,
                                                        verbose = TRUE)
   
@@ -128,7 +606,7 @@ test_ktsp <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: kTSP classifier produced by train_ktsp()
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #
@@ -185,20 +663,22 @@ train_rf <- function(genex_df_train,
                      rf_genes_one_vs_rest = 50,
                      rf_gene_repetition = 1,
                      rf_rules_altogether = 50,
-                     rf_rules_one_vs_rest = 50) {
+                     rf_rules_one_vs_rest = 50,
+                     rf_weighted = TRUE) {
   
   # Train a Random Forest model
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used to generate additional modeling seeds for reproducibility
-  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features)
+  #  rf_num.trees: number of trees used in RF modeling (use more trees given more features) (default: 500)
   #  rf_genes_altogether: number of top genes used when comparing all classes together (default: 50)
   #  rf_genes_one_vs_rest: number of top genes used when comparing each class against rest of classes (default: 50)
-  #  rf_gene_repetition: number of times a gene can be used throughout set of rules
+  #  rf_gene_repetition: number of times a gene can be used throughout set of rules (default: 1)
   #  rf_rules_altogether: number of top rules used when comparing all classes together (default: 50)
   #  rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
+  #  rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
   # Outputs
   #  Random Forest classifier object
@@ -207,14 +687,33 @@ train_rf <- function(genex_df_train,
   #
   #  Sorting genes with multiclassPairs::sort_genes_RF()
   #    - "rank_data" (TRUE) within each sample because we assume data are not normalized
-  #    - "platform_wise" (TRUE) favors genes that are important on every platform
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE (default)
+  #        - "featureNo_one_vs_rest" set to number of genes (return all genes, sorted)
+  #        - "platform_wise" set to TRUE, which favors genes that are important across all platforms
+  #      - if rf_weighted = FALSE
+  #        - "featureNo_one_vs_rest" set to 0 (do not do one vs rest comparison)
+  #        - "platform_wise" set to FALSE, which does not account platform in sorting genes
   #
   #  Sorting rules with multiclassPairs::sort_rules_RF()
-  #    - "platform_wise" (TRUE) favors rules that are important on every platform
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE (default)
+  #        - "genes_one_vs_rest" set by rf_genes_one_vs_rest parameter
+  #        - "run_one_vs_rest" set to TRUE, which sorts rules based on importance within each class
+  #        - "platform_wise" set to TRUE, which favors rules that are important on every platform
+  #      - if rf_weighted = FALSE
+  #        - "genes_one_vs_rest" set to 0 (do not do one vs rest comparison)
+  #        - "run_one_vs_rest" set to FALSE, which sorts rules based on overall importance
+  #        - "platform_wise" set to FALSE, which does not account for platform when sorting rules
   #
   #  Training RF model with multiclassPairs::train_RF()
   #    - "run_boruta" (TRUE) use Boruta algorithm to remove unimportant rules
   #    - "probability" (TRUE) allows test data to get scores for each class
+  #    - rf_weighted controls the following parameters:
+  #      - if rf_weighted = TRUE (default)
+  #        - "rules_one_vs_rest" set by rf_rules_one_vs_rest parameter
+  #      - if rf_weighted = FALSE
+  #        - "rules_one_vs_rest" set to 0 (do not use rules from one vs rest comparison)
   #
   # More information on multiclassPairs R package
   #  https://cran.r-project.org/web/packages/multiclassPairs/index.html
@@ -235,9 +734,11 @@ train_rf <- function(genex_df_train,
                                                  verbose = TRUE)
   
   # identify top genes used downstream
+  n_complete_genes <- sum(complete.cases(train_data_object$data$Data))
   genes <- multiclassPairs::sort_genes_RF(data_object = train_data_object,
+                                          featureNo_one_vs_rest = ifelse(rf_weighted, n_complete_genes, 0),
                                           rank_data = TRUE,
-                                          platform_wise = TRUE,
+                                          platform_wise = rf_weighted,
                                           num.trees = rf_num.trees,
                                           seed = seeds[1],
                                           verbose = TRUE)
@@ -246,8 +747,10 @@ train_rf <- function(genex_df_train,
   rules <- multiclassPairs::sort_rules_RF(data_object = train_data_object, 
                                           sorted_genes_RF = genes,
                                           genes_altogether = rf_genes_altogether,
-                                          genes_one_vs_rest = rf_genes_one_vs_rest,
-                                          platform_wise = TRUE,
+                                          genes_one_vs_rest = ifelse(rf_weighted, rf_genes_one_vs_rest, 0),
+                                          run_altogether = TRUE, # default
+                                          run_one_vs_rest = rf_weighted,
+                                          platform_wise = rf_weighted,
                                           num.trees = rf_num.trees,
                                           seed = seeds[2],
                                           verbose = TRUE)
@@ -257,7 +760,7 @@ train_rf <- function(genex_df_train,
                                           sorted_rules_RF = rules,
                                           gene_repetition = rf_gene_repetition,
                                           rules_altogether = rf_rules_altogether,
-                                          rules_one_vs_rest = rf_rules_one_vs_rest,
+                                          rules_one_vs_rest = ifelse(rf_weighted, rf_rules_one_vs_rest, 0),
                                           run_boruta = TRUE,
                                           probability = TRUE,
                                           num.trees = rf_num.trees,
@@ -275,7 +778,7 @@ test_rf <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: RF classifier produced by train_rf()
   #
   # Outputs
@@ -335,7 +838,7 @@ test_mm2s <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in MM2S.human function
   #  gene_map_df: gene map used to convert ENSEMBL IDs to ENTREZID to match MM2S model
   #
@@ -406,7 +909,7 @@ train_lasso <- function(genex_df_train,
   #
   # Inputs
   #  genex_df_train: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_train: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_train: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  model_seed: seed used for reproducibility in training step
   #
   # Outputs
@@ -443,7 +946,7 @@ test_lasso <- function(genex_df_test,
   #
   # Inputs
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
-  #  metadata_df_test: metadata data frame (must include sample_accession, subgroup, and platform columns)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  classifier: LASSO classifier produced by train_lasso()
   #
   # Outputs
