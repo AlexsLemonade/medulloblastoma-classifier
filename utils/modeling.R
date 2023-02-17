@@ -103,16 +103,16 @@ run_many_models <- function(genex_df,
       
     }
     
-  } else if (ktsp_n_rules_max > ktsp_n_rules_min) {
+  } else if (ktsp_n_rules_max < ktsp_n_rules_min) {
     
-    stop("ktsp_n_rules_max cannot be greater than ktsp_n_rules_min in run_many_models()")
+    stop("ktsp_n_rules_max cannot be less than ktsp_n_rules_min in run_many_models()")
     
   }
   
   # Read in gene map to convert gene names from ENSEMBL to ENTREZID for MM2S
   if ("mm2s" %in% model_types) {
     
-    if (is.null()) {
+    if (is.null(mm2s_gene_map_filepath)) {
       
       stop("mm2s_gene_map_filepath with must be supplied if modeling with MM2S")
       
@@ -207,10 +207,9 @@ run_many_models <- function(genex_df,
                                                         mm2s_gene_map_df = mm2s_gene_map_df)) %>%
       purrr::set_names(model_types) # set names of each list element corresponding to model type
     
-    # add metadata about this repeat (seeds used, official model status)
+    # add metadata about this repeat (seeds used, train/test metadata)
     repeat_list[["train_test_seed"]] <- train_test_seeds[n]
     repeat_list[["modeling_seed"]] <- modeling_seeds[n]
-    repeat_list[["official_model"]] <- (n == official_model_n)
     repeat_list[["train_metadata"]] <- metadata_df_train
     repeat_list[["test_metadata"]] <- metadata_df_test
     
