@@ -1,0 +1,10 @@
+---
+title: "TITLE"
+author: "AUTHOR"
+date: "DATE"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
