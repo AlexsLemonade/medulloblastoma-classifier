@@ -1,0 +1,176 @@
+---
+title: "Predicting subgroup in single cells"
+author: "Steven Foltz"
+date: "February 2023"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+# Set up
+
+### Load libraries 
+
+```{r}
+
+library(tidyverse)
+source("utils/modeling.R")
+source("utils/single-cell.R")
+
+```
+
+### Input files
+
+```{r}
+
+pseudobulk_genex_df <- read_tsv("processed_data/pseudobulk_genex.tsv") %>%
+  column_to_rownames(var = "gene")
+
+pseudobulk_metadata_df <- read_tsv("processed_data/pseudobulk_metadata.tsv") %>%
+  filter(title %in% names(pseudobulk_genex_df)) %>%
+  mutate(sample_accession = title) %>%
+  mutate(platform = "RNA-seq")
+
+gene_map_df <- read_tsv("processed_data/gene_map.tsv")
+
+baseline_models <- read_rds("models/baseline.rds")
+ktsp_classifier <- baseline_models[[1]]$ktsp$classifier
+
+```
+
+### Output files
+
+```{r}
+plots_dir <- here::here("plots")
+umaps_plots_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.pdf")
+
+```
+
+### Functions
+
+```{r}
+
+test_single_cells <- function(sample_acc, return_stats = FALSE) {
+  
+  filepath <- here::here("processed_data/pseudobulk_sce", str_c(sample_acc, "_sce.rds"))
+  
+  sce_object <- read_rds(filepath)
+  
+  genex_mat <- sce_object@assays@data@listData[[1]] %>%
+    rownames_to_column(var = "gene") %>%
+    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
+                     by = c("gene" = "SYMBOL")) %>%
+    dplyr::filter(!duplicated(gene),
+                  !duplicated(ENSEMBL),
+                  !is.na(ENSEMBL)) %>%
+    dplyr::select(-gene) %>%
+    dplyr::select(gene = ENSEMBL, everything()) %>%
+    column_to_rownames(var = "gene")
+  
+  n_cells <- ncol(genex_mat)
+  
+  sample_subgroup <- pseudobulk_metadata_df %>%
+    filter(sample_accession == sample_acc) %>%
+    pull(subgroup)
+  
+  test_object <- test_ktsp(genex_mat %>%
+                             setNames(rep(sample_acc, n_cells)),
+                           tibble(index = 1:n_cells,
+                                  sample_accession = sample_acc,
+                                  subgroup = sample_subgroup,
+                                  platform = "Pseudo-bulk"),
+                           ktsp_classifier,
+                           labels = c("G3", "G4", "SHH", "WNT"))
+  
+  if (return_stats) {
+    
+    accuracy <- mean(test_object$predicted_labels_df$predicted_labels == sample_subgroup)
+    n_G3 <- sum(test_object$predicted_labels_df$predicted_labels == "G3")
+    n_G4 <- sum(test_object$predicted_labels_df$predicted_labels == "G4")
+    n_SHH <- sum(test_object$predicted_labels_df$predicted_labels == "SHH")
+    n_WNT <- sum(test_object$predicted_labels_df$predicted_labels == "WNT")
+    
+    return(tibble(sample_accession = sample_acc,
+                  subgroup = sample_subgroup,
+                  n_cells = n_cells,
+                  accuracy = accuracy,
+                  n_G3 = n_G3,
+                  n_G4 = n_G4,
+                  n_SHH = n_SHH,
+                  n_WNT = n_WNT))
+    
+  } else {
+    
+    return(test_object)
+    
+  }
+
+}
+
+```
+
+
+# Test single cells
+
+```{r}
+
+test_object_list <- lapply(pseudobulk_metadata_df$title,
+                           function(x) test_single_cells(x))
+names(test_object_list) <- pseudobulk_metadata_df$title
+
+stats_object_list <- lapply(pseudobulk_metadata_df$sample_accession,
+                            function(x) test_single_cells(x, return_stats = TRUE))
+names(stats_object_list) <- pseudobulk_metadata_df$sample_accession
+
+```
+
+# Plot results
+
+```{r}
+
+umap_plot_objects <- list()
+#pheatmap_plot_objects <- list()
+ids <- c("BCH825", "Med2312FH", "SJ625")
+
+for(x in ids) {
+  
+  sce_filepath <- here::here("processed_data/pseudobulk_sce", str_c(x, "_sce.rds"))
+  sce_object <- readr::read_rds(sce_filepath)
+  umap_df <- sce_object@int_colData$reducedDims$UMAP
+  names(umap_df) <- c("UMAP_1", "UMAP_2")
+  
+  labels_df <- test_object_list[[x]]$predicted_labels_df
+  
+  umap_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
+    ggplot(aes(x = UMAP_1,
+               y = UMAP_2,
+               color = predicted_labels)) +
+    geom_point(shape = 16) +
+    scale_color_viridis_d() +
+    labs(title = x,
+         color = "Predicted\nSubgroup") +
+    theme_bw()
+  
+  #most_variable_genes <- names(sort(apply(sce_object@assays@data@listData[[1]], 1, sd), decreasing = TRUE)[1:100])
+  #most_variable_df <- sce_object@assays@data@listData[[1]][most_variable_genes,]
+  
+  #pheatmap_plot_objects[[x]] <- pheatmap(as.matrix(most_variable_df),
+  #                                       annotation_col = data.frame(prediction = test_object_list[[sample_acc]]$model_output$max_score,
+  #                                                                   confidence = test_object_list[[sample_acc]]$model_output %>%
+  #                                                                     as_tibble() %>%
+  #                                                                     rowwise() %>%
+  #                                                                     mutate(max_confidence = max(G3, G4, SHH, WNT)/sum(G3, G4, SHH, WNT)) %>%
+  #                                                                     pull(max_confidence),
+  #                                                                   row.names = colnames(most_variable_df)),
+  #                                       show_rownames = FALSE,
+  #                                       show_colnames = FALSE)
+
+}
+
+ggplot2::ggsave(patchwork::wrap_plots(umap_plot_objects, ncol = 1),
+                path = umaps_plots_filepath,
+                width = 7.5, height = 10)
+
+```
