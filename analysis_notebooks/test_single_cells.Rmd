@@ -79,6 +79,7 @@ test_single_cells <- function(sample_acc, return_stats = FALSE) {
                              setNames(rep(sample_acc, n_cells)),
                            tibble(index = 1:n_cells,
                                   sample_accession = sample_acc,
+                                  study = "GSE119926",
                                   subgroup = sample_subgroup,
                                   platform = "Pseudo-bulk"),
                            ktsp_classifier,
@@ -138,7 +139,7 @@ for(x in ids) {
   
   sce_filepath <- here::here("processed_data/pseudobulk_sce", str_c(x, "_sce.rds"))
   sce_object <- readr::read_rds(sce_filepath)
-  umap_df <- sce_object@int_colData$reducedDims$UMAP
+  umap_df <- as.data.frame(sce_object@int_colData$reducedDims$UMAP)
   names(umap_df) <- c("UMAP_1", "UMAP_2")
   
   labels_df <- test_object_list[[x]]$predicted_labels_df
@@ -169,8 +170,8 @@ for(x in ids) {
 
 }
 
-ggplot2::ggsave(patchwork::wrap_plots(umap_plot_objects, ncol = 1),
-                path = umaps_plots_filepath,
+ggplot2::ggsave(filename = umaps_plots_filepath,
+                plot = patchwork::wrap_plots(umap_plot_objects, ncol = 1),
                 width = 7.5, height = 10)
 
 ```
