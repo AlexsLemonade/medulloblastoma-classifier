@@ -170,7 +170,7 @@ for(x in ids) {
   
   cell_prop_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
     arrange(G3) %>%
-    group_by(cluster) %>%
+    group_by(cluster, max_score) %>%
     mutate(id = row_number()) %>%
     pivot_longer(cols = c("G3", "G4", "SHH", "WNT"),
                  names_to = "subgroup",
