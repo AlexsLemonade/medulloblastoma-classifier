@@ -174,7 +174,7 @@ for(x in ids) {
     pivot_longer(cols = c("G3", "G4", "SHH", "WNT"),
                  names_to = "subgroup",
                  values_to = "score") %>%
-    ggplot(aes(x = id,
+    ggplot(aes(x = fct_reorder(id, G3, .desc = TRUE),
                y = score,
                fill = subgroup)) +
     geom_col(position = "fill") +
