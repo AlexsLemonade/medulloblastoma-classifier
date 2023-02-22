@@ -25,17 +25,17 @@ source(here::here("utils/single-cell.R"))
 
 ```{r}
 
-pseudobulk_genex_df <- read_tsv("processed_data/pseudobulk_genex.tsv") %>%
+pseudobulk_genex_df <- read_tsv(here::here("processed_data/pseudobulk_genex.tsv")) %>%
   column_to_rownames(var = "gene")
 
-pseudobulk_metadata_df <- read_tsv("processed_data/pseudobulk_metadata.tsv") %>%
+pseudobulk_metadata_df <- read_tsv(here::here("processed_data/pseudobulk_metadata.tsv")) %>%
   filter(title %in% names(pseudobulk_genex_df)) %>%
   mutate(sample_accession = title) %>%
   mutate(platform = "RNA-seq")
 
-gene_map_df <- read_tsv("processed_data/gene_map.tsv")
+gene_map_df <- read_tsv(here::here("processed_data/gene_map.tsv"))
 
-baseline_models <- read_rds("models/baseline.rds")
+baseline_models <- read_rds(here::here("models/baseline.rds"))
 ktsp_classifier <- baseline_models[[1]]$ktsp$classifier
 
 ```
