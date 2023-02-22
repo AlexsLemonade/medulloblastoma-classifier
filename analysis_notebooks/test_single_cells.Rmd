@@ -142,12 +142,18 @@ for(x in ids) {
   umap_df <- as.data.frame(sce_object@int_colData$reducedDims$UMAP)
   names(umap_df) <- c("UMAP_1", "UMAP_2")
   
-  labels_df <- test_object_list[[x]]$predicted_labels_df
+  labels_df <- test_object_list[[x]][["model_output"]] %>%
+    as_tibble() %>%
+    rowwise() %>%
+    mutate(max = max(G3, G4, SHH, WNT),
+           total = sum(G3, G4, SHH, WNT),
+           confidence = max/total)
   
   umap_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
     ggplot(aes(x = UMAP_1,
                y = UMAP_2,
-               color = predicted_labels)) +
+               color = max_score,
+               alpha = confidence)) +
     geom_point(shape = 16) +
     scale_color_viridis_d() +
     labs(title = x,
@@ -173,5 +179,7 @@ for(x in ids) {
 ggplot2::ggsave(filename = umaps_plots_filepath,
                 plot = patchwork::wrap_plots(umap_plot_objects, ncol = 1),
                 width = 7.5, height = 10)
+
+patchwork::wrap_plots(umap_plot_objects, ncol = 1)
 
 ```
