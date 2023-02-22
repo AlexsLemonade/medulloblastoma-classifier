@@ -51,7 +51,7 @@ cell_prop_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props.
 cell_prop_other_plots_filepath <- file.path(plots_dir, "single-cell_cell_props_other.pdf")
 cell_prop_other_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props_other.normal.pdf")
 cell_ratio_plots_filepath <- file.path(plots_dir, "single-cell_cell_ratio.pdf")
-cell_ratio_other_plots_filepath <- file.path(plots_dir, "single-cell_cell_ratio_other.pdf")
+cell_ratio_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_ratio.normal.pdf")
 ```
 
 ### Functions
