@@ -179,7 +179,7 @@ for(x in ids) {
                y = score,
                fill = subgroup)) +
     geom_col(position = "fill") +
-    facet_wrap(~ cluster,
+    facet_wrap(~ cluster + max_score,
                nrow = 1,
                scales = "free_x") +
     scale_fill_viridis_d() +
