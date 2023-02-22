@@ -169,12 +169,13 @@ for(x in ids) {
     theme_bw()
   
   cell_prop_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
+    arrange(G3) %>%
     group_by(cluster) %>%
-    mutate(id = as.character(row_number())) %>%
+    mutate(id = row_number()) %>%
     pivot_longer(cols = c("G3", "G4", "SHH", "WNT"),
                  names_to = "subgroup",
                  values_to = "score") %>%
-    ggplot(aes(x = fct_reorder(id, G3, .desc = TRUE),
+    ggplot(aes(x = id,
                y = score,
                fill = subgroup)) +
     geom_col(position = "fill") +
