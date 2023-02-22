@@ -177,6 +177,9 @@ for(x in ids) {
                y = score,
                fill = subgroup)) +
     geom_col(position = "fill") +
+    facet_wrap(~ cluster,
+               nrow = 1,
+               scales = "free_x") +
     scale_fill_viridis_d() +
     labs(title = x,
          x = NULL,
@@ -205,7 +208,7 @@ ggplot2::ggsave(filename = umaps_plots_filepath,
                 width = 7.5, height = 10)
 
 ggplot2::ggsave(filename = umaps_plots_normal_filepath,
-                plot = patchwork::wrap_plots(umap_plot_objects[4:7], ncol = 2),
+                plot = patchwork::wrap_plots(umap_plot_objects[4:7], ncol = 1),
                 width = 7.5, height = 10)
 
 ggplot2::ggsave(filename = cell_prop_plots_filepath,
@@ -213,7 +216,7 @@ ggplot2::ggsave(filename = cell_prop_plots_filepath,
                 width = 7.5, height = 10)
 
 ggplot2::ggsave(filename = cell_prop_plots_normal_filepath,
-                plot = patchwork::wrap_plots(cell_prop_plot_objects[4:7], ncol = 2),
+                plot = patchwork::wrap_plots(cell_prop_plot_objects[4:7], ncol = 1),
                 width = 7.5, height = 10)
 
 patchwork::wrap_plots(umap_plot_objects, ncol = 1)
