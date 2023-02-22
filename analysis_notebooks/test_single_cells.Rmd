@@ -50,7 +50,8 @@ cell_prop_plots_filepath <- file.path(plots_dir, "single-cell_cell_props.pdf")
 cell_prop_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props.normal.pdf")
 cell_prop_other_plots_filepath <- file.path(plots_dir, "single-cell_cell_props_other.pdf")
 cell_prop_other_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props_other.normal.pdf")
-
+cell_ratio_plots_filepath <- file.path(plots_dir, "single-cell_cell_ratio.pdf")
+cell_ratio_other_plots_filepath <- file.path(plots_dir, "single-cell_cell_ratio_other.pdf")
 ```
 
 ### Functions
@@ -139,6 +140,7 @@ names(stats_object_list) <- pseudobulk_metadata_df$sample_accession
 umap_plot_objects <- list()
 cell_prop_plot_objects <- list()
 cell_prop_other_plot_objects <- list()
+cell_ratio_plot_objects <- list()
 #pheatmap_plot_objects <- list()
 ids <- c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807")
 
@@ -214,6 +216,22 @@ for(x in ids) {
          fill = "Predicted\nSubgroup") +
     theme_bw()
   
+  cell_ratio_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
+    ggplot(aes(x = cluster,
+               y = max/other,
+               color = subgroup,
+               fill = subgroup)) +
+    geom_violin(fill = NA,
+                position = position_dodge(0.7)) +
+    geom_point(position = position_jitterdodge(height = 0, width = 0.1),
+               shape = 16) +
+    scale_color_viridis_d() +
+    labs(title = x,
+         x = "Cluster",
+         y = "Score Ratio: max/other",
+         fill = "Predicted\nSubgroup") +
+    theme_bw()
+  
   #most_variable_genes <- names(sort(apply(sce_object@assays@data@listData[[1]], 1, sd), decreasing = TRUE)[1:100])
   #most_variable_df <- sce_object@assays@data@listData[[1]][most_variable_genes,]
   
@@ -252,6 +270,14 @@ ggplot2::ggsave(filename = cell_prop_other_plots_filepath,
 
 ggplot2::ggsave(filename = cell_prop_other_plots_normal_filepath,
                 plot = patchwork::wrap_plots(cell_prop_other_plot_objects[4:7], ncol = 1),
+                width = 7.5, height = 10)
+
+ggplot2::ggsave(filename = cell_ratio_plots_filepath,
+                plot = patchwork::wrap_plots(cell_ratio_plot_objects[1:3], ncol = 1),
+                width = 7.5, height = 10)
+
+ggplot2::ggsave(filename = cell_ratio_plots_normal_filepath,
+                plot = patchwork::wrap_plots(cell_ratio_plot_objects[4:7], ncol = 1),
                 width = 7.5, height = 10)
 
 patchwork::wrap_plots(umap_plot_objects, ncol = 1)
