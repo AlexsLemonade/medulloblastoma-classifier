@@ -219,13 +219,13 @@ for(x in ids) {
   cell_ratio_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
     ggplot(aes(x = cluster,
                y = max/other,
-               color = max_score,
-               fill = max_score)) +
-    geom_violin(fill = NA,
-                position = position_dodge(0.75)) +
-    geom_point(position = position_jitterdodge(jitter.height = 0,
-                                               jitter.width = 0.1),
-               shape = 16) +
+               color = max_score)) +
+    #geom_violin(fill = NA,
+    #            position = position_dodge(0.75)) +
+    #geom_point(position = position_jitterdodge(jitter.height = 0,
+    #                                           jitter.width = 0.1),
+    #           shape = 16) +
+    geom_boxplot() +
     scale_color_viridis_d() +
     labs(title = x,
          x = "Cluster",
