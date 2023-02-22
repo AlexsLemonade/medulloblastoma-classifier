@@ -45,6 +45,7 @@ ktsp_classifier <- baseline_models[[1]]$ktsp$classifier
 ```{r}
 plots_dir <- here::here("plots")
 umaps_plots_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.pdf")
+cell_prop_plots_filepath <- file.path(plots_dir, "single-cell_cell_props.pdf")
 
 ```
 
@@ -132,22 +133,25 @@ names(stats_object_list) <- pseudobulk_metadata_df$sample_accession
 ```{r}
 
 umap_plot_objects <- list()
+cell_prop_plot_objects <- list()
 #pheatmap_plot_objects <- list()
-ids <- c("BCH825", "Med2312FH", "SJ625")
+ids <- c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807")
 
 for(x in ids) {
   
   sce_filepath <- here::here("processed_data/pseudobulk_sce", str_c(x, "_sce.rds"))
   sce_object <- readr::read_rds(sce_filepath)
-  umap_df <- as.data.frame(sce_object@int_colData$reducedDims$UMAP)
-  names(umap_df) <- c("UMAP_1", "UMAP_2")
+  umap_df <- data.frame(sce_object@int_colData$reducedDims$UMAP,
+                           cluster = sce_object@colData$louvain_10)
+  names(umap_df) <- c("UMAP_1", "UMAP_2", "cluster")
   
   labels_df <- test_object_list[[x]][["model_output"]] %>%
     as_tibble() %>%
     rowwise() %>%
     mutate(max = max(G3, G4, SHH, WNT),
            total = sum(G3, G4, SHH, WNT),
-           confidence = max/total)
+           confidence = max/total) %>%
+    ungroup()
   
   umap_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
     ggplot(aes(x = UMAP_1,
@@ -160,6 +164,22 @@ for(x in ids) {
     labs(title = x,
          alpha = "Confidence =\nmax/total",
          color = "Predicted\nSubgroup") +
+    theme_bw()
+  
+  cell_prop_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
+    mutate(id = row_number()) %>%
+    pivot_longer(cols = c("G3", "G4", "SHH", "WNT"),
+                 names_to = "subgroup",
+                 values_to = "score") %>%
+    ggplot(aes(x = id,
+               y = score,
+               fill = subgroup)) +
+    geom_col(position = "fill") +
+    scale_fill_viridis_d() +
+    labs(title = x,
+         x = NULL,
+         y = "Score Proportion",
+         fill = "Predicted\nSubgroup") +
     theme_bw()
   
   #most_variable_genes <- names(sort(apply(sce_object@assays@data@listData[[1]], 1, sd), decreasing = TRUE)[1:100])
@@ -179,8 +199,13 @@ for(x in ids) {
 }
 
 ggplot2::ggsave(filename = umaps_plots_filepath,
-                plot = patchwork::wrap_plots(umap_plot_objects, ncol = 1),
+                plot = patchwork::wrap_plots(umap_plot_objects, ncol = 2),
                 width = 7.5, height = 10)
+
+ggplot2::ggsave(filename = cell_prop_plots_filepath,
+                plot = patchwork::wrap_plots(cell_prop_plot_objects, ncol = 2),
+                width = 7.5, height = 10)
+
 
 patchwork::wrap_plots(umap_plot_objects, ncol = 1)
 
