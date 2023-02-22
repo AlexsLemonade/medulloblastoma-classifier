@@ -16,8 +16,8 @@ output:
 ```{r}
 
 library(tidyverse)
-source("utils/modeling.R")
-source("utils/single-cell.R")
+source(here::here("utils/modeling.R"))
+source(here::here("utils/single-cell.R"))
 
 ```
 
