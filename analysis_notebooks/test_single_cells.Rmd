@@ -179,8 +179,8 @@ for(x in ids) {
                y = score,
                fill = subgroup)) +
     geom_col(position = "fill") +
-    facet_wrap(~ cluster + max_score,
-               nrow = 1,
+    facet_grid(rows = vars(cluster, max_score),
+               space = "free_x",
                scales = "free_x") +
     scale_fill_viridis_d() +
     labs(title = x,
