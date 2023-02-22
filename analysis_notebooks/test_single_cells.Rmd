@@ -156,7 +156,9 @@ for(x in ids) {
                alpha = confidence)) +
     geom_point(shape = 16) +
     scale_color_viridis_d() +
+    scale_alpha_continuous(range = c(0, 1)) +
     labs(title = x,
+         alpha = "Confidence =\nmax/total",
          color = "Predicted\nSubgroup") +
     theme_bw()
   
