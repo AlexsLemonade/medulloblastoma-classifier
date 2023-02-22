@@ -247,11 +247,11 @@ ggplot2::ggsave(filename = cell_prop_plots_normal_filepath,
                 width = 7.5, height = 10)
 
 ggplot2::ggsave(filename = cell_prop_other_plots_filepath,
-                plot = patchwork::wrap_plots(cell_prop_plot_objects[1:3], ncol = 1),
+                plot = patchwork::wrap_plots(cell_prop_other_plot_objects[1:3], ncol = 1),
                 width = 7.5, height = 10)
 
 ggplot2::ggsave(filename = cell_prop_other_plots_normal_filepath,
-                plot = patchwork::wrap_plots(cell_prop_plot_objects[4:7], ncol = 1),
+                plot = patchwork::wrap_plots(cell_prop_other_plot_objects[4:7], ncol = 1),
                 width = 7.5, height = 10)
 
 patchwork::wrap_plots(umap_plot_objects, ncol = 1)
