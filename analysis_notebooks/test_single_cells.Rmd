@@ -222,8 +222,9 @@ for(x in ids) {
                color = subgroup,
                fill = subgroup)) +
     geom_violin(fill = NA,
-                position = position_dodge(0.7)) +
-    geom_point(position = position_jitterdodge(height = 0, width = 0.1),
+                position = position_dodge(0.75)) +
+    geom_point(position = position_jitterdodge(jitter.height = 0,
+                                               jitter.width = 0.1),
                shape = 16) +
     scale_color_viridis_d() +
     labs(title = x,
