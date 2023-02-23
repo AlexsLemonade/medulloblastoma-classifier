@@ -13,7 +13,7 @@ output:
 
 ### Load libraries 
 
-```{r}
+```{r include=FALSE}
 
 library(tidyverse)
 source(here::here("utils/modeling.R"))
@@ -23,7 +23,7 @@ source(here::here("utils/single-cell.R"))
 
 ### Input files
 
-```{r}
+```{r include=FALSE}
 
 pseudobulk_genex_df <- read_tsv(here::here("processed_data/pseudobulk_genex.tsv")) %>%
   column_to_rownames(var = "gene")
@@ -42,7 +42,7 @@ ktsp_classifier <- baseline_models[[1]]$ktsp$classifier
 
 ### Output files
 
-```{r}
+```{r include=FALSE}
 plots_dir <- here::here("plots")
 umaps_plots_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.pdf")
 umaps_plots_normal_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.normal.pdf")
@@ -56,7 +56,7 @@ cell_ratio_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_ratio
 
 ### Functions
 
-```{r}
+```{r include=FALSE}
 
 test_single_cells <- function(sample_acc, return_stats = FALSE) {
   
@@ -121,7 +121,7 @@ test_single_cells <- function(sample_acc, return_stats = FALSE) {
 
 # Test single cells
 
-```{r}
+```{r include=FALSE}
 
 test_object_list <- lapply(pseudobulk_metadata_df$title,
                            function(x) test_single_cells(x))
@@ -133,9 +133,8 @@ names(stats_object_list) <- pseudobulk_metadata_df$sample_accession
 
 ```
 
-# Plot results
-
-```{r}
+### Prep plotting data
+```{r include=FALSE}
 
 umap_plot_objects <- list()
 cell_prop_plot_objects <- list()
@@ -144,13 +143,16 @@ cell_ratio_plot_objects <- list()
 #pheatmap_plot_objects <- list()
 ids <- c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807")
 
+
+umap_labels_combined_df <- NULL
 for(x in ids) {
   
   sce_filepath <- here::here("processed_data/pseudobulk_sce", str_c(x, "_sce.rds"))
   sce_object <- readr::read_rds(sce_filepath)
-  umap_df <- data.frame(sce_object@int_colData$reducedDims$UMAP,
-                           cluster = sce_object@colData$louvain_10)
-  names(umap_df) <- c("UMAP_1", "UMAP_2", "cluster")
+  umap_df <- data.frame(sample = x,
+                        sce_object@int_colData$reducedDims$UMAP,
+                        cluster = sce_object@colData$louvain_10)
+  names(umap_df) <- c("sample", "UMAP_1", "UMAP_2", "cluster")
   
   labels_df <- test_object_list[[x]][["model_output"]] %>%
     as_tibble() %>%
@@ -161,126 +163,90 @@ for(x in ids) {
            confidence = max/total) %>%
     ungroup()
   
-  umap_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
+  umap_labels_combined_df <- bind_rows(umap_labels_combined_df, as_tibble(bind_cols(umap_df, labels_df)))
+
+}
+
+```
+
+# Plot results
+
+### How confident are individual cell predictions?
+More confident when subgroup predictions are consistent across entire sample.
+```{r echo=FALSE, fig.height=5, fig.width=7.5}
+
+umap_labels_combined_df %>%
+  ggplot(aes(x = sample,
+             y = max/(total - max),
+             color = max_score)) +
+  geom_hline(yintercept = c(1,1.5),
+             lty = 2) +
+  geom_boxplot(varwidth = TRUE) +
+  scale_color_viridis_d() +
+  labs(title = "Single cell prediction class ratios",
+       x = "Sample",
+       y = "Ratio of subgroup:others",
+       color = "Predicted\nSubgroup") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+umap_labels_combined_df %>%
+  ggplot(aes(x = cluster,
+             y = max/(total - max),
+             color = max_score)) +
+  geom_hline(yintercept = c(1,1.5),
+             lty = 2) +
+  geom_boxplot(varwidth = TRUE) +
+  facet_grid(cols = vars(sample),
+             space = "free_x",
+             scales = "free_x") +
+  scale_color_viridis_d() +
+  labs(title = "Single cell prediction class ratios",
+       x = "Cluster",
+       y = "Ratio of subgroup:others",
+       color = "Predicted\nSubgroup") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+```
+  
+### Other plotting attempts
+```{r echo=FALSE, fig.height = 20, fig.width = 7.5}
+
+cluster_confidence_plot <- umap_labels_combined_df %>%
     ggplot(aes(x = UMAP_1,
                y = UMAP_2,
                color = max_score,
                alpha = confidence)) +
     geom_point(shape = 16) +
     scale_color_viridis_d() +
-    scale_alpha_continuous(range = c(0, 1)) +
-    labs(title = x,
+  scale_alpha_continuous(range = c(0, 1)) +
+  facet_wrap(~ sample, ncol = 1,
+             scales = "free") +
+    labs(title = "Single cell confidence scores, UMAP",
+         x = "UMAP 1",
+         y = "UMAP 2",
          alpha = "Confidence =\nmax/total",
          color = "Predicted\nSubgroup") +
-    theme_bw()
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.direction = "vertical")
   
-  cell_prop_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
-    arrange(G3) %>%
-    group_by(cluster, max_score) %>%
-    mutate(id = row_number()) %>%
-    pivot_longer(cols = c("G3", "G4", "SHH", "WNT"),
-                 names_to = "subgroup",
-                 values_to = "score") %>%
-    ggplot(aes(x = id,
-               y = score,
-               fill = subgroup)) +
-    geom_col(position = "fill") +
-    facet_grid(cols = vars(cluster, max_score),
-               space = "free_x",
-               scales = "free_x") +
-    scale_fill_viridis_d() +
-    labs(title = x,
-         x = NULL,
-         y = "Score Proportion",
-         fill = "Predicted\nSubgroup") +
-    theme_bw()
+cluster_plot <- umap_labels_combined_df %>%
+    ggplot(aes(x = UMAP_1,
+               y = UMAP_2,
+               color = cluster)) +
+    geom_point(shape = 16) +
+  facet_wrap(~ sample, ncol = 1,
+             scales = "free") +
+    labs(title = "Single cell clusters, UMAP",
+         x = "UMAP 1",
+         y = "UMAP 2",
+         color = "Predicted\nClusters") +
+    theme_bw() +
+  theme(legend.position = "bottom",
+        legend.direction = "vertical")
+
+patchwork::wrap_plots(cluster_plot, cluster_confidence_plot, nrow = 1)
   
-  cell_prop_other_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
-    arrange(confidence) %>%
-    group_by(cluster, max_score) %>%
-    mutate(id = row_number()) %>%
-    pivot_longer(cols = c("max", "other"),
-                 names_to = "subgroup",
-                 values_to = "score") %>%
-    ggplot(aes(x = id,
-               y = score,
-               fill = subgroup)) +
-    geom_col(position = "fill") +
-    facet_grid(cols = vars(cluster, max_score),
-               space = "free_x",
-               scales = "free_x") +
-    #scale_fill_viridis_d() +
-    labs(title = x,
-         x = NULL,
-         y = "Score Proportion",
-         fill = "Predicted\nSubgroup") +
-    theme_bw()
-  
-  cell_ratio_plot_objects[[x]] <- bind_cols(labels_df, umap_df) %>%
-    ggplot(aes(x = cluster,
-               y = max/other,
-               color = max_score)) +
-    #geom_violin(fill = NA,
-    #            position = position_dodge(0.75)) +
-    #geom_point(position = position_jitterdodge(jitter.height = 0,
-    #                                           jitter.width = 0.1),
-    #           shape = 16) +
-    geom_boxplot() +
-    scale_color_viridis_d() +
-    labs(title = x,
-         x = "Cluster",
-         y = "Score Ratio: max/other",
-         fill = "Predicted\nSubgroup") +
-    theme_bw()
-  
-  #most_variable_genes <- names(sort(apply(sce_object@assays@data@listData[[1]], 1, sd), decreasing = TRUE)[1:100])
-  #most_variable_df <- sce_object@assays@data@listData[[1]][most_variable_genes,]
-  
-  #pheatmap_plot_objects[[x]] <- pheatmap(as.matrix(most_variable_df),
-  #                                       annotation_col = data.frame(prediction = test_object_list[[sample_acc]]$model_output$max_score,
-  #                                                                   confidence = test_object_list[[sample_acc]]$model_output %>%
-  #                                                                     as_tibble() %>%
-  #                                                                     rowwise() %>%
-  #                                                                     mutate(max_confidence = max(G3, G4, SHH, WNT)/sum(G3, G4, SHH, WNT)) %>%
-  #                                                                     pull(max_confidence),
-  #                                                                   row.names = colnames(most_variable_df)),
-  #                                       show_rownames = FALSE,
-  #                                       show_colnames = FALSE)
-
-}
-
-ggplot2::ggsave(filename = umaps_plots_filepath,
-                plot = patchwork::wrap_plots(umap_plot_objects[1:3], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = umaps_plots_normal_filepath,
-                plot = patchwork::wrap_plots(umap_plot_objects[4:7], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_prop_plots_filepath,
-                plot = patchwork::wrap_plots(cell_prop_plot_objects[1:3], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_prop_plots_normal_filepath,
-                plot = patchwork::wrap_plots(cell_prop_plot_objects[4:7], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_prop_other_plots_filepath,
-                plot = patchwork::wrap_plots(cell_prop_other_plot_objects[1:3], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_prop_other_plots_normal_filepath,
-                plot = patchwork::wrap_plots(cell_prop_other_plot_objects[4:7], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_ratio_plots_filepath,
-                plot = patchwork::wrap_plots(cell_ratio_plot_objects[1:3], ncol = 1),
-                width = 7.5, height = 10)
-
-ggplot2::ggsave(filename = cell_ratio_plots_normal_filepath,
-                plot = patchwork::wrap_plots(cell_ratio_plot_objects[4:7], ncol = 1),
-                width = 7.5, height = 10)
-
-patchwork::wrap_plots(umap_plot_objects, ncol = 1)
-
 ```
