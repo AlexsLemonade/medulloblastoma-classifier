@@ -8,3 +8,6 @@ output:
     toc_float: TRUE
     df_print: paged
 ---
+
+# Session info
+sessionInfo()
