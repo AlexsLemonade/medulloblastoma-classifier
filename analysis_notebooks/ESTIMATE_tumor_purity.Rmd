@@ -9,18 +9,15 @@ output:
     df_print: paged
 ---
 
-# Set up
+# Setup
+
+```{r setup}
 
 ### Load packages
-
-```{r}
 suppressMessages(library(magrittr))
 suppressMessages(library(estimate))
-```
 
 ### Set up directories and file names
-
-```{r}
 processed_data_dir <- here::here("processed_data")
 plot_dir <- here::here("plots")
 estimate_data_dir <- file.path(processed_data_dir, "estimate")
@@ -223,4 +220,6 @@ estimate_score_tumor_purity_plot_object
 ```
 
 # Session info
+```{r}
 sessionInfo()
+```

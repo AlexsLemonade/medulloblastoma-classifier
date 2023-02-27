@@ -9,5 +9,12 @@ output:
     df_print: paged
 ---
 
+# Setup
+```{r setup}
+
+```
+
 # Session info
+```{r session_info}
 sessionInfo()
+```
