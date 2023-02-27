@@ -1,7 +1,7 @@
 # Run experiments using bulk gene expression data
 #
 # Steven Foltz
-# February 2023
+# 2023
 
 # set up directories
 nb_dir <- here::here("analysis_notebooks")
