@@ -221,3 +221,6 @@ ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
 
 estimate_score_tumor_purity_plot_object
 ```
+
+# Session info
+sessionInfo()
