@@ -13,11 +13,11 @@ output:
 
 ```{r setup}
 
-### Load packages
+# Load packages
 suppressMessages(library(magrittr))
 suppressMessages(library(estimate))
 
-### Set up directories and file names
+# Set up directories and file names
 processed_data_dir <- here::here("processed_data")
 plot_dir <- here::here("plots")
 estimate_data_dir <- file.path(processed_data_dir, "estimate")
@@ -42,22 +42,17 @@ estimate_results_output_filename <- file.path(estimate_data_dir, "estimate_resul
 tumor_purity_plot_filename <- file.path(estimate_plot_dir, "tumor_purity_by_subgroup.pdf")
 stromal_immune_plot_filename <- file.path(estimate_plot_dir, "stromal_score_by_immune_score.pdf")
 estimate_score_tumor_purity_plot_filename <- file.path(estimate_plot_dir, "estimate_score_by_tumor_purity.pdf")
-```
 
-### Read in bulk genex and metadata
-
-```{r}
+# Read in bulk genex and metadata
 genex_df <- readr::read_tsv(genex_input_filename,
                             show_col_types = FALSE) %>%
   tibble::column_to_rownames(var = "gene")
 
 metadata_df <- readr::read_tsv(metadata_input_filename,
                                show_col_types = FALSE)
-```
 
-### Reformat genex data by converting ENSEMBL gene IDs to SYMBOL
+# Reformat genex data by converting ENSEMBL gene IDs to SYMBOL
 
-```{r}
 # read in gene map
 # includes ENSEMBL, ENTREZID, and SYMBOL columns for gene name conversion
 gene_map_df <- readr::read_tsv(gene_map_df_filename,
@@ -86,11 +81,16 @@ estimate::filterCommonGenes(input.f = estimate_input_filename,
 
 # Run ESTIMATE
 
-- ESTIMATE publication: https://www.nature.com/articles/ncomms3612
-- ESTIMATE generates Stromal and Immune scores using ssGSEA, regardless of platform: $Stromal + Immune scores = ESTIMATE score$
-- The model converting ESTIMATE scores to tumor purity was trained on Affymetrix data
-- That model is: $tumor purity = cos(0.6049872018 + 0.0001467884 * ESTIMATE)$
-- To return tumor purity scores, we must set platform = "affymetrix" (default) even though some data are RNA-seq, otherwise the TP conversion is not done
+[ESTIMATE](https://www.nature.com/articles/ncomms3612) generates Stromal and Immune scores using [ssGSEA](https://www.genepattern.org/modules/docs/ssGSEAProjection/4#gsc.tab=0), regardless of platform:
+
+Stromal + Immune scores = ESTIMATE score
+
+The model converting ESTIMATE scores to tumor purity was trained on Affymetrix data.
+That model is:
+
+$\text{Tumor Purity} = cos(0.6049872018 + 0.0001467884 * \text{ESTIMATE})$
+
+To return tumor purity scores, we must set platform = "affymetrix" (default) even though some data are RNA-seq, otherwise the tumor purity conversion is not done.
 
 ```{r}
 estimate::estimateScore(input.ds = estimate_input_gct_filename,
@@ -100,14 +100,14 @@ estimate::estimateScore(input.ds = estimate_input_gct_filename,
 
 ### Reshape ESTIMATE GCT file into something tidy
 
-(Broad data formats)[https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats]
+[Broad data formats](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats)
 
 There are four variables (Stromal, Immune, ESTIMATE, and tumor purity) associated with each observation (one sample) but GCT is an untidy format and we need to skip the first two metadata lines (version and data dimensions).
 
 We need to convert from this:
 
 | #1.2 | blank | blank | blank |
-| ---- | ----- | ----- | ----- |
+| :--- | :---- | :---- | :---- |
 | n_features | n_samples | blank | blank |
 | NAME | Description | sample1 | sample2 |
 | StromalScore | StromalScore | w1 | w2 |
@@ -118,7 +118,7 @@ We need to convert from this:
 Into this (intermediate step):
 
 | NAME | sample_accession | value |
-| ---- | ---------------- | ----- |
+| :--- | :--------------- | :---- |
 | StromalScore | sample1 | w1 |
 | ImmuneScore | sample1 | x1 |
 | ESTIMATEScore | sample1 | y1 |
@@ -131,7 +131,7 @@ Into this (intermediate step):
 Into this (tidy format):
 
 | sample_accession | StromalScore | ImmuneScore | ESTIMATEScore | TumorPurity |
-| ---------------- | ------------ | ----------- | ------------- | ----------- |
+| :--------------- | :----------- | :---------- | :------------ | :---------- |
 | sample1 | w1 | x1 | y1 | z1 |
 | sample2 | w2 | x2 | y2 | z2 |
 
