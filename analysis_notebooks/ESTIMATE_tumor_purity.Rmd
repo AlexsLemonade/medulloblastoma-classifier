@@ -9,6 +9,10 @@ output:
     df_print: paged
 ---
 
+This script uses [ESTIMATE](https://www.nature.com/articles/ncomms3612) to predict the tumor purity of our bulk array and RNA-seq gene expression samples.
+Tumors of different purity levels may interact differently with subgroup prediction models.
+Single sample predictors _should_ allow for more robust performance with wider ranges of tumor purity because the within-sample relationships between genes should remain consistent even when the sample has some normal tissue signal.
+
 # Setup
 
 ```{r setup}
@@ -185,6 +189,10 @@ ggplot2::ggsave(filename = tumor_purity_plot_filename,
 tumor_purity_plot_object
 ```
 
+- Samples in this cohort show consistently high tumor purity (> 0.95) across MB subgroups and platforms
+- Normal samples have high "tumor purity" because they have low stromal and immune scores
+- LGG samples (all RNA-seq) show a lower and wider range of tumor purities
+
 ### Plot stromal vs. immune scores
 
 ```{r}
@@ -203,6 +211,9 @@ ggplot2::ggsave(filename = stromal_immune_plot_filename,
 stromal_immune_plot_object
 ```
 
+- There is little differentiation between MB subgroups in their stromal and immune scores
+- LGG samples tend of have higher stromal and immune scores than the MB samples
+
 ### Plot estimate score vs. tumor purity
 
 ```{r}
@@ -220,6 +231,9 @@ ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
 
 estimate_score_tumor_purity_plot_object
 ```
+
+- ESTIMATE scores are calculated as Stromal + Immune scores = ESTIMATE score
+- Tumor purity is calculated as $\text{Tumor Purity} = cos(0.6049872018 + 0.0001467884 * \text{ESTIMATE})$
 
 # Session info
 ```{r}
