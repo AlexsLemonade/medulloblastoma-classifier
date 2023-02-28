@@ -1,7 +1,7 @@
 ---
-title: "Predicting subgroup in single cells"
+title: "Predicting tumor subgroup in single cells"
 author: "Steven Foltz"
-date: "February 2023"
+date: "2023"
 output:
   html_document:
     toc: TRUE
@@ -9,162 +9,91 @@ output:
     df_print: paged
 ---
 
-# Set up
+# Setup
+```{r setup}
 
-### Load libraries 
-
-```{r include=FALSE}
-
-library(tidyverse)
+# Load libraries 
 source(here::here("utils/modeling.R"))
 source(here::here("utils/single-cell.R"))
 
-```
+# Input files
 
-### Input files
+processed_data_dir <- here::here("processed_data")
+models_dir <- here::here("models")
+pseudobulk_sce_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 
-```{r include=FALSE}
+pseudobulk_genex_filepath <- file.path(processed_data_dir, "pseudobulk_genex.tsv")
+pseudobulk_metadata_filepath <- file.path(processed_data_dir, "pseudobulk_metadata.tsv")
 
-pseudobulk_genex_df <- read_tsv(here::here("processed_data/pseudobulk_genex.tsv")) %>%
-  column_to_rownames(var = "gene")
+gene_map_filepath <- file.path(processed_data_dir, "gene_map.tsv")
 
-pseudobulk_metadata_df <- read_tsv(here::here("processed_data/pseudobulk_metadata.tsv")) %>%
-  filter(title %in% names(pseudobulk_genex_df)) %>%
-  mutate(sample_accession = title) %>%
-  mutate(platform = "RNA-seq")
+baseline_models_filepath <- file.path(models_dir, "baseline.rds")
 
-gene_map_df <- read_tsv(here::here("processed_data/gene_map.tsv"))
-
-baseline_models <- read_rds(here::here("models/baseline.rds"))
-ktsp_classifier <- baseline_models[[1]]$ktsp$classifier
-
-```
-
-### Output files
-
-```{r include=FALSE}
+# Output files
 plots_dir <- here::here("plots")
-umaps_plots_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.pdf")
-umaps_plots_normal_filepath <- file.path(plots_dir, "single-cell_umap_with_subgroup.normal.pdf")
-cell_prop_plots_filepath <- file.path(plots_dir, "single-cell_cell_props.pdf")
-cell_prop_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props.normal.pdf")
-cell_prop_other_plots_filepath <- file.path(plots_dir, "single-cell_cell_props_other.pdf")
-cell_prop_other_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_props_other.normal.pdf")
-cell_ratio_plots_filepath <- file.path(plots_dir, "single-cell_cell_ratio.pdf")
-cell_ratio_plots_normal_filepath <- file.path(plots_dir, "single-cell_cell_ratio.normal.pdf")
-```
 
-### Functions
+# Read in data
+pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
+                                          show_col_types = FALSE) |>
+  dplyr::mutate(sample_accession = title) |>
+  dplyr::mutate(platform = "RNA-seq")
 
-```{r include=FALSE}
+gene_map_df <- readr::read_tsv(gene_map_filepath,
+                               show_col_types = FALSE)
 
-test_single_cells <- function(sample_acc, return_stats = FALSE) {
-  
-  filepath <- here::here("processed_data/pseudobulk_sce", str_c(sample_acc, "_sce.rds"))
-  
-  sce_object <- read_rds(filepath)
-  
-  genex_mat <- sce_object@assays@data@listData[[1]] %>%
-    rownames_to_column(var = "gene") %>%
-    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
-                     by = c("gene" = "SYMBOL")) %>%
-    dplyr::filter(!duplicated(gene),
-                  !duplicated(ENSEMBL),
-                  !is.na(ENSEMBL)) %>%
-    dplyr::select(-gene) %>%
-    dplyr::select(gene = ENSEMBL, everything()) %>%
-    column_to_rownames(var = "gene")
-  
-  n_cells <- ncol(genex_mat)
-  
-  sample_subgroup <- pseudobulk_metadata_df %>%
-    filter(sample_accession == sample_acc) %>%
-    pull(subgroup)
-  
-  test_object <- test_ktsp(genex_mat %>%
-                             setNames(rep(sample_acc, n_cells)),
-                           tibble(index = 1:n_cells,
-                                  sample_accession = sample_acc,
-                                  study = "GSE119926",
-                                  subgroup = sample_subgroup,
-                                  platform = "Pseudo-bulk"),
-                           ktsp_classifier,
-                           labels = c("G3", "G4", "SHH", "WNT"))
-  
-  if (return_stats) {
-    
-    accuracy <- mean(test_object$predicted_labels_df$predicted_labels == sample_subgroup)
-    n_G3 <- sum(test_object$predicted_labels_df$predicted_labels == "G3")
-    n_G4 <- sum(test_object$predicted_labels_df$predicted_labels == "G4")
-    n_SHH <- sum(test_object$predicted_labels_df$predicted_labels == "SHH")
-    n_WNT <- sum(test_object$predicted_labels_df$predicted_labels == "WNT")
-    
-    return(tibble(sample_accession = sample_acc,
-                  subgroup = sample_subgroup,
-                  n_cells = n_cells,
-                  accuracy = accuracy,
-                  n_G3 = n_G3,
-                  n_G4 = n_G4,
-                  n_SHH = n_SHH,
-                  n_WNT = n_WNT))
-    
-  } else {
-    
-    return(test_object)
-    
-  }
-
-}
+baseline_models <- readr::read_rds(baseline_models_filepath)
+ktsp_classifier <- baseline_models[[1]]$ktsp$classifier #separate issue: pick the designated model
 
 ```
-
 
 # Test single cells
 
-```{r include=FALSE}
+```{r message = FALSE}
 
 test_object_list <- lapply(pseudobulk_metadata_df$title,
-                           function(x) test_single_cells(x))
-names(test_object_list) <- pseudobulk_metadata_df$title
-
-stats_object_list <- lapply(pseudobulk_metadata_df$sample_accession,
-                            function(x) test_single_cells(x, return_stats = TRUE))
-names(stats_object_list) <- pseudobulk_metadata_df$sample_accession
+                           function(x) test_single_cells(sample_acc = x,
+                                                         sce_filepath = file.path(pseudobulk_sce_dir, stringr::str_c(x, "_sce.rds")),
+                                                         metadata_df = pseudobulk_metadata_df,
+                                                         gene_map_df = gene_map_df,
+                                                         ktsp_classifier = ktsp_classifier)) |>
+  purrr::set_names(pseudobulk_metadata_df$title)
 
 ```
 
 ### Prep plotting data
-```{r include=FALSE}
+```{r}
 
 umap_plot_objects <- list()
 cell_prop_plot_objects <- list()
 cell_prop_other_plot_objects <- list()
 cell_ratio_plot_objects <- list()
-#pheatmap_plot_objects <- list()
 ids <- c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807")
-
 
 umap_labels_combined_df <- NULL
 for(x in ids) {
   
-  sce_filepath <- here::here("processed_data/pseudobulk_sce", str_c(x, "_sce.rds"))
+  sce_filepath <- file.path(pseudobulk_sce_dir, stringr::str_c(x, "_sce.rds"))
   sce_object <- readr::read_rds(sce_filepath)
   umap_df <- data.frame(sample = x,
                         sce_object@int_colData$reducedDims$UMAP,
                         cluster = sce_object@colData$louvain_10)
   names(umap_df) <- c("sample", "UMAP_1", "UMAP_2", "cluster")
   
-  labels_df <- test_object_list[[x]][["model_output"]] %>%
-    as_tibble() %>%
-    rowwise() %>%
-    mutate(max = max(G3, G4, SHH, WNT),
-           total = sum(G3, G4, SHH, WNT),
-           other = total - max,
-           confidence = max/total) %>%
-    ungroup()
+  labels_df <- test_object_list[[x]][["model_output"]] |>
+    tibble::as_tibble() |>
+    dplyr::rowwise() |>
+    dplyr::mutate(max = max(G3, G4, SHH, WNT),
+                  total = sum(G3, G4, SHH, WNT),
+                  other = total - max,
+                  confidence = max/total) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(confidence = max/total,
+                  relative_confidence = max/(total - max))
   
-  umap_labels_combined_df <- bind_rows(umap_labels_combined_df, as_tibble(bind_cols(umap_df, labels_df)))
-
+  umap_labels_combined_df <- dplyr::bind_rows(umap_labels_combined_df,
+                                              tibble::as_tibble(dplyr::bind_cols(umap_df, labels_df)))
+  
+  
 }
 
 ```
@@ -173,80 +102,70 @@ for(x in ids) {
 
 ### How confident are individual cell predictions?
 More confident when subgroup predictions are consistent across entire sample.
-```{r echo=FALSE, fig.height=5, fig.width=7.5}
+```{r fig.height = 5, fig.width = 7.5}
 
-umap_labels_combined_df %>%
-  ggplot(aes(x = sample,
-             y = max/(total - max),
-             color = max_score)) +
-  geom_hline(yintercept = c(1,1.5),
-             lty = 2) +
-  geom_boxplot(varwidth = TRUE) +
-  scale_color_viridis_d() +
-  labs(title = "Single cell prediction class ratios",
-       x = "Sample",
-       y = "Ratio of subgroup:others",
-       color = "Predicted\nSubgroup") +
-  theme_bw() +
-  theme(legend.position = "bottom")
-
-umap_labels_combined_df %>%
-  ggplot(aes(x = cluster,
-             y = max/(total - max),
-             color = max_score)) +
-  geom_hline(yintercept = c(1,1.5),
-             lty = 2) +
-  geom_boxplot(varwidth = TRUE) +
-  facet_grid(cols = vars(sample),
-             space = "free_x",
-             scales = "free_x") +
-  scale_color_viridis_d() +
-  labs(title = "Single cell prediction class ratios",
-       x = "Cluster",
-       y = "Ratio of subgroup:others",
-       color = "Predicted\nSubgroup") +
-  theme_bw() +
-  theme(legend.position = "bottom")
+umap_labels_combined_df |>
+  ggplot2::ggplot(ggplot2::aes(x = cluster,
+                               y = relative_confidence,
+                               color = max_score)) +
+  ggplot2::geom_hline(yintercept = c(1,2),
+                      lty = 2) +
+  ggplot2::geom_boxplot(varwidth = TRUE) +
+  ggplot2::facet_grid(cols = ggplot2::vars(sample),
+                      space = "free_x",
+                      scales = "free_x") +
+  ggplot2::scale_color_viridis_d() +
+  ggplot2::labs(title = "Single cell prediction class ratios",
+                x = "Sample",
+                y = "Relative confidence = ratio of subgroup:others",
+                color = "Predicted\nSubgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom")
 
 ```
   
-### Other plotting attempts
-```{r echo=FALSE, fig.height = 20, fig.width = 7.5}
+### UMAPs with cluster and subgroup
+```{r fig.height = 20, fig.width = 7.5}
 
-cluster_confidence_plot <- umap_labels_combined_df %>%
-    ggplot(aes(x = UMAP_1,
-               y = UMAP_2,
-               color = max_score,
-               alpha = confidence)) +
-    geom_point(shape = 16) +
-    scale_color_viridis_d() +
-  scale_alpha_continuous(range = c(0, 1)) +
-  facet_wrap(~ sample, ncol = 1,
-             scales = "free") +
-    labs(title = "Single cell confidence scores, UMAP",
-         x = "UMAP 1",
-         y = "UMAP 2",
-         alpha = "Confidence =\nmax/total",
-         color = "Predicted\nSubgroup") +
-  theme_bw() +
-  theme(legend.position = "bottom",
-        legend.direction = "vertical")
-  
-cluster_plot <- umap_labels_combined_df %>%
-    ggplot(aes(x = UMAP_1,
-               y = UMAP_2,
-               color = cluster)) +
-    geom_point(shape = 16) +
-  facet_wrap(~ sample, ncol = 1,
-             scales = "free") +
-    labs(title = "Single cell clusters, UMAP",
-         x = "UMAP 1",
-         y = "UMAP 2",
-         color = "Predicted\nClusters") +
-    theme_bw() +
-  theme(legend.position = "bottom",
-        legend.direction = "vertical")
+cluster_confidence_plot <- umap_labels_combined_df |>
+  ggplot2::ggplot(ggplot2::aes(x = UMAP_1,
+                               y = UMAP_2,
+                               color = max_score,
+                               alpha = confidence)) +
+  ggplot2::geom_point(shape = 16) +
+  ggplot2::scale_color_viridis_d() +
+  ggplot2::scale_alpha_continuous(range = c(0, 1)) +
+  ggplot2::facet_wrap(~ sample, ncol = 1,
+                      scales = "free") +
+  ggplot2::labs(title = "Single cell confidence scores, UMAP",
+                x = "UMAP 1",
+                y = "UMAP 2",
+                alpha = "Confidence =\nmax/total",
+                color = "Predicted\nSubgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "vertical")
+
+cluster_plot <- umap_labels_combined_df |>
+  ggplot2::ggplot(ggplot2::aes(x = UMAP_1,
+                               y = UMAP_2,
+                               color = cluster)) +
+  ggplot2::geom_point(shape = 16) +
+  ggplot2::facet_wrap(~ sample, ncol = 1,
+                      scales = "free") +
+  ggplot2::labs(title = "Single cell clusters, UMAP",
+                x = "UMAP 1",
+                y = "UMAP 2",
+                color = "Predicted\nClusters") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "vertical")
 
 patchwork::wrap_plots(cluster_plot, cluster_confidence_plot, nrow = 1)
-  
+
+```
+
+# Session info
+```{r session_info}
+sessionInfo()
 ```
