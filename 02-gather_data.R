@@ -205,7 +205,16 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
                                                               skip = 1,
                                                               col_names = FALSE,
                                                               show_col_types = FALSE) %>%
-                                              tibble::column_to_rownames(var = "X1"))
+                                              dplyr::rename("gene" = "X1") %>%
+                                              dplyr::left_join(gene_map_df %>%
+                                                                 dplyr::select(ENSEMBL, SYMBOL),
+                                                               by = c("gene" = "SYMBOL")) %>%
+                                              dplyr::filter(!duplicated(gene),
+                                                            !duplicated(ENSEMBL),
+                                                            !is.na(ENSEMBL)) %>%
+                                              dplyr::select(-gene) %>%
+                                              dplyr::select(gene = ENSEMBL, everything()) %>%
+                                            tibble::column_to_rownames(var = "gene"))
 
 # revert log transformed-TPM values back to original TPM values using equation 
 # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
@@ -221,34 +230,27 @@ pseudobulk_gene_names <- names(average_tpm_list[[1]])
 pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
                                       average_tpm_list)
 
-# convert gene names from SYMBOL to ENSEMBL
-pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix %>%
-  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) %>%
-  dplyr::filter(!duplicated(gene),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) %>%
-  dplyr::select(-gene) %>%
-  dplyr::select(gene = ENSEMBL, everything())
-
 # save matrix object
-readr::write_tsv(pseudobulk_matrix_ENSEMBL,
+readr::write_tsv(pseudobulk_matrix,
                  pseudobulk_genex_df_output_filepath)
 
-# convert matrices to SingleCellExperiment objects
-sce_list <- convert_dataframe_list_to_sce(tpm_df_list)
+for (i in 1:length(tpm_df_list)) {
 
-# calculate UMAP results
-sce_list_umap <- purrr::map(sce_list, function(x) add_sce_umap(x))
+  print(i)
+  # convert matrices to SingleCellExperiment objects
+  sce_list <- convert_dataframe_list_to_sce(tpm_df_list[i])
+  
+  # calculate UMAP results
+  sce_list_umap <- purrr::map(sce_list, function(x) add_sce_umap(x))
+  
+  # perform clustering
+  sce_list_clustered <- purrr::map(sce_list_umap, function(x) perform_graph_clustering(x))
+  
+  # define output file names for SCE objects
+  output_filenames <- paste0(names(sce_list_clustered), "_sce.rds")
+  
+  # write SCE objects to file
+  readr::write_rds(sce_list_clustered,
+                   file.path(pseudobulk_sce_output_dir, output_filenames))
 
-# perform clustering
-sce_list_clustered <- purrr::map(sce_list_umap, function(x) perform_graph_clustering(x))
-
-# define output file names for SCE objects
-output_filenames <- paste0(names(sce_list_clustered), "_sce.rds")
-
-# write SCE objects to file
-for (i in 1:length(sce_list_clustered)) {
-  readr::write_rds(sce_list_clustered[[i]],
-                   file.path(pseudobulk_sce_output_dir, output_filenames[[i]]))
 }
