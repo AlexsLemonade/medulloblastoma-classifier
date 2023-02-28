@@ -111,3 +111,72 @@ perform_graph_clustering <- function(sce,
   return(sce)
   
 }
+
+test_single_cells <- function(sample_acc,
+                              sce_filepath,
+                              metadata_df,
+                              gene_map_df,
+                              ktsp_classifier) {
+  # Applies kTSP prediction model to gene expression matrix
+  #
+  # Inputs:
+  #  sample_acc: sample accession used for filtering metadata out of metadata_df
+  #  sce_filepath: file path to a single cell experiment object RDS file
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  gene_map_df: data frame with columns ENSEMBL and SYMBOL to map gene IDs
+  #  ktsp_classifier: kTSP classifier produced by train_ktsp()
+  #
+  # Outputs:
+  #  Returns a test object
+  
+  # read in single cell experiment object
+  sce_object <- readr::read_rds(sce_filepath)
+  
+  # read in gene expression matrix
+  genex_df_this_sample <- sce_object@assays@data@listData[[1]] |>
+    tibble::rownames_to_column(var = "gene") |>
+    dplyr::left_join(gene_map_df |>
+                       dplyr::select(ENSEMBL, SYMBOL),
+                     by = c("gene" = "SYMBOL")) |>
+    dplyr::filter(!duplicated(gene),
+                  !duplicated(ENSEMBL),
+                  !is.na(ENSEMBL)) |>
+    dplyr::select(-gene) |>
+    dplyr::select(gene = ENSEMBL, everything()) |>
+    tibble::column_to_rownames(var = "gene")
+  
+  # get number of cells to be tested
+  n_cells <- ncol(genex_df_this_sample)
+  
+  # set column names as the same sample accession across all cells (columns)
+  names(genex_df_this_sample) <- rep(sample_acc, n_cells)
+  
+  # get subgroup of sample given 
+  sample_subgroup <- metadata_df |>
+    dplyr::filter(sample_accession == sample_acc) |>
+    dplyr::pull(subgroup)
+  
+  if (length(sample_subgroup) != 1) {
+    
+    stop("Wait -- sample accession is not unique in scRNA metadata")
+    
+  }
+  
+  metadata_df_this_sample <- tibble::tibble(index = 1:n_cells,
+                                            sample_accession = sample_acc,
+                                            study = "GSE119926",
+                                            subgroup = sample_subgroup,
+                                            platform = "scRNA-seq")
+  
+  check_input_files(genex_df = genex_df_this_sample,
+                    metadata_df = metadata_df_this_sample)
+  
+  test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+                           metadata_df_test = metadata_df_this_sample,
+                           classifier = ktsp_classifier,
+                           labels = c("G3", "G4", "SHH", "WNT"))
+  
+  return(test_object)
+  
+}
+
