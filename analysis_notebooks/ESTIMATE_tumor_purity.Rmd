@@ -9,7 +9,7 @@ output:
     df_print: paged
 ---
 
-This script uses [ESTIMATE](https://www.nature.com/articles/ncomms3612) to predict the tumor purity of our bulk array and RNA-seq gene expression samples.
+This notebook uses [ESTIMATE](https://www.nature.com/articles/ncomms3612) ([R package](https://r-forge.r-project.org/projects/estimate/) v1.0.13) to predict the tumor purity of our bulk array and RNA-seq gene expression samples.
 Tumors of different purity levels may interact differently with subgroup prediction models.
 Single sample predictors _should_ allow for more robust performance with wider ranges of tumor purity because the within-sample relationships between genes should remain consistent even when the sample has some normal tissue signal.
 
