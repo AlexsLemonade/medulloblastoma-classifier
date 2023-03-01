@@ -116,7 +116,11 @@ test_single_cells <- function(sample_acc,
                               sce_filepath,
                               metadata_df,
                               gene_map_df,
-                              ktsp_classifier) {
+                              labels,
+                              classifier,
+                              model_type,
+                              study = "GSE119926",
+                              platform = "scRNA-seq") {
   # Applies kTSP prediction model to gene expression matrix
   #
   # Inputs:
@@ -124,10 +128,22 @@ test_single_cells <- function(sample_acc,
   #  sce_filepath: file path to a single cell experiment object RDS file
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  gene_map_df: data frame with columns ENSEMBL and SYMBOL to map gene IDs
-  #  ktsp_classifier: kTSP classifier produced by train_ktsp()
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #  classifier: classifier model
+  #  model_type: prediction model used, must be one of 'ktsp', 'rf', 'mm2s', 'lasso'
+  #  study: study ID for this sample (default: GSE119926)
+  #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
+  
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  if (!is.vector(model_types) |
+      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+    
+    stop("model_type in test_single_cells() must be one of 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    
+  }
   
   # read in single cell experiment object
   sce_object <- readr::read_rds(sce_filepath)
@@ -162,20 +178,50 @@ test_single_cells <- function(sample_acc,
     
   }
   
+  # test_*() function requires a metadata file
   metadata_df_this_sample <- tibble::tibble(index = 1:n_cells,
                                             sample_accession = sample_acc,
-                                            study = "GSE119926",
+                                            study = study,
                                             subgroup = sample_subgroup,
-                                            platform = "scRNA-seq")
+                                            platform = platform)
   
+  # check_input_files() is sourced from utils/modeling.R. This function ensures
+  #  the genex_df and metadata_df given to the test_*() function are properly
+  #  formatted and consistent with each other
   check_input_files(genex_df = genex_df_this_sample,
                     metadata_df = metadata_df_this_sample)
   
-  test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+  # predict the subgroup of each observation (individual cell) using given model
+  if (model_type == "ktsp") {
+    
+    test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+                             metadata_df_test = metadata_df_this_sample,
+                             classifier = classifier,
+                             labels = labels)  
+    
+  } else if (model_type == "rf") {
+    
+    test_object <- test_rf(genex_df_test = genex_df_this_sample,
                            metadata_df_test = metadata_df_this_sample,
-                           classifier = ktsp_classifier,
-                           labels = c("G3", "G4", "SHH", "WNT"))
-  
+                           classifier = classifier)
+    
+  } else if (model_type == "mm2s") {
+    
+    
+    test_object <- test_mm2s(genex_df_test = genex_df_this_sample,
+                             metadata_df_test = metadata_df_this_sample,
+                             model_seed = 4418,
+                             gene_map_df = gene_map_df)
+    
+    
+  } else if (model_type == "lasso") {
+    
+    test_object <- test_lasso(genex_df_test = genex_df_this_sample,
+                              metadata_df_test = metadata_df_this_sample,
+                              classifier = classifier)
+    
+  } 
+
   return(test_object)
   
 }
