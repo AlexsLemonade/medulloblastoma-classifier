@@ -38,8 +38,8 @@ baseline_models_filepath <- file.path(models_dir, "baseline.rds")
 
 # Output files
 plots_dir <- here::here("plots")
-relative_confidence_plot_filepath <- file.path(plots, "single_cell_relative_confidence.pdf")
-combined_umap_plot_filepath <- file.path(plots, "single_cell_combined_umap.pdf")
+relative_confidence_plot_filepath <- file.path(plots_dir, "single_cell_relative_confidence.pdf")
+combined_umap_plot_filepath <- file.path(plots_dir, "single_cell_combined_umap.pdf")
 
 # Read in data
 pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
@@ -64,7 +64,11 @@ test_object_list <- lapply(pseudobulk_metadata_df$title,
                                                          sce_filepath = file.path(pseudobulk_sce_dir, stringr::str_c(x, "_sce.rds")),
                                                          metadata_df = pseudobulk_metadata_df,
                                                          gene_map_df = gene_map_df,
-                                                         ktsp_classifier = ktsp_classifier)) |>
+                                                         labels = c("G3", "G4", "SHH", "WNT"),
+                                                         classifier = ktsp_classifier,
+                                                         model_type = "ktsp",
+                                                         study = "GSE119926",
+                                                         platform = "scRNA-seq")) |>
   purrr::set_names(pseudobulk_metadata_df$title)
 
 ```
@@ -76,11 +80,12 @@ Four other samples can serve as representative samples from each subgroup ("BCH1
 
 ```{r}
 
-sample_titles <- c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807")
-sample_titles_with_subgroup <- pseudobulk_metadata_df %>%
-  filter(title %in% sample_titles) %>%
-  mutate(title_with_subgroup = stringr::str_c(title, " (", subgroup, ")")) %>%
-  pull(title_with_subgroup)
+sample_titles <- sort(c("BCH825", "Med2312FH", "SJ625", "BCH1205", "BCH1031", "MUV41", "BCH807"))
+sample_titles_with_subgroup <- pseudobulk_metadata_df |>
+  dplyr::filter(title %in% sample_titles) |>
+  dplyr::mutate(title_with_subgroup = stringr::str_c(title, " (", subgroup, ")")) |>
+  dplyr::pull(title_with_subgroup) |>
+  sort()
 
 umap_labels_combined_df <- NULL
 for(i in 1:length(sample_titles)) {
@@ -94,7 +99,7 @@ for(i in 1:length(sample_titles)) {
                         sample_with_subgroup = sample_title_with_subgroup,
                         sce_object@int_colData$reducedDims$UMAP,
                         cluster = sce_object@colData$louvain_10)
-  names(umap_df) <- c("sample", "UMAP_1", "UMAP_2", "cluster")
+  names(umap_df) <- c("sample", "sample_with_subgroup", "UMAP_1", "UMAP_2", "cluster")
   
   labels_df <- test_object_list[[sample_title]][["model_output"]] |>
     tibble::as_tibble() |>
@@ -116,36 +121,6 @@ for(i in 1:length(sample_titles)) {
 
 # Plot results
 
-### How confident are individual cell predictions?
-More confident when subgroup predictions are consistent across entire sample.
-```{r fig.height = 5, fig.width = 7.5}
-
-relative_confidence_plot_object <- umap_labels_combined_df |>
-  ggplot2::ggplot(ggplot2::aes(x = cluster,
-                               y = relative_confidence,
-                               color = max_score)) +
-  ggplot2::geom_hline(yintercept = c(1,2),
-                      lty = 2) +
-  ggplot2::geom_boxplot(varwidth = TRUE) +
-  ggplot2::facet_grid(cols = ggplot2::vars(sample_title_with_subgroup),
-                      space = "free_x",
-                      scales = "free_x") +
-  ggplot2::scale_color_viridis_d() +
-  ggplot2::labs(title = "Single cell prediction class ratios",
-                x = "Sample",
-                y = "Relative confidence = ratio of subgroup:others",
-                color = "Predicted\nSubgroup") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom")
-
-relative_confidence_plot_object
-
-ggplot2::ggsave(filename = relative_confidence_plot_filepath,
-                plot = relative_confidence_plot_object,
-                width = 7.5, height = 5)
-
-```
-  
 ### UMAPs with cluster and subgroup
 ```{r fig.height = 20, fig.width = 7.5}
 
@@ -157,7 +132,7 @@ cluster_confidence_plot_object <- umap_labels_combined_df |>
   ggplot2::geom_point(shape = 16) +
   ggplot2::scale_color_viridis_d() +
   ggplot2::scale_alpha_continuous(range = c(0, 1)) +
-  ggplot2::facet_wrap(~ sample_title_with_subgroup, ncol = 1,
+  ggplot2::facet_wrap(~ sample_with_subgroup, ncol = 1,
                       scales = "free") +
   ggplot2::labs(title = "Single cell confidence scores, UMAP",
                 x = "UMAP 1",
@@ -173,7 +148,7 @@ cluster_plot_object <- umap_labels_combined_df |>
                                y = UMAP_2,
                                color = cluster)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::facet_wrap(~ sample_title_with_subgroup, ncol = 1,
+  ggplot2::facet_wrap(~ sample_with_subgroup, ncol = 1,
                       scales = "free") +
   ggplot2::labs(title = "Single cell clusters, UMAP",
                 x = "UMAP 1",
@@ -183,7 +158,9 @@ cluster_plot_object <- umap_labels_combined_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "vertical")
 
-combined_umap_plot_object <- patchwork::wrap_plots(cluster_plot_object, cluster_confidence_plot, nrow = 1)
+combined_umap_plot_object <- patchwork::wrap_plots(cluster_plot_object,
+                                                   cluster_confidence_plot_object,
+                                                   nrow = 1)
 
 combined_umap_plot_object
 
@@ -193,6 +170,74 @@ ggplot2::ggsave(filename = combined_umap_plot_filepath,
                 width = 7.5)
 
 ```
+
+### How confident are individual cell predictions?
+
+Cell subgroup predictions are more confident when subgroup predictions are consistent across entire sample.
+
+```{r fig.height = 5, fig.width = 7.5}
+
+# filter out subgroup predictions if that class makes up less than 5% of a cluster
+# or, keep subgroups comprising at least 5% of a cluster
+keep_subgroups_df <- umap_labels_combined_df |>
+  dplyr::count(sample_with_subgroup, cluster) |>
+  dplyr::rename(cluster_size = n) |>
+  dplyr::left_join(umap_labels_combined_df |>
+                     dplyr::count(sample_with_subgroup, cluster, max_score),
+                   by = c("sample_with_subgroup", "cluster"),
+                   multiple = "all") |>
+  dplyr::mutate(subgroup_cluster_pct = 100*n/cluster_size) |>
+  dplyr::filter(subgroup_cluster_pct >= 5) |>
+  dplyr::select(sample_with_subgroup, cluster, max_score) |>
+  unique()
+
+# Use cells from subgroups comprising at least 5% of a cluster to plot relative
+# confidence levels of each prediction. The relative confidence level is the 
+# dominant subgroup score divided by the sum of the remaining subgroup scores.
+relative_confidence_plot_object <- keep_subgroups_df |>
+  dplyr::left_join(umap_labels_combined_df,
+                   by = c("sample_with_subgroup", "cluster", "max_score"),
+                   multiple = "all") |>
+  ggplot2::ggplot(ggplot2::aes(x = cluster,
+                               y = log2(relative_confidence + 1), # log2 scale + 1
+                               color = max_score)) +
+  # 1 and 1.5 relative confidence levels correspond to 50% and 60% of a cell's
+  # prediction score going to the dominant subgroup
+  ggplot2::geom_hline(yintercept = c(log2(1+1), log2(1.5+1)), 
+                      lty = 2) +
+  ggplot2::geom_point(shape = 16,
+                      position = ggplot2::position_jitterdodge(jitter.height = 0,
+                                                               jitter.width = 0.25,
+                                                               dodge.width = .75),
+                      alpha = 0.25) +
+  ggplot2::geom_violin(fill = NA,
+                       draw_quantiles = 0.5,
+                       position = ggplot2::position_dodge(width = 0.75),
+                       show.legend = FALSE) +
+  ggplot2::facet_grid(cols = ggplot2::vars(sample_with_subgroup),
+                      space = "free_x",
+                      scales = "free_x") +
+  ggplot2::scale_color_viridis_d() +
+  ggplot2::scale_y_continuous(limits = c(0, NA)) +
+  ggplot2::labs(title = "Single cell prediction class ratios",
+                x = "Sample",
+                y = "Relative confidence (log2)",
+                color = "Predicted Subgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom") +
+  ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(alpha = 1)))
+
+relative_confidence_plot_object
+
+ggplot2::ggsave(filename = relative_confidence_plot_filepath,
+                plot = relative_confidence_plot_object,
+                width = 7.5, height = 5)
+
+```
+
+- The relative confidence levels of each cell's prediction show that predictions in samples with one dominant subgroup are more confident than in samples with mixed subgroup predictions (BCH825, Med2312FH, SJ625).
+- While some cells from mixed subgroup samples show high confidence as G3 or G4, most show that cells receive signals from both G3 and G4 rules, meaning they have an intermediate phenotype, rather than being a mixture of true G3 and true G4 cells.
+- Sample MUV41 has G3, G4, and WNT cells predicted in clusters 1 and 3, but they are all low confidence in comparison to the SHH cells in the major cluster (2).
 
 # Session info
 ```{r session_info}
