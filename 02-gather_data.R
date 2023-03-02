@@ -197,7 +197,7 @@ sample_titles <- pseudobulk_metadata$title
 
 pseudobulk_df <- NULL
 
-for (i in 1:2) { #:length(sample_accession_ids)) {
+for (i in 1:length(sample_accession_ids)) {
 
   sample_acc <- sample_accession_ids[i]
   sample_title <- sample_titles[i]
