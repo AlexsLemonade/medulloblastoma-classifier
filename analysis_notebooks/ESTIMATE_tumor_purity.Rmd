@@ -1,13 +1,27 @@
-# ESTIMATE tumor purity of bulk expression data
-#
-# Steven Foltz
-# November 2022 - January 2023
+---
+title: "ESTIMATE tumor purity of bulk expression data"
+author: "Steven Foltz"
+date: "2022 - 2023"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
 
+This notebook uses [ESTIMATE](https://www.nature.com/articles/ncomms3612) ([R package](https://r-forge.r-project.org/projects/estimate/) v1.0.13) to predict the tumor purity of our bulk array and RNA-seq gene expression samples.
+Tumors of different purity levels may interact differently with subgroup prediction models.
+Single sample predictors _should_ allow for more robust performance with wider ranges of tumor purity because the within-sample relationships between genes should remain consistent even when the sample has some normal tissue signal.
+
+# Setup
+
+```{r setup}
+
+# Load packages
 suppressMessages(library(magrittr))
 suppressMessages(library(estimate))
 
-# set up directories and file names
-
+# Set up directories and file names
 processed_data_dir <- here::here("processed_data")
 plot_dir <- here::here("plots")
 estimate_data_dir <- file.path(processed_data_dir, "estimate")
@@ -33,7 +47,7 @@ tumor_purity_plot_filename <- file.path(estimate_plot_dir, "tumor_purity_by_subg
 stromal_immune_plot_filename <- file.path(estimate_plot_dir, "stromal_score_by_immune_score.pdf")
 estimate_score_tumor_purity_plot_filename <- file.path(estimate_plot_dir, "estimate_score_by_tumor_purity.pdf")
 
-# read in bulk genex and metadata
+# Read in bulk genex and metadata
 genex_df <- readr::read_tsv(genex_input_filename,
                             show_col_types = FALSE) %>%
   tibble::column_to_rownames(var = "gene")
@@ -41,7 +55,7 @@ genex_df <- readr::read_tsv(genex_input_filename,
 metadata_df <- readr::read_tsv(metadata_input_filename,
                                show_col_types = FALSE)
 
-# reformat genex data by converting ENSEMBL gene IDs to SYMBOL
+# Reformat genex data by converting ENSEMBL gene IDs to SYMBOL
 
 # read in gene map
 # includes ENSEMBL, ENTREZID, and SYMBOL columns for gene name conversion
@@ -67,55 +81,65 @@ readr::write_tsv(x = genex_df_SYMBOL,
 estimate::filterCommonGenes(input.f = estimate_input_filename,
                             output.f = estimate_input_gct_filename,
                             id = "GeneSymbol") # "EntrezID" did not work
+```
 
-################################################################################
-# run ESTIMATE
-################################################################################
+# Run ESTIMATE
 
-# ESTIMATE publication: https://www.nature.com/articles/ncomms3612
-# ESTIMATE generates Stromal and Immune scores using ssGSEA, regardless of platform
-# Stromal + Immune scores = ESTIMATE score
-# The model converting ESTIMATE scores to tumor purity was trained on Affymetrix data
-# That model is: tumor purity = cos(0.6049872018 + 0.0001467884 * ESTIMATE)
-# To return tumor purity scores, we must set platform = "affymetrix" (default)
-#   even though some data are RNA-seq, otherwise the TP conversion is not done
+[ESTIMATE](https://www.nature.com/articles/ncomms3612) generates Stromal and Immune scores using [ssGSEA](https://www.genepattern.org/modules/docs/ssGSEAProjection/4#gsc.tab=0), regardless of platform:
 
+Stromal + Immune scores = ESTIMATE score
+
+The model converting ESTIMATE scores to tumor purity was trained on Affymetrix data.
+That model is:
+
+$\text{Tumor Purity} = cos(0.6049872018 + 0.0001467884 * \text{ESTIMATE})$
+
+To return tumor purity scores, we must set platform = "affymetrix" (default) even though some data are RNA-seq, otherwise the tumor purity conversion is not done.
+
+```{r}
 estimate::estimateScore(input.ds = estimate_input_gct_filename,
                         output.ds = estimate_results_output_gct_filename,
                         platform = "affymetrix")
+```
 
-# reshape ESTIMATE GCT file into something tidy
-# https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats
+### Reshape ESTIMATE GCT file into something tidy
 
-# There are four variables (Stromal, Immune, ESTIMATE, and tumor purity)
-#   associated with each observation (one sample) but GCT is an untidy format
-#   and we need to skip the first two metadata lines (version and data dimensions)
+[Broad data formats](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats)
 
-# We need to convert from this:
-# #1.2
-# n_features       n_samples
-# NAME             Description    sample1 sample2
-# StromalScore     StromalScore   w1      w2
-# ImmuneScore      ImmuneScore    x1      x2
-# ESTIMATEScore    ESTIMATEScore  y1      y2
-# TumorPurity      TumorPurity    z1      z2
+There are four variables (Stromal, Immune, ESTIMATE, and tumor purity) associated with each observation (one sample) but GCT is an untidy format and we need to skip the first two metadata lines (version and data dimensions).
 
-# Into this (intermediate step):
-# NAME             sample_accession value
-# StromalScore     sample1          w1
-# ImmuneScore      sample1          x1
-# ESTIMATEScore    sample1          y1
-# TumorPurity      sample1          z1
-# StromalScore     sample2          w2
-# ImmuneScore      sample2          x2
-# ESTIMATEScore    sample2          y2
-# TumorPurity      sample2          z2
+We need to convert from this:
 
-# Into this (tidy format):
-# sample_accession StromalScore ImmuneScore ESTIMATEScore TumorPurity
-# sample1          w1           x1          y1            z1
-# sample2          w2           x2          y2            z2
+| #1.2 | blank | blank | blank |
+| :--- | :---- | :---- | :---- |
+| n_features | n_samples | blank | blank |
+| NAME | Description | sample1 | sample2 |
+| StromalScore | StromalScore | w1 | w2 |
+| ImmuneScore | ImmuneScore | x1 | x2 |
+| ESTIMATEScore | ESTIMATEScore | y1 | y2 |
+ TumorPurity | TumorPurity | z1 | z2 |
 
+Into this (intermediate step):
+
+| NAME | sample_accession | value |
+| :--- | :--------------- | :---- |
+| StromalScore | sample1 | w1 |
+| ImmuneScore | sample1 | x1 |
+| ESTIMATEScore | sample1 | y1 |
+| TumorPurity | sample1 | z1 |
+| StromalScore | sample2 | w2 |
+| ImmuneScore | sample2 | x2 |
+| ESTIMATEScore | sample2 | y2 |
+| TumorPurity | sample2 | z2 |
+
+Into this (tidy format):
+
+| sample_accession | StromalScore | ImmuneScore | ESTIMATEScore | TumorPurity |
+| :--------------- | :----------- | :---------- | :------------ | :---------- |
+| sample1 | w1 | x1 | y1 | z1 |
+| sample2 | w2 | x2 | y2 | z2 |
+
+```{r}
 estimate_df <- readr::read_tsv(estimate_results_output_gct_filename,
                                show_col_types = FALSE,
                                skip = 2) %>% # skip two metadata lines
@@ -127,11 +151,13 @@ estimate_df <- readr::read_tsv(estimate_results_output_gct_filename,
 
 readr::write_tsv(x = estimate_df,
                  file = estimate_results_output_filename)
+```
 
-################################################################################
-# visualize results
-################################################################################
+# Visualize results
 
+### Set up plot data and theme
+
+```{r}
 estimate_metadata_plot_df <- estimate_df %>%
   dplyr::left_join(metadata_df,
                    by = "sample_accession") %>%
@@ -139,8 +165,11 @@ estimate_metadata_plot_df <- estimate_df %>%
 
 # set a consistent baseline theme
 ggplot2::theme_set(ggplot2::theme_bw())
+```
 
-# plot tumor purity violins
+### Plot tumor purity violins
+
+```{r}
 tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = subgroup,
                                y = TumorPurity,
@@ -157,7 +186,16 @@ ggplot2::ggsave(filename = tumor_purity_plot_filename,
                 width = 7.5,
                 height = 7.5)
 
-# plot stromal vs. immune scores
+tumor_purity_plot_object
+```
+
+- Samples in this cohort show consistently high tumor purity (> 0.95) across MB subgroups and platforms
+- Normal samples have high "tumor purity" because they have low stromal and immune scores
+- LGG samples (all RNA-seq) show a lower and wider range of tumor purities
+
+### Plot stromal vs. immune scores
+
+```{r}
 stromal_immune_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = StromalScore,
                                y = ImmuneScore,
@@ -170,7 +208,15 @@ ggplot2::ggsave(filename = stromal_immune_plot_filename,
                 width = 7.5,
                 height = 7.5)
 
-# plot estimate score vs. tumor purity
+stromal_immune_plot_object
+```
+
+- There is little differentiation between MB subgroups in their stromal and immune scores
+- LGG samples tend of have higher stromal and immune scores than the MB samples
+
+### Plot estimate score vs. tumor purity
+
+```{r}
 estimate_score_tumor_purity_plot_object <- estimate_metadata_plot_df %>%
   ggplot2::ggplot(ggplot2::aes(x = ESTIMATEScore,
                                y = TumorPurity,
@@ -182,3 +228,14 @@ ggplot2::ggsave(filename = estimate_score_tumor_purity_plot_filename,
                 plot = estimate_score_tumor_purity_plot_object,
                 width = 7.5,
                 height = 7.5)
+
+estimate_score_tumor_purity_plot_object
+```
+
+- ESTIMATE scores are calculated as Stromal + Immune scores = ESTIMATE score
+- Tumor purity is calculated as $\text{Tumor Purity} = cos(0.6049872018 + 0.0001467884 * \text{ESTIMATE})$
+
+# Session info
+```{r}
+sessionInfo()
+```
