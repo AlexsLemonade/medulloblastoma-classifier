@@ -130,17 +130,17 @@ test_single_cells <- function(sample_acc,
   #  gene_map_df: data frame with columns ENSEMBL and SYMBOL to map gene IDs
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  classifier: classifier model
-  #  model_type: prediction model used, must be one of 'ktsp', 'rf', 'mm2s', 'lasso'
+  #  model_type: prediction model used, must be one of 'ktsp' or 'rf'
   #  study: study ID for this sample (default: GSE119926)
   #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
   
-  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  # model types should be a list with elements limited to "ktsp" or "rf"
   if (!(model_type %in% c("ktsp", "rf", "mm2s", "lasso"))) {
     
-    stop("model_type in test_single_cells() must be one of 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    stop("model_type in test_single_cells() must be one of 'ktsp' or 'rf'.")
     
   }
   
@@ -154,7 +154,9 @@ test_single_cells <- function(sample_acc,
   n_cells <- ncol(genex_df_this_sample)
   
   # set column names as the same sample accession across all cells (columns)
-  names(genex_df_this_sample) <- rep(sample_acc, n_cells)
+  names(genex_df_this_sample) <- stringr::str_c(rep(sample_acc, n_cells),
+                                                1:n_cells,
+                                                sep = "_")
   
   # get subgroup of sample given 
   sample_subgroup <- metadata_df |>
@@ -169,7 +171,9 @@ test_single_cells <- function(sample_acc,
   
   # test_*() function requires a metadata file
   metadata_df_this_sample <- tibble::tibble(index = 1:n_cells,
-                                            sample_accession = sample_acc,
+                                            sample_accession = stringr::str_c(sample_acc,
+                                                                              1:n_cells,
+                                                                              sep = "_"),
                                             study = study,
                                             subgroup = sample_subgroup,
                                             platform = platform)
@@ -194,22 +198,7 @@ test_single_cells <- function(sample_acc,
                            metadata_df_test = metadata_df_this_sample,
                            classifier = classifier)
     
-  } else if (model_type == "mm2s") {
-    
-    
-    test_object <- test_mm2s(genex_df_test = genex_df_this_sample,
-                             metadata_df_test = metadata_df_this_sample,
-                             model_seed = 4418,
-                             gene_map_df = gene_map_df)
-    
-    
-  } else if (model_type == "lasso") {
-    
-    test_object <- test_lasso(genex_df_test = genex_df_this_sample,
-                              metadata_df_test = metadata_df_this_sample,
-                              classifier = classifier)
-    
-  } 
+  }
 
   return(test_object)
   
