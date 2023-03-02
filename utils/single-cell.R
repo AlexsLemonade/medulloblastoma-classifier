@@ -138,8 +138,7 @@ test_single_cells <- function(sample_acc,
   #  Returns a test object
   
   # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
-  if (!is.vector(model_types) |
-      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+  if (!(model_type %in% c("ktsp", "rf", "mm2s", "lasso"))) {
     
     stop("model_type in test_single_cells() must be one of 'ktsp', 'rf', 'mm2s', 'lasso'.")
     
@@ -149,17 +148,7 @@ test_single_cells <- function(sample_acc,
   sce_object <- readr::read_rds(sce_filepath)
   
   # read in gene expression matrix
-  genex_df_this_sample <- sce_object@assays@data@listData[[1]] |>
-    tibble::rownames_to_column(var = "gene") |>
-    dplyr::left_join(gene_map_df |>
-                       dplyr::select(ENSEMBL, SYMBOL),
-                     by = c("gene" = "SYMBOL")) |>
-    dplyr::filter(!duplicated(gene),
-                  !duplicated(ENSEMBL),
-                  !is.na(ENSEMBL)) |>
-    dplyr::select(-gene) |>
-    dplyr::select(gene = ENSEMBL, everything()) |>
-    tibble::column_to_rownames(var = "gene")
+  genex_df_this_sample <- sce_object@assays@data@listData[[1]]
   
   # get number of cells to be tested
   n_cells <- ncol(genex_df_this_sample)
