@@ -116,7 +116,11 @@ test_single_cells <- function(sample_acc,
                               sce_filepath,
                               metadata_df,
                               gene_map_df,
-                              ktsp_classifier) {
+                              labels,
+                              classifier,
+                              model_type,
+                              study = "GSE119926",
+                              platform = "scRNA-seq") {
   # Applies kTSP prediction model to gene expression matrix
   #
   # Inputs:
@@ -124,32 +128,35 @@ test_single_cells <- function(sample_acc,
   #  sce_filepath: file path to a single cell experiment object RDS file
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  gene_map_df: data frame with columns ENSEMBL and SYMBOL to map gene IDs
-  #  ktsp_classifier: kTSP classifier produced by train_ktsp()
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #  classifier: classifier model
+  #  model_type: prediction model used, must be one of 'ktsp' or 'rf'
+  #  study: study ID for this sample (default: GSE119926)
+  #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
+  
+  # model types should be a list with elements limited to "ktsp" or "rf"
+  if (!(model_type %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+    
+    stop("model_type in test_single_cells() must be one of 'ktsp' or 'rf'.")
+    
+  }
   
   # read in single cell experiment object
   sce_object <- readr::read_rds(sce_filepath)
   
   # read in gene expression matrix
-  genex_df_this_sample <- sce_object@assays@data@listData[[1]] |>
-    tibble::rownames_to_column(var = "gene") |>
-    dplyr::left_join(gene_map_df |>
-                       dplyr::select(ENSEMBL, SYMBOL),
-                     by = c("gene" = "SYMBOL")) |>
-    dplyr::filter(!duplicated(gene),
-                  !duplicated(ENSEMBL),
-                  !is.na(ENSEMBL)) |>
-    dplyr::select(-gene) |>
-    dplyr::select(gene = ENSEMBL, everything()) |>
-    tibble::column_to_rownames(var = "gene")
+  genex_df_this_sample <- sce_object@assays@data@listData[[1]]
   
   # get number of cells to be tested
   n_cells <- ncol(genex_df_this_sample)
   
   # set column names as the same sample accession across all cells (columns)
-  names(genex_df_this_sample) <- rep(sample_acc, n_cells)
+  names(genex_df_this_sample) <- stringr::str_c(rep(sample_acc, n_cells),
+                                                1:n_cells,
+                                                sep = "_")
   
   # get subgroup of sample given 
   sample_subgroup <- metadata_df |>
@@ -162,20 +169,37 @@ test_single_cells <- function(sample_acc,
     
   }
   
+  # test_*() function requires a metadata file
   metadata_df_this_sample <- tibble::tibble(index = 1:n_cells,
-                                            sample_accession = sample_acc,
-                                            study = "GSE119926",
+                                            sample_accession = stringr::str_c(sample_acc,
+                                                                              1:n_cells,
+                                                                              sep = "_"),
+                                            study = study,
                                             subgroup = sample_subgroup,
-                                            platform = "scRNA-seq")
+                                            platform = platform)
   
+  # check_input_files() is sourced from utils/modeling.R. This function ensures
+  #  the genex_df and metadata_df given to the test_*() function are properly
+  #  formatted and consistent with each other
   check_input_files(genex_df = genex_df_this_sample,
                     metadata_df = metadata_df_this_sample)
   
-  test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+  # predict the subgroup of each observation (individual cell) using given model
+  if (model_type == "ktsp") {
+    
+    test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+                             metadata_df_test = metadata_df_this_sample,
+                             classifier = classifier,
+                             labels = labels)  
+    
+  } else if (model_type == "rf") {
+    
+    test_object <- test_rf(genex_df_test = genex_df_this_sample,
                            metadata_df_test = metadata_df_this_sample,
-                           classifier = ktsp_classifier,
-                           labels = c("G3", "G4", "SHH", "WNT"))
-  
+                           classifier = classifier)
+    
+  }
+
   return(test_object)
   
 }
