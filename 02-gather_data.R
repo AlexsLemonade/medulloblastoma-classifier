@@ -247,7 +247,7 @@ for (i in 1:length(sample_accession_ids)) {
                                   stringr::str_c(sample_title, "_sce.rds"))
   
   # convert TPM matrix to SingleCellExperiment objects
-  convert_dataframe_list_to_sce(list(tpm_genex_df))[[1]] %>%
+  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) %>%
     # calculate UMAP results
     add_sce_umap() %>%
     # perform clustering
