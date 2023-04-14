@@ -38,9 +38,9 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath
     
     # gather exons from each transcript at gene level and
     # collapse each gene's exons to form union of bases covered
-    exonic.gene.sizes <- GenomicFeatures::exonsBy(txdb, by = "gene") %>%
-      GenomicRanges::reduce() %>%
-      IRanges::width() %>%
+    exonic.gene.sizes <- GenomicFeatures::exonsBy(txdb, by = "gene") |>
+      GenomicRanges::reduce() |>
+      IRanges::width() |>
       sum()
     
     # create data frame of gene lengths
@@ -50,12 +50,12 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath
     #   which all have duplicate ENSGs that have regular versions like .20,
     #   so we can drop PAR_Y versions and keep regular versions to avoid multi-mapping ENSGs
     GENCODE_gene_lengths_df <- dplyr::tibble(ENSEMBL_with_version = names(exonic.gene.sizes),
-                                             gene_length = as.vector(exonic.gene.sizes)) %>%
+                                             gene_length = as.vector(exonic.gene.sizes)) |>
       tidyr::separate(ENSEMBL_with_version,
                       into = c("ENSEMBL", "version"),
-                      sep = "\\.") %>%
-      dplyr::filter(!stringr::str_detect(version, "_PAR_Y")) %>% # remove Y paralogs
-      select(ENSEMBL, gene_length) %>%
+                      sep = "\\.") |>
+      dplyr::filter(!stringr::str_detect(version, "_PAR_Y")) |> # remove Y paralogs
+      dplyr::select(ENSEMBL, gene_length) |>
       readr::write_tsv(file = GENCODE_gene_lengths_filepath)    
     
   }
@@ -79,10 +79,10 @@ convert_gene_counts_to_TPM <- function(genex_df, gene_lengths_df){
   genex_df <- genex_df[rownames(genex_df) %in% gene_lengths_df$ENSEMBL,]
   
   # harmonize the order of genes and pull out a vector gene lengths
-  gene_length_vector <- tibble::tibble(genex_genes = rownames(genex_df)) %>%
+  gene_length_vector <- tibble::tibble(genex_genes = rownames(genex_df)) |>
     dplyr::left_join(gene_lengths_df,
-                     by = c("genex_genes" = "ENSEMBL")) %>%
-    pull(gene_length)
+                     by = c("genex_genes" = "ENSEMBL")) |>
+    dplyr::pull(gene_length)
   
   # TPM = reads_per_kilobase/scaling_factor
   # where reads_per_kilobase is the read count divided by length of gene in kilobases

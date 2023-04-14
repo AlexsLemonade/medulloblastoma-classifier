@@ -165,7 +165,6 @@ run_many_models <- function(genex_df,
   # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
     
-    suppressMessages(library(magrittr))
     suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
     
     # set up this repeat's train/test split
@@ -175,13 +174,13 @@ run_many_models <- function(genex_df,
                                                       proportion_of_studies_train = 0.5)
     
     # split genex and metadata by train/test status
-    genex_df_train <- genex_df %>%
+    genex_df_train <- genex_df |>
       dplyr::select(train_test_samples_list$train)
-    genex_df_test <- genex_df %>%
+    genex_df_test <- genex_df |>
       dplyr::select(train_test_samples_list$test)
-    metadata_df_train <- metadata_df %>%
+    metadata_df_train <- metadata_df |>
       dplyr::filter(sample_accession %in% train_test_samples_list$train)
-    metadata_df_test <- metadata_df %>%
+    metadata_df_test <- metadata_df |>
       dplyr::filter(sample_accession %in% train_test_samples_list$test)
     
     # run model types one at a time
@@ -204,7 +203,7 @@ run_many_models <- function(genex_df,
                                                         rf_rules_altogether = rf_rules_altogether,
                                                         rf_rules_one_vs_rest = rf_rules_one_vs_rest,
                                                         rf_weighted = rf_weighted,
-                                                        mm2s_gene_map_df = mm2s_gene_map_df)) %>%
+                                                        mm2s_gene_map_df = mm2s_gene_map_df)) |>
       purrr::set_names(model_types) # set names of each list element corresponding to model type
     
     # add metadata about this repeat (seeds used, train/test metadata)
@@ -266,17 +265,17 @@ get_train_test_samples <- function(genex_df,
   set.seed(train_test_seed)
   
   # Vector of array studies
-  array_studies <- metadata_df %>%
+  array_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "Array") %>%
-    dplyr::pull(study) %>%
+                  platform == "Array") |>
+    dplyr::pull(study) |>
     unique()
   
   # Vector of RNA-seq studies
-  rnaseq_studies <- metadata_df %>%
+  rnaseq_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "RNA-seq") %>%
-    dplyr::pull(study) %>%
+                  platform == "RNA-seq") |>
+    dplyr::pull(study) |>
     unique()
   
   # Number of studies from each platform
@@ -300,15 +299,15 @@ get_train_test_samples <- function(genex_df,
   train_test_samples_list <- list()
   
   # Save vector of samples used for training
-  train_test_samples_list[["train"]] <- metadata_df %>%
+  train_test_samples_list[["train"]] <- metadata_df |>
     dplyr::filter(study %in% c(array_studies_train,
-                               rnaseq_studies_train)) %>%
+                               rnaseq_studies_train)) |>
     dplyr::pull(sample_accession)
   
   # Save vector of samples used for testing
-  train_test_samples_list[["test"]] <- metadata_df %>%
+  train_test_samples_list[["test"]] <- metadata_df |>
     dplyr::filter(study %in% c(array_studies_test,
-                               rnaseq_studies_test)) %>%
+                               rnaseq_studies_test)) |>
     dplyr::pull(sample_accession)
   
   return(train_test_samples_list)
@@ -853,14 +852,14 @@ test_mm2s <- function(genex_df_test,
   
   # convert genex_df gene names to from ENSEMBL to ENTREZID
   # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
-  genex_df_test_ENTREZID <- genex_df_test %>%
-    tibble::rownames_to_column(var = "ENSEMBL") %>%
-    dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, ENTREZID),
-                     by = "ENSEMBL") %>%
+  genex_df_test_ENTREZID <- genex_df_test |>
+    tibble::rownames_to_column(var = "ENSEMBL") |>
+    dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, ENTREZID),
+                     by = "ENSEMBL") |>
     dplyr::filter(!duplicated(ENSEMBL),
                   !duplicated(ENTREZID),
-                  !is.na(ENTREZID)) %>%
-    dplyr::select(-ENSEMBL) %>%
+                  !is.na(ENTREZID)) |>
+    dplyr::select(-ENSEMBL) |>
     tibble::column_to_rownames(var = "ENTREZID")
   
   # predict labels with existing MM2S.human classifier
@@ -877,10 +876,10 @@ test_mm2s <- function(genex_df_test,
   
   # modify MM2S predictions to fit this project's medulloblastoma subgroup names  
   test_results <- dplyr::bind_cols(mm2s_predictions$MM2S_Subtype,
-                                   mm2s_predictions$Predictions) %>%
+                                   mm2s_predictions$Predictions) |>
     dplyr::mutate(MM2S_Prediction = dplyr::case_when(MM2S_Prediction == "Group3" ~ "G3",
                                                      MM2S_Prediction == "Group4" ~ "G4",
-                                                     TRUE ~ MM2S_Prediction)) %>%
+                                                     TRUE ~ MM2S_Prediction)) |>
     dplyr::select(SampleName,
                   MM2S_Prediction,
                   "G3" = Group3,
@@ -968,11 +967,11 @@ test_lasso <- function(genex_df_test,
   test_results <- predict(classifier,
                           t(genex_df_test),
                           s = classifier$lambda.1se,
-                          type = "response") %>%
-    as.data.frame() %>%
-    setNames(lasso_subgroups) %>%
-    dplyr::mutate(prediction = names(.)[max.col(.)]) %>%
-    tibble::rownames_to_column(var = "sample_accession") %>%
+                          type = "response") |>
+    as.data.frame() |>
+    setNames(lasso_subgroups) |>
+    dplyr::mutate(prediction = names(.)[max.col(.)]) |>
+    tibble::rownames_to_column(var = "sample_accession") |>
     tibble::as_tibble()
 
   # create df with sample names and predicted labels
