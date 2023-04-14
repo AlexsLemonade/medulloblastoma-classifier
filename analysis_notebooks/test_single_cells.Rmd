@@ -18,9 +18,9 @@ Here, we use the trained model to predict single cell subgroups from scRNA-seq d
 ```{r setup}
 
 # Load libraries 
+source(here::here("utils/color_schemes.R"))
 source(here::here("utils/modeling.R"))
 source(here::here("utils/single-cell.R"))
-library(magrittr)
 library(glmnet)
 
 # Input files
@@ -55,6 +55,7 @@ gene_map_df <- readr::read_tsv(gene_map_filepath,
 
 baseline_models <- readr::read_rds(baseline_models_filepath)
 ktsp_classifier <- baseline_models[[1]]$ktsp$classifier #separate issue: pick the designated model
+rf_classifier <- baseline_models[[1]]$rf$classifier
 
 ```
 
@@ -108,7 +109,7 @@ percentage_subgroups_plot_object <- counts_subgroup_prediction_df |>
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
                       space = "free_y",
                       scales = "free_y") +
-  ggplot2::scale_fill_viridis_d() +
+  ggplot2::scale_fill_manual(values = okabe_ito_colors) +
   ggplot2::labs(y = "Sample",
                 x = "Cell Percentage",
                 fill = "Predicted Subgroup") +
@@ -124,7 +125,7 @@ percentage_subgroups_plot_object
 
 ```
 
-- Most samples show the same tumor subgroup predicted for most of the their cells
+- Most samples show the same tumor subgroup predicted for most of their cells
 - Three samples ("BCH825", "Med2312FH", "SJ625") show a mixture of predicted subgroups (G3/G4)
 
 # Plot confidence of subgroup predictions
@@ -153,8 +154,8 @@ for(i in 1:length(sample_titles)) {
   sce_object <- readr::read_rds(sce_filepath)
   umap_df <- data.frame(sample = sample_title,
                         sample_with_subgroup = sample_title_with_subgroup,
-                        sce_object@int_colData$reducedDims$UMAP,
-                        cluster = sce_object@colData$louvain_10)
+                        SingleCellExperiment::reducedDim(sce_object, "UMAP"),
+                        cluster = SummarizedExperiment::colData(sce_object)$louvain_10)
   names(umap_df) <- c("sample", "sample_with_subgroup", "UMAP_1", "UMAP_2", "cluster")
   
   labels_df <- test_object_list[[sample_title]][["model_output"]] |>
@@ -186,7 +187,7 @@ cluster_confidence_plot_object <- umap_labels_combined_df |>
                                color = max_subgroup,
                                alpha = confidence)) +
   ggplot2::geom_point(shape = 16) +
-  ggplot2::scale_color_viridis_d() +
+  ggplot2::scale_color_manual(values = okabe_ito_colors) +
   ggplot2::scale_alpha_continuous(range = c(0, 1)) +
   ggplot2::facet_wrap(~ sample_with_subgroup, ncol = 1,
                       scales = "free") +
@@ -273,7 +274,7 @@ relative_confidence_plot_object <- keep_subgroups_df |>
   ggplot2::facet_grid(cols = ggplot2::vars(sample_with_subgroup),
                       space = "free_x",
                       scales = "free_x") +
-  ggplot2::scale_color_viridis_d() +
+  ggplot2::scale_color_manual(values = okabe_ito_colors) +
   ggplot2::scale_y_continuous(limits = c(0, NA)) +
   ggplot2::labs(title = "Single cell prediction class ratios",
                 x = "Cluster",
