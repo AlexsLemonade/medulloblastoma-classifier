@@ -5,8 +5,6 @@
 # Chante Bethell, Steven Foltz
 # November-December 2022
 
-suppressMessages(library(tidyverse))
-
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
@@ -84,7 +82,7 @@ get_genex_data <- function(genex_filepath,
                                                collapse = "")
   
   genex_df <- readr::read_tsv(genex_filepath,
-                              col_types = select_these_columns_types) %>%
+                              col_types = select_these_columns_types) |>
     tibble::column_to_rownames(var = "Gene")
   
   return(genex_df)
@@ -109,7 +107,7 @@ gene_map_df <- readr::read_tsv(gene_map_input_filepath,
 
 GSE124184_experiment_accession_ids <- readr::read_tsv(GSE124184_experiment_accessions_input_filepath,
                                                       col_names = "experiment_accession",
-                                                      col_types = "c") %>%
+                                                      col_types = "c") |>
   dplyr::filter(experiment_accession != "E-MTAB-292")
 
 
@@ -124,24 +122,24 @@ names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accessio
 genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath,
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
-                                                  skip = 1) %>%
-  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) %>%
+                                                  skip = 1) |>
+  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
+                   by = c("gene" = "SYMBOL")) |>
   dplyr::filter(!duplicated(gene),
                 !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) %>%
-  dplyr::select(-gene) %>%
+                !is.na(ENSEMBL)) |>
+  dplyr::select(-gene) |>
   tibble::column_to_rownames(var = "ENSEMBL")
 
 ### OpenPBTA
 
 genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya_genex_input_filepath),
-                                                  readr::read_rds(OpenPBTA_stranded_genex_input_filepath)[,-1]) %>%
-  dplyr::mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) %>%
-  dplyr::filter(!duplicated(gene_id)) %>%
-  tibble::column_to_rownames(var = "gene_id") %>%
-  dplyr::select(bulk_metadata %>%
-                  dplyr::filter(study == "OpenPBTA") %>%
+                                                  readr::read_rds(OpenPBTA_stranded_genex_input_filepath)[,-1]) |>
+  dplyr::mutate(gene_id = stringr::str_split(gene_id, pattern = "\\.", simplify = TRUE)[,1]) |>
+  dplyr::filter(!duplicated(gene_id)) |>
+  tibble::column_to_rownames(var = "gene_id") |>
+  dplyr::select(bulk_metadata |>
+                  dplyr::filter(study == "OpenPBTA") |>
                   dplyr::pull(sample_accession))
 
 ### St. Jude
@@ -149,22 +147,22 @@ genex_data_list[["OpenPBTA"]] <- dplyr::bind_cols(readr::read_rds(OpenPBTA_polya
 GENCODE_gene_lengths_df <- get_GENCODE_gene_lengths(gtf_filepath = gencode_annotation_gtf_filepath,
                                                     GENCODE_gene_lengths_filepath = GENCODE_gene_lengths_filepath)
 
-genex_data_list[["St. Jude"]] <- bulk_metadata %>%
-  dplyr::filter(study == "St. Jude") %>%
-  dplyr::pull(sample_accession) %>%
+genex_data_list[["St. Jude"]] <- bulk_metadata |>
+  dplyr::filter(study == "St. Jude") |>
+  dplyr::pull(sample_accession) |>
   purrr::map(function(x) readr::read_tsv(file.path(data_dir, "stjudecloud",
                                                    stringr::str_c(x, ".RNA-Seq.feature-counts.txt")),
-                                         col_names = c("SYMBOL", x), show_col_types = FALSE) %>%
-               tibble::column_to_rownames("SYMBOL")) %>%
-  dplyr::bind_cols() %>%
-  tibble::rownames_to_column("SYMBOL") %>%
-  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
-                   by = "SYMBOL") %>%
+                                         col_names = c("SYMBOL", x), show_col_types = FALSE) |>
+               tibble::column_to_rownames("SYMBOL")) |>
+  dplyr::bind_cols() |>
+  tibble::rownames_to_column("SYMBOL") |>
+  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
+                   by = "SYMBOL") |>
   dplyr::filter(!duplicated(SYMBOL),
                 !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) %>%
-  dplyr::select(-SYMBOL) %>%
-  tibble::column_to_rownames(var = "ENSEMBL") %>%
+                !is.na(ENSEMBL)) |>
+  dplyr::select(-SYMBOL) |>
+  tibble::column_to_rownames(var = "ENSEMBL") |>
   convert_gene_counts_to_TPM(gene_lengths_df = GENCODE_gene_lengths_df)
 
 ################################################################################
@@ -172,15 +170,15 @@ genex_data_list[["St. Jude"]] <- bulk_metadata %>%
 ################################################################################
 
 ### common genes
-common_genes <- genex_data_list %>%
-  purrr::map(row.names) %>%
+common_genes <- genex_data_list |>
+  purrr::map(row.names) |>
   purrr::reduce(intersect)
 
 ### column bind the studies together using common genes
 lapply(genex_data_list,
-       function(x) x[common_genes,]) %>%
-  dplyr::bind_cols() %>%
-  tibble::rownames_to_column(var = "gene") %>%
+       function(x) x[common_genes,]) |>
+  dplyr::bind_cols() |>
+  tibble::rownames_to_column(var = "gene") |>
   readr::write_tsv(bulk_genex_df_output_filepath)
 
 ################################################################################
@@ -194,8 +192,8 @@ pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
 # grab the names of the individual expression files
 pseudobulk_expression_files <- file.path(data_dir, 
                                          "GSE119926", 
-                                         str_c(pseudobulk_metadata$sample_accession, 
-                                               "_", pseudobulk_metadata$title, ".txt.gz"))
+                                         stringr::str_c(pseudobulk_metadata$sample_accession, 
+                                                        "_", pseudobulk_metadata$title, ".txt.gz"))
 names(pseudobulk_expression_files) <- pseudobulk_metadata$title
 
 # read in individual expression files
@@ -204,7 +202,7 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
                                               readr::read_tsv(x,
                                                               skip = 1,
                                                               col_names = FALSE,
-                                                              show_col_types = FALSE) %>%
+                                                              show_col_types = FALSE) |>
                                               tibble::column_to_rownames(var = "X1"))
 
 # revert log transformed-TPM values back to original TPM values using equation 
@@ -222,13 +220,13 @@ pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
                                       average_tpm_list)
 
 # convert gene names from SYMBOL to ENSEMBL
-pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix %>%
-  dplyr::left_join(gene_map_df %>% dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) %>%
+pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix |>
+  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
+                   by = c("gene" = "SYMBOL")) |>
   dplyr::filter(!duplicated(gene),
                 !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) %>%
-  dplyr::select(-gene) %>%
+                !is.na(ENSEMBL)) |>
+  dplyr::select(-gene) |>
   dplyr::select(gene = ENSEMBL, everything())
 
 # save matrix object
