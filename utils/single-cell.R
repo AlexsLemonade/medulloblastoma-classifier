@@ -137,10 +137,23 @@ test_single_cells <- function(sample_acc,
   # Outputs:
   #  Returns a test object
   
-  # model types should be a list with elements limited to "ktsp" or "rf"
-  if (!(model_type %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+  if ( model_type %in% c("ktsp", "rf") ) {
     
-    stop("model_type in test_single_cells() must be one of 'ktsp' or 'rf'.")
+    if ( model_type == "ktsp" & class(classifier) != "OnevsrestScheme_TSP" ) {
+      
+      stop("Type of model specified by classifier parameter in test_single_cells() does not match model_type, which must be 'ktsp' or 'rf'.")  
+      
+    }
+    
+    if ( model_type == "rf" & class(classifier) != "rule_based_RandomForest" ) {
+      
+      stop("Type of model specified by classifier parameter in test_single_cells() does not match model_type, which must be 'ktsp' or 'rf'.")  
+      
+    }
+    
+  } else {
+    
+    stop("model_type in test_single_cells() must be 'ktsp' or 'rf'.")
     
   }
   
