@@ -3,8 +3,6 @@
 # Steven Foltz
 # November-December 2022
 
-library(magrittr)
-
 option_list <- list(
   optparse::make_option("--annotationhub_snapshot_date",
                         default = NA_character_,
@@ -30,10 +28,10 @@ hs_orgdb <- AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]] # humans
 AnnotationDbi::select(x = hs_orgdb,
                       keys = AnnotationDbi::keys(hs_orgdb, "ENSEMBL"),
                       columns = c("ENTREZID", "SYMBOL"),
-                      keytype = "ENSEMBL") %>%
+                      keytype = "ENSEMBL") |>
   dplyr::mutate(dup_ensembl = duplicated(ENSEMBL),
                 dup_entrezid = duplicated(ENTREZID),
-                dup_symbol = duplicated(SYMBOL)) %>%
-  dplyr::filter(!dup_ensembl, !dup_entrezid, !dup_symbol) %>%
-  dplyr::select(ENSEMBL, ENTREZID, SYMBOL) %>%
+                dup_symbol = duplicated(SYMBOL)) |>
+  dplyr::filter(!dup_ensembl, !dup_entrezid, !dup_symbol) |>
+  dplyr::select(ENSEMBL, ENTREZID, SYMBOL) |>
   readr::write_tsv(file = gene_map_filepath)
