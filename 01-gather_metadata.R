@@ -3,8 +3,6 @@
 # Steven Foltz
 # November 2022
 
-suppressMessages(library(tidyverse))
-
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
@@ -27,14 +25,14 @@ pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
 
 clean_mb_subgroups <- function(df){
   
-  df <- df %>%
-    mutate(subgroup = case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
-                                subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
-                                subgroup %in% c("NORM") ~ "Normal",
-                                subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
-                                subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                TRUE ~ subgroup))
-
+  df <- df |>
+    dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
+                                              subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
+                                              subgroup %in% c("NORM") ~ "Normal",
+                                              subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
+                                              subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
+                                              TRUE ~ subgroup))
+  
   return(df)
   
 }
@@ -79,30 +77,30 @@ GSE124814_samples_df_column_names <- c("sample_name",
 GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
                                         col_names = GSE124814_samples_df_column_names,
                                         col_types = "text",
-                                        skip = 2) %>%
-  separate(title, # separate title into experiment accession and sample id
-           into = c("experiment_accession", "id"),
-           sep = "-",
-           extra = "merge") %>% # split on the first hyphen and keep rest intact
+                                        skip = 2) |>
+  tidyr::separate(title, # separate title into experiment accession and sample id
+                  into = c("experiment_accession", "id"),
+                  sep = "-",
+                  extra = "merge") |> # split on the first hyphen and keep rest intact
   # filter out E-MTAB-292 per data accessibility
-  filter(experiment_accession != "EMTAB292") %>%
+  dplyr::filter(experiment_accession != "EMTAB292") |>
   # GSE124814 merged duplicate samples together by averaging expression values
   # and this is indicated in the description column with the word "average"
-  mutate(is_duplicate = str_detect(description, "average"),
-         # "NA" subgroup corresponds to "Normal"
-         subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
-                                            "Normal",
-                                            subgroup_supplied_renamed),
-         # treat "Unknown" subgroup as NA
-         subgroup_supplied_renamed = na_if(x = subgroup_supplied_renamed,
-                                           y = "Unknown"),
-         # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
-         sample_accession = word(description, 3) ) %>%
-  select(sample_accession,
-         subgroup = subgroup_supplied_renamed,
-         study = experiment_accession,
-         is_duplicate) %>%
-  mutate(platform = "Array") %>%
+  dplyr::mutate(is_duplicate = stringr::str_detect(description, "average"),
+                # "NA" subgroup corresponds to "Normal"
+                subgroup_supplied_renamed = ifelse(subgroup_supplied_renamed == "NA",
+                                                   "Normal",
+                                                   subgroup_supplied_renamed),
+                # treat "Unknown" subgroup as NA
+                subgroup_supplied_renamed = dplyr::na_if(x = subgroup_supplied_renamed,
+                                                         y = "Unknown"),
+                # isolate the sample accession as its own column ("reanalysis of SAMPLE_ACCESSION (EXPERIMENT_ACCESSION)")
+                sample_accession = stringr::word(description, 3) ) |>
+  dplyr::select(sample_accession,
+                subgroup = subgroup_supplied_renamed,
+                study = experiment_accession,
+                is_duplicate) |>
+  dplyr::mutate(platform = "Array") |>
   clean_mb_subgroups()
 
 ################################################################################
@@ -112,122 +110,122 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # This file contains both metadata and expression values
 # Here, we only want the first two rows (the metadata rows), then transpose it,
 # then clean it up for combination with metadata from other studies.
-GSE164677_metadata <- read_tsv(GSE164677_metadata_input_filename,
-                               col_names = FALSE,
-                               col_types = "c",
-                               n_max = 2) %>%
-  column_to_rownames(var = "X1") %>%
-  t() %>%
-  as_tibble() %>%
-  select(sample_accession = gene,
-         subgroup = group) %>%
-  mutate(study = "GSE164677",
-         is_duplicate = FALSE,
-         platform = "RNA-seq") %>%
+GSE164677_metadata <- readr::read_tsv(GSE164677_metadata_input_filename,
+                                      col_names = FALSE,
+                                      col_types = "c",
+                                      n_max = 2) |>
+  tibble::column_to_rownames(var = "X1") |>
+  t() |>
+  tibble::as_tibble() |>
+  dplyr::select(sample_accession = gene,
+                subgroup = group) |>
+  dplyr::mutate(study = "GSE164677",
+                is_duplicate = FALSE,
+                platform = "RNA-seq") |>
   clean_mb_subgroups()
 
 ################################################################################
 # OpenPBTA (MB)
 ################################################################################
 
-openpbta_mb_metadata <- read_tsv(file = openpbta_metadata_input_filename,
-                                 col_types = "c") %>%
-  filter(experimental_strategy == "RNA-Seq",
-         short_histology == "Medulloblastoma") %>%
-  separate(molecular_subtype, # separate molecular_subtype into molecular and subgroup
-           into = c("molecular", "subgroup"),
-           sep = ", ",
-           extra = "merge") %>%
-  mutate(subgroup = na_if(x = subgroup,
-                          y = "To be classified")) %>% 
-  arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) %>% # patient ID, sample ID
-  mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
-  rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
-  mutate(study = "OpenPBTA",
-         platform = "RNA-seq") %>%
-  select(sample_accession,
-         subgroup,
-         study,
-         is_duplicate,
-         platform) %>%
+openpbta_mb_metadata <- readr::read_tsv(file = openpbta_metadata_input_filename,
+                                        col_types = "c") |>
+  dplyr::filter(experimental_strategy == "RNA-Seq",
+                short_histology == "Medulloblastoma") |>
+  tidyr::separate(molecular_subtype, # separate molecular_subtype into molecular and subgroup
+                  into = c("molecular", "subgroup"),
+                  sep = ", ",
+                  extra = "merge") |>
+  dplyr::mutate(subgroup = dplyr::na_if(x = subgroup,
+                                        y = "To be classified")) |> 
+  dplyr::arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) |> # patient ID, sample ID
+  dplyr::mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) |> # marks 2+ instance of patient ID
+  dplyr::rename("sample_accession" = "Kids_First_Biospecimen_ID") |>
+  dplyr::mutate(study = "OpenPBTA",
+                platform = "RNA-seq") |>
+  dplyr::select(sample_accession,
+                subgroup,
+                study,
+                is_duplicate,
+                platform) |>
   clean_mb_subgroups()
 
 ################################################################################
 # OpenPBTA (LGG)
 ################################################################################
 
-openpbta_lgg_metadata <- read_tsv(file = openpbta_metadata_input_filename,
-                                  col_types = "c") %>%
-  filter(experimental_strategy == "RNA-Seq",
-         pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
-         short_histology == "LGAT") %>%
-  mutate(subgroup = "LGG") %>%
-  arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) %>% # patient ID, sample ID
-  mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) %>% # marks 2+ instance of patient ID
-  rename("sample_accession" = "Kids_First_Biospecimen_ID") %>%
-  mutate(study = "OpenPBTA",
-         platform = "RNA-seq") %>%
-  select(sample_accession,
-         subgroup,
-         study,
-         is_duplicate,
-         platform) # do not clean_mb_subgroups()
+openpbta_lgg_metadata <- readr::read_tsv(file = openpbta_metadata_input_filename,
+                                         col_types = "c") |>
+  dplyr::filter(experimental_strategy == "RNA-Seq",
+                pathology_diagnosis == "Low-grade glioma/astrocytoma (WHO grade I/II)",
+                short_histology == "LGAT") |>
+  dplyr::mutate(subgroup = "LGG") |>
+  dplyr::arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) |> # patient ID, sample ID
+  dplyr::mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) |> # marks 2+ instance of patient ID
+  dplyr::rename("sample_accession" = "Kids_First_Biospecimen_ID") |>
+  dplyr::mutate(study = "OpenPBTA",
+                platform = "RNA-seq") |>
+  dplyr::select(sample_accession,
+                subgroup,
+                study,
+                is_duplicate,
+                platform) # do not clean_mb_subgroups()
 
 ################################################################################
 # St. Jude
 ################################################################################
 
-sj_metadata <- read_tsv(file = sj_metadata_input_filename,
-                        col_types = "c") %>%
-  filter(lubridate::mdy(sj_embargo_date) %>%
-           lubridate::year() < 2023) %>% # keep samples with embargo ending before 2023
-  arrange(subject_name, sample_name) %>% # patient ID, sample ID
-  mutate(is_duplicate = duplicated(subject_name)) %>% # marks 2+ instance of patient ID
-  mutate(subgroup = case_when(str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
-                              str_detect(sj_associated_diagnoses_disease_code, "G4") ~ "G4",
-                              str_detect(sj_associated_diagnoses_disease_code, "SHH") ~ "SHH",
-                              str_detect(sj_associated_diagnoses_disease_code, "WNT") ~ "WNT")) %>%
-  rename("sample_accession" = "sample_name") %>%
-  mutate(study = "St. Jude",
-         platform = "RNA-seq") %>%
-  select(sample_accession,
-         subgroup,
-         study,
-         is_duplicate,
-         platform) %>%
+sj_metadata <- readr::read_tsv(file = sj_metadata_input_filename,
+                               col_types = "c") |>
+  dplyr::filter(lubridate::mdy(sj_embargo_date) |>
+                  lubridate::year() < 2023) |> # keep samples with embargo ending before 2023
+  dplyr::arrange(subject_name, sample_name) |> # patient ID, sample ID
+  dplyr::mutate(is_duplicate = duplicated(subject_name)) |> # marks 2+ instance of patient ID
+  dplyr::mutate(subgroup = dplyr::case_when(stringr::str_detect(sj_associated_diagnoses_disease_code, "G3") ~ "G3",
+                                            stringr::str_detect(sj_associated_diagnoses_disease_code, "G4") ~ "G4",
+                                            stringr::str_detect(sj_associated_diagnoses_disease_code, "SHH") ~ "SHH",
+                                            stringr::str_detect(sj_associated_diagnoses_disease_code, "WNT") ~ "WNT")) |>
+  dplyr::rename("sample_accession" = "sample_name") |>
+  dplyr::mutate(study = "St. Jude",
+                platform = "RNA-seq") |>
+  dplyr::select(sample_accession,
+                subgroup,
+                study,
+                is_duplicate,
+                platform) |>
   clean_mb_subgroups()
 
 ################################################################################
 # GSE119926
 ################################################################################
 
-GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filename) %>%
-  as.data.frame() %>%
-  mutate(is_duplicate = FALSE,
-         study = "GSE119926",
-         platform =  "Pseudo-bulk",
-         is_PDX = case_when(str_detect(source_name_ch1, "patient-derived xenograft") ~ TRUE,
-                            TRUE ~ FALSE)) %>%
-  select(sample_accession = geo_accession,
-         title,
-         subgroup = methylation.subgroup.ch1,
-         study,
-         is_duplicate,
-         platform,
-         is_PDX,
-         subtype = methylation.subtype.ch1) %>%
-  clean_mb_subgroups() %>%
-  write_tsv(file = pseudobulk_metadata_output_filename)
+GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filename) |>
+  as.data.frame() |>
+  dplyr::mutate(is_duplicate = FALSE,
+                study = "GSE119926",
+                platform =  "Pseudo-bulk",
+                is_PDX = dplyr::case_when(stringr::str_detect(source_name_ch1, "patient-derived xenograft") ~ TRUE,
+                                          TRUE ~ FALSE)) |>
+  dplyr::select(sample_accession = geo_accession,
+                title,
+                subgroup = methylation.subgroup.ch1,
+                study,
+                is_duplicate,
+                platform,
+                is_PDX,
+                subtype = methylation.subtype.ch1) |>
+  clean_mb_subgroups() |>
+  readr::write_tsv(file = pseudobulk_metadata_output_filename)
 
 ################################################################################
 # combine metadata and write to file
 ################################################################################
 
 # 4 MB subgroups, NA subgroup, Normal subgroup, LGG
-bind_rows(GSE124814_metadata,
-          GSE164677_metadata,
-          openpbta_mb_metadata,
-          openpbta_lgg_metadata,
-          sj_metadata) %>%
-  filter(!is_duplicate) %>% 
-  write_tsv(file = bulk_metadata_output_filename)
+dplyr::bind_rows(GSE124814_metadata,
+                 GSE164677_metadata,
+                 openpbta_mb_metadata,
+                 openpbta_lgg_metadata,
+                 sj_metadata) |>
+  dplyr::filter(!is_duplicate) |> 
+  readr::write_tsv(file = bulk_metadata_output_filename)
