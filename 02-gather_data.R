@@ -207,16 +207,16 @@ for (i in 1:length(sample_accession_ids)) {
   scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
                                     skip = 1,
                                     col_names = FALSE,
-                                    show_col_types = FALSE) %>%
-    dplyr::rename("gene" = "X1") %>%
-    dplyr::left_join(gene_map_df %>%
+                                    show_col_types = FALSE) |>
+    dplyr::rename("gene" = "X1") |>
+    dplyr::left_join(gene_map_df |>
                        dplyr::select(ENSEMBL, SYMBOL),
-                     by = c("gene" = "SYMBOL")) %>%
+                     by = c("gene" = "SYMBOL")) |>
     dplyr::filter(!duplicated(gene),
                   !duplicated(ENSEMBL),
-                  !is.na(ENSEMBL)) %>%
-    dplyr::select(-gene) %>%
-    dplyr::select(gene = ENSEMBL, everything()) %>%
+                  !is.na(ENSEMBL)) |>
+    dplyr::select(-gene) |>
+    dplyr::select(gene = ENSEMBL, everything()) |>
     tibble::column_to_rownames(var = "gene")
   
   # revert log transformed-TPM values back to original TPM values using equation 
@@ -235,7 +235,7 @@ for (i in 1:length(sample_accession_ids)) {
                                     
   } else {
     
-    pseudobulk_df <- pseudobulk_df %>%
+    pseudobulk_df <- pseudobulk_df |>
       tibble::add_column("{sample_title}" := average_tpm_vector)
     
   }
@@ -245,11 +245,11 @@ for (i in 1:length(sample_accession_ids)) {
                                   stringr::str_c(sample_title, "_sce.rds"))
   
   # convert TPM matrix to SingleCellExperiment objects
-  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) %>%
+  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
     # calculate UMAP results
-    add_sce_umap() %>%
+    add_sce_umap() |>
     # perform clustering
-    perform_graph_clustering() %>%
+    perform_graph_clustering() |>
     # write to file
     readr::write_rds(file = sce_output_filepath)
   
