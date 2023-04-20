@@ -854,13 +854,12 @@ test_mm2s <- function(genex_df_test,
   # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
   genex_df_test_ENTREZID <- genex_df_test |>
     tibble::rownames_to_column(var = "ENSEMBL") |>
-    dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, ENTREZID),
-                     by = "ENSEMBL") |>
-    dplyr::filter(!duplicated(ENSEMBL),
-                  !duplicated(ENTREZID),
-                  !is.na(ENTREZID)) |>
-    dplyr::select(-ENSEMBL) |>
-    tibble::column_to_rownames(var = "ENTREZID")
+    convert_gene_names(gene_column_before = "ENSEMBL",
+                       gene_column_after = "gene",
+                       gene_map_df = gene_map_df,
+                       map_from = "ENSEMBL",
+                       map_to = "ENTREZID") |>
+    tibble::column_to_rownames(var = "gene")
   
   # predict labels with existing MM2S.human classifier
   mm2s_predictions <- MM2S::MM2S.human(InputMatrix = genex_df_test_ENTREZID,
