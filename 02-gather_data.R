@@ -10,6 +10,7 @@ processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
 
+source(file.path(utils_dir, "convert_gene_names.R"))
 source(file.path(utils_dir, "single-cell.R"))
 source(file.path(utils_dir, "TPM_conversion.R"))
 
@@ -123,13 +124,12 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
                                                   skip = 1) |>
-  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) |>
-  dplyr::filter(!duplicated(gene),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) |>
-  dplyr::select(-gene) |>
-  tibble::column_to_rownames(var = "ENSEMBL")
+  convert_gene_names(gene_column_before = "gene",
+                     gene_column_after = "gene",
+                     gene_map_df = gene_map_df,
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL") |>
+  tibble::column_to_rownames(var = "gene")
 
 ### OpenPBTA
 
@@ -156,13 +156,12 @@ genex_data_list[["St. Jude"]] <- bulk_metadata |>
                tibble::column_to_rownames("SYMBOL")) |>
   dplyr::bind_cols() |>
   tibble::rownames_to_column("SYMBOL") |>
-  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
-                   by = "SYMBOL") |>
-  dplyr::filter(!duplicated(SYMBOL),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) |>
-  dplyr::select(-SYMBOL) |>
-  tibble::column_to_rownames(var = "ENSEMBL") |>
+  convert_gene_names(gene_column_before = "SYMBOL",
+                     gene_column_after = "gene",
+                     gene_map_df = gene_map_df,
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL") |>
+  tibble::column_to_rownames(var = "gene") |>
   convert_gene_counts_to_TPM(gene_lengths_df = GENCODE_gene_lengths_df)
 
 ################################################################################
@@ -221,13 +220,11 @@ pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
 
 # convert gene names from SYMBOL to ENSEMBL
 pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix |>
-  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) |>
-  dplyr::filter(!duplicated(gene),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) |>
-  dplyr::select(-gene) |>
-  dplyr::select(gene = ENSEMBL, everything())
+  convert_gene_names(gene_column_before = "gene",
+                     gene_column_after = "gene",
+                     gene_map_df = gene_map_df,
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL")
 
 # save matrix object
 readr::write_tsv(pseudobulk_matrix_ENSEMBL,
