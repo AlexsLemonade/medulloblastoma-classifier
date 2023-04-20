@@ -40,7 +40,7 @@ convert_gene_names <- function(genex_df,
   }
   
   genex_df |>
-    dplyr::left_join(gene_map_df |> dplyr::select(map_from, map_to),
+    dplyr::left_join(gene_map_df |> dplyr::select(dplyr::all_of(map_from, map_to)),
                      by = setNames(map_from, gene_column_before)) |>
     dplyr::filter(!duplicated(.data[[gene_column_before]]), # multi-mapped left to right
                   !duplicated(.data[[map_to]]), # multi-mapped right to left
