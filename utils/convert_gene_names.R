@@ -40,12 +40,13 @@ convert_gene_names <- function(genex_df,
   }
   
   genex_df |>
-    dplyr::left_join(gene_map_df |> dplyr::select(dplyr::all_of(map_from, map_to)),
+    dplyr::left_join(gene_map_df |> dplyr::select(tidyselect::all_of(c(map_from, map_to))),
                      by = setNames(map_from, gene_column_before)) |>
     dplyr::filter(!duplicated(.data[[gene_column_before]]), # multi-mapped left to right
                   !duplicated(.data[[map_to]]), # multi-mapped right to left
                   !is.na(.data[[map_to]])) |> # no match left to right
-    dplyr::select(-dplyr::all_of(gene_column_before)) |> # remove old gene column
-    dplyr::relocate(!!gene_column_after := map_to) # rename and move new gene column to first position
+    dplyr::select(-tidyselect::all_of(gene_column_before)) |> # remove old gene column
+    dplyr::relocate(tidyselect::all_of(map_to)) |> # move new annotation column to first position
+  dplyr::rename(!!gene_column_after := tidyselect::all_of(map_to)) # rename gene column
   
 }
