@@ -162,10 +162,13 @@ run_many_models <- function(genex_df,
                             "train_lasso",
                             "test_lasso"))
   
+  # these namespaces must be loaded for test_MM2S() and test_lasso() functions to work
+  # done globally before splitting into parallel processes for consistency
+  suppressMessages(library(MM2S))
+  suppressMessages(library(glmnet))
+  
   # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
-    
-    suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency 
     
     # set up this repeat's train/test split
     train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
@@ -850,6 +853,9 @@ test_mm2s <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
   
+  # load MM2S library (necessary for MM2S.human() function to work)
+  library(MM2S)
+  
   # convert genex_df gene names to from ENSEMBL to ENTREZID
   # when ENSEMBL ID maps to multiple ENTREZIDs, take the first mapping
   genex_df_test_ENTREZID <- genex_df_test |>
@@ -955,6 +961,9 @@ test_lasso <- function(genex_df_test,
   # ensure input files are properly formatted and sample orders match
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
+  
+  # load glmnet library (necessary for predict() function to work on cv.glmnet object)
+  library(glmnet)
   
   # do basic normalization: make each column sums to 1
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
