@@ -150,7 +150,8 @@ run_many_models <- function(genex_df,
   cl <- parallel::makeCluster(n_cores, outfile = "log") # use log file for troubleshooting
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl,
-                          c("get_train_test_samples",
+                          c("convert_gene_names",
+                            "get_train_test_samples",
                             "run_one_model",
                             "check_input_files",
                             "calculate_confusion_matrix",
@@ -978,9 +979,12 @@ test_lasso <- function(genex_df_test,
                           type = "response") |>
     as.data.frame() |>
     setNames(lasso_subgroups) |>
-    dplyr::mutate(prediction = names(.)[max.col(.)]) |>
     tibble::rownames_to_column(var = "sample_accession") |>
     tibble::as_tibble()
+  
+  # add top scoring prediction column
+  test_results <- test_results |>
+    dplyr::mutate(prediction = lasso_subgroups[max.col(m = test_results[,-1])])
 
   # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
