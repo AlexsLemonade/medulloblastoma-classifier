@@ -49,14 +49,14 @@ if (create_models &
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Read in essential data
-bulk_genex_df <- readr::read_tsv(bulk_genex_filepath) %>%
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath) |>
   tibble::column_to_rownames(var = "gene")
 
-bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath) %>%
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath) |>
   dplyr::filter(sample_accession %in% names(bulk_genex_df),
                 subgroup %in% mb_subgroups)
 
-bulk_genex_df <- bulk_genex_df %>%
+bulk_genex_df <- bulk_genex_df |>
   dplyr::select(dplyr::all_of(bulk_metadata_df$sample_accession))
 
 check_input_files(genex_df = bulk_genex_df,
