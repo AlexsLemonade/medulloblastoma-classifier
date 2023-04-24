@@ -78,7 +78,7 @@ check_input_files(genex_df = bulk_genex_df,
 The following code creates both weighted and unweighted kTSP and RF models.
 The MM2S and LASSO models use default settings.
 
-Out of all the repeats, we select one 'official' repeat for visualization and testing.
+Out of all the repeats, we select one 'official' repeat for visualization.
 The 'official' repeat maximizes the median Kappa across all models within the repeat.
 
 ```{r}
@@ -103,8 +103,7 @@ if (create_models) {
                                                   rf_gene_repetition = 1,
                                                   rf_rules_altogether = 50,
                                                   rf_rules_one_vs_rest = 50,
-                                                  rf_weighted = TRUE,
-                                                  mm2s_gene_map_filepath = gene_map_filepath)
+                                                  rf_weighted = TRUE)
   
   # Add _weighted to names of kTSP and RF list elements
   weighted_kTSP_RF_models_list <- purrr::map(weighted_kTSP_RF_models_list,
@@ -128,8 +127,7 @@ if (create_models) {
                                                     rf_gene_repetition = 1,
                                                     rf_rules_altogether = 50,
                                                     rf_rules_one_vs_rest = 50,
-                                                    rf_weighted = FALSE,
-                                                    mm2s_gene_map_filepath = NULL)
+                                                    rf_weighted = FALSE)
 
   # Add _unweighted to names of kTSP and RF list elements
   unweighted_kTSP_RF_models_list <- purrr::map(unweighted_kTSP_RF_models_list,
@@ -177,6 +175,10 @@ if (create_models) {
     }
 
   }
+  
+  # write models to file
+  readr::write_rds(x = baseline_models_list,
+                   file = baseline_models_filepath)
   
 } else { # if create_models = FALSE and models already exist
   
