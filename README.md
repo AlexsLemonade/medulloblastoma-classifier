@@ -66,7 +66,7 @@ The `pseudobulk_` prefix refers to single-cell RNA-seq (scRNA) data we will anal
 The next step is to bind together bulk gene expression data from each data source and create one expression matrix for all samples (`processed_data/bulk_genex.tsv`).
 We also create one Single Cell Experiment object for each scRNA sample (`processed_data/pseudobulk_sce/*`) and one pseudobulk gene expression matrix (`processed_data/pseudobulk_genex.tsv`) where each sample's cells have been collapsed into one column at the gene level.
 
-To do all this, run
+To gather data, run
 
 `Rscript 02-gather_data.R`
 
@@ -79,6 +79,8 @@ To do all this, run
 ### Targeted gene panels
 
 ### Model dynamics
+
+### ESTIMATE tumor purity
 
 ## Single-cell experiments
 
