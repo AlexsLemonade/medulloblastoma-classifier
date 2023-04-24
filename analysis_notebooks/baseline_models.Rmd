@@ -34,16 +34,21 @@ bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
 
 gene_map_filepath <- file.path(processed_data_dir, "gene_map.tsv")
 
-weighted_baseline_models_filepath <- file.path(models_dir, "baseline_models.weighted.rds")
-unweighted_baseline_models_filepath <- file.path(models_dir, "baseline_models.unweighted.rds")
+baseline_models_filepath <- file.path(models_dir, "baseline_models.rds")
 
-# check that existing files will not be overwritten if overwrite is FALSE
+# check that existing baseline model file will not be overwritten if overwrite is FALSE
 if (create_models &
-    (file.exists(weighted_baseline_models_filepath) |
-     file.exists(unweighted_baseline_models_filepath)) &
+    (file.exists(baseline_models_filepath)) &
     !overwrite) {
   
-  stop("Model output files already exist and overwrite is set to FALSE in analysis_notebooks/baseline_models.Rmd.")
+  stop("Model output file already exists and overwrite is set to FALSE in analysis_notebooks/baseline_models.Rmd.")
+  
+}
+
+# check that files exist if create_models is FALSE
+if (!create_models & !file.exists(baseline_models_filepath)) {
+  
+  stop("Model output file does not exist and create_models is set to FALSE in analysis_notebooks/baseline_models.Rmd.")
   
 }
 
@@ -68,72 +73,118 @@ check_input_files(genex_df = bulk_genex_df,
 
 # Train and test MB subgroup models
 
-### Use methods kTSP, RF, MM2S, and LASSO with default parameters (weighted kTSP and RF), then re-run kTSP and RF without weighting
+### Create kTSP, RF, MM2S, and LASSO models
+
+The following code creates both weighted and unweighted kTSP and RF models.
+The MM2S and LASSO models use default settings.
+
+Out of all the repeats, we select one 'official' repeat for visualization and testing.
+The 'official' repeat maximizes the median Kappa across all models within the repeat.
 
 ```{r}
 
 if (create_models) {
   
-  # weighted models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
-  weighted_models_list <- run_many_models(genex_df = bulk_genex_df,
-                                          metadata_df = bulk_metadata_df,
-                                          labels = mb_subgroups,
-                                          model_types = c("ktsp", "rf", "mm2s", "lasso"),
-                                          initial_seed = 44,
-                                          n_repeats = 10,
-                                          n_cores = 3,
-                                          ktsp_featureNo = 1000,
-                                          ktsp_n_rules_min = 5,
-                                          ktsp_n_rules_max = 50,
-                                          ktsp_weighted = TRUE,
-                                          rf_num.trees = 500,
-                                          rf_genes_altogether = 50,
-                                          rf_genes_one_vs_rest = 50,
-                                          rf_gene_repetition = 1,
-                                          rf_rules_altogether = 50,
-                                          rf_rules_one_vs_rest = 50,
-                                          rf_weighted = TRUE,
-                                          mm2s_gene_map_filepath = gene_map_filepath)
+  # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
+  weighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                                  metadata_df = bulk_metadata_df,
+                                                  labels = mb_subgroups,
+                                                  model_types = c("ktsp", "rf"),
+                                                  initial_seed = 44,
+                                                  n_repeats = 3,
+                                                  n_cores = 3,
+                                                  ktsp_featureNo = 1000,
+                                                  ktsp_n_rules_min = 5,
+                                                  ktsp_n_rules_max = 50,
+                                                  ktsp_weighted = TRUE,
+                                                  rf_num.trees = 500,
+                                                  rf_genes_altogether = 50,
+                                                  rf_genes_one_vs_rest = 50,
+                                                  rf_gene_repetition = 1,
+                                                  rf_rules_altogether = 50,
+                                                  rf_rules_one_vs_rest = 50,
+                                                  rf_weighted = TRUE,
+                                                  mm2s_gene_map_filepath = gene_map_filepath)
   
-  readr::write_rds(x = weighted_models_list,
-                   file = weighted_baseline_models_filepath)
+  # Add _weighted to names of kTSP and RF list elements
+  weighted_kTSP_RF_models_list <- purrr::map(weighted_kTSP_RF_models_list,
+                                             function(x) setNames(x, stringr::str_c(names(x), "_weighted")))
+
+  # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
+  unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                                    metadata_df = bulk_metadata_df,
+                                                    labels = mb_subgroups,
+                                                    model_types = c("ktsp", "rf"),
+                                                    initial_seed = 44,
+                                                    n_repeats = 3,
+                                                    n_cores = 3,
+                                                    ktsp_featureNo = 1000,
+                                                    ktsp_n_rules_min = 5,
+                                                    ktsp_n_rules_max = 50,
+                                                    ktsp_weighted = FALSE,
+                                                    rf_num.trees = 500,
+                                                    rf_genes_altogether = 50,
+                                                    rf_genes_one_vs_rest = 50,
+                                                    rf_gene_repetition = 1,
+                                                    rf_rules_altogether = 50,
+                                                    rf_rules_one_vs_rest = 50,
+                                                    rf_weighted = FALSE,
+                                                    mm2s_gene_map_filepath = NULL)
+
+  # Add _unweighted to names of kTSP and RF list elements
+  unweighted_kTSP_RF_models_list <- purrr::map(unweighted_kTSP_RF_models_list,
+                                               function(x) setNames(x, stringr::str_c(names(x), "_unweighted")))
   
-  # weighted models with ktsp_weighted = FALSE and rf_weighted = FALSE
-  unweighted_models_list <- run_many_models(genex_df = bulk_genex_df,
+  # merge weighted and unweighted kTSP and RF model lists
+  kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
+                                     unweighted_kTSP_RF_models_list,
+                                     function(x, y) c(x, y))
+  
+  # MM2S and LASSO models
+  mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
                                             metadata_df = bulk_metadata_df,
                                             labels = mb_subgroups,
-                                            model_types = c("ktsp", "rf"),
+                                            model_types = c("mm2s", "lasso"),
                                             initial_seed = 44,
-                                            n_repeats = 10,
+                                            n_repeats = 3,
                                             n_cores = 3,
-                                            ktsp_featureNo = 1000,
-                                            ktsp_n_rules_min = 5,
-                                            ktsp_n_rules_max = 50,
-                                            ktsp_weighted = FALSE,
-                                            rf_num.trees = 500,
-                                            rf_genes_altogether = 50,
-                                            rf_genes_one_vs_rest = 50,
-                                            rf_gene_repetition = 1,
-                                            rf_rules_altogether = 50,
-                                            rf_rules_one_vs_rest = 50,
-                                            rf_weighted = FALSE,
-                                            mm2s_gene_map_filepath = NULL)
+                                            mm2s_gene_map_filepath = gene_map_filepath)
   
-  readr::write_rds(x = weighted_models_list,
-                   file = weighted_baseline_models_filepath)
+  # merge kTSP, RF, MM2S, and LASSO model lists
+  baseline_models_list <- purrr::map2(kTSP_RF_models_list,
+                                      mm2s_lasso_models_list,
+                                      function(x, y) c(x, y))
   
-} else {
+  # select "official" repeat with greatest median Kappa across models
+  model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                   "rf_weighted", "rf_unweighted",
+                   "lasso", "mm2s")
   
-  weighted_models_list <- readr::read_rds(weighted_baseline_models_filepath)
-  unweighted_models_list <- readr::read_rds(unweighted_baseline_models_filepath)
+  official_model <- which.max(unlist(purrr::map(models,
+                                                function(x) median(unlist(purrr::map(model_types,
+                                                                                     function(y) x[[y]]$cm$overall[["Kappa"]]))))))
+  
+  for (model_index in 1:length(baseline_models_list)) {
+    
+    if (model_index == official_model) {
+      
+      baseline_models_list[["official_model"]] <- TRUE
+      
+    } else {
+      
+      baseline_models_list[["official_model"]] <- FALSE
+      
+    }
+
+  }
+  
+} else { # if create_models = FALSE and models already exist
+  
+  baseline_models_list <- readr::read_rds(baseline_models_filepath)
   
 }
 
 ```
-
-### Combine models into one list
-
-# Select "official" models
 
 # Visual kappa and accuracy results
 
