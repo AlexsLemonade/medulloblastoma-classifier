@@ -21,6 +21,8 @@ create_models <- params$create_models
 overwrite <- params$overwrite
 
 # Source code and libraries
+source(here::here("utils/color_schemes.R"))
+source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
 
 # Define directories and input/output file paths
