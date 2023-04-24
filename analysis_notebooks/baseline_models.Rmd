@@ -107,7 +107,10 @@ if (create_models) {
   
   # Add _weighted to names of kTSP and RF list elements
   weighted_kTSP_RF_models_list <- purrr::map(weighted_kTSP_RF_models_list,
-                                             function(x) setNames(x, stringr::str_c(names(x), "_weighted")))
+                                             function(x) setNames(x,
+                                                                  dplyr::recode(names(x),
+                                                                                ktsp = "ktsp_weighted",
+                                                                                rf = "rf_weighted")))
 
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
   unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
@@ -131,7 +134,10 @@ if (create_models) {
 
   # Add _unweighted to names of kTSP and RF list elements
   unweighted_kTSP_RF_models_list <- purrr::map(unweighted_kTSP_RF_models_list,
-                                               function(x) setNames(x, stringr::str_c(names(x), "_unweighted")))
+                                               function(x) setNames(x,
+                                                                    dplyr::recode(names(x),
+                                                                                  ktsp = "ktsp_unweighted",
+                                                                                  rf = "rf_unweighted")))
   
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
@@ -166,11 +172,11 @@ if (create_models) {
     
     if (model_index == official_model) {
       
-      baseline_models_list[["official_model"]] <- TRUE
+      baseline_models_list[[model_index]][["official_model"]] <- TRUE
       
     } else {
       
-      baseline_models_list[["official_model"]] <- FALSE
+      baseline_models_list[[model_index]][["official_model"]] <- FALSE
       
     }
 
