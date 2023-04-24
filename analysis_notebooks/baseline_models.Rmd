@@ -160,7 +160,7 @@ if (create_models) {
                    "rf_weighted", "rf_unweighted",
                    "lasso", "mm2s")
   
-  official_model <- which.max(unlist(purrr::map(models,
+  official_model <- which.max(unlist(purrr::map(baseline_models_list,
                                                 function(x) median(unlist(purrr::map(model_types,
                                                                                      function(y) x[[y]]$cm$overall[["Kappa"]]))))))
   
