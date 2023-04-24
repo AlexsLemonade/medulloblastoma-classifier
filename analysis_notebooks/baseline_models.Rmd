@@ -1,0 +1,148 @@
+---
+title: "Train and test baseline models to predict MB subgroups"
+author: "Steven Foltz"
+date: "2022 - 2023"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+params:
+  create_models: TRUE
+  overwrite: FALSE
+---
+
+# Setup
+
+```{r setup}
+
+# get input parameters
+create_models <- params$create_models
+overwrite <- params$overwrite
+
+# Source code and libraries
+source(here::here("utils/modeling.R"))
+
+# Define directories and input/output file paths
+processed_data_dir <- here::here("processed_data")
+models_dir <- here::here("models")
+
+bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
+bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
+
+gene_map_filepath <- file.path(processed_data_dir, "gene_map.tsv")
+
+weighted_baseline_models_filepath <- file.path(models_dir, "baseline_models.weighted.rds")
+unweighted_baseline_models_filepath <- file.path(models_dir, "baseline_models.unweighted.rds")
+
+# check that existing files will not be overwritten if overwrite is FALSE
+if (create_models &
+    (file.exists(weighted_baseline_models_filepath) |
+     file.exists(unweighted_baseline_models_filepath)) &
+    !overwrite) {
+  
+  stop("Model output files already exist and overwrite is set to FALSE in analysis_notebooks/baseline_models.Rmd.")
+  
+}
+
+# set subgroups analyzed in this notebook (canonical MB subgroups)
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+
+# Read in essential data
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath) %>%
+  tibble::column_to_rownames(var = "gene")
+
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath) %>%
+  dplyr::filter(sample_accession %in% names(bulk_genex_df),
+                subgroup %in% mb_subgroups)
+
+bulk_genex_df <- bulk_genex_df %>%
+  dplyr::select(dplyr::all_of(bulk_metadata_df$sample_accession))
+
+check_input_files(genex_df = bulk_genex_df,
+                  metadata_df = bulk_metadata_df)
+
+```
+
+# Train and test MB subgroup models
+
+### Use methods kTSP, RF, MM2S, and LASSO with default parameters (weighted kTSP and RF), then re-run kTSP and RF without weighting
+
+```{r}
+
+if (create_models) {
+  
+  # weighted models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
+  weighted_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                          metadata_df = bulk_metadata_df,
+                                          labels = mb_subgroups,
+                                          model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                                          initial_seed = 44,
+                                          n_repeats = 10,
+                                          n_cores = 3,
+                                          ktsp_featureNo = 1000,
+                                          ktsp_n_rules_min = 5,
+                                          ktsp_n_rules_max = 50,
+                                          ktsp_weighted = TRUE,
+                                          rf_num.trees = 500,
+                                          rf_genes_altogether = 50,
+                                          rf_genes_one_vs_rest = 50,
+                                          rf_gene_repetition = 1,
+                                          rf_rules_altogether = 50,
+                                          rf_rules_one_vs_rest = 50,
+                                          rf_weighted = TRUE,
+                                          mm2s_gene_map_filepath = gene_map_filepath)
+  
+  readr::write_rds(x = weighted_models_list,
+                   file = weighted_baseline_models_filepath)
+  
+  # weighted models with ktsp_weighted = FALSE and rf_weighted = FALSE
+  unweighted_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                            metadata_df = bulk_metadata_df,
+                                            labels = mb_subgroups,
+                                            model_types = c("ktsp", "rf"),
+                                            initial_seed = 44,
+                                            n_repeats = 10,
+                                            n_cores = 3,
+                                            ktsp_featureNo = 1000,
+                                            ktsp_n_rules_min = 5,
+                                            ktsp_n_rules_max = 50,
+                                            ktsp_weighted = FALSE,
+                                            rf_num.trees = 500,
+                                            rf_genes_altogether = 50,
+                                            rf_genes_one_vs_rest = 50,
+                                            rf_gene_repetition = 1,
+                                            rf_rules_altogether = 50,
+                                            rf_rules_one_vs_rest = 50,
+                                            rf_weighted = FALSE,
+                                            mm2s_gene_map_filepath = NULL)
+  
+  readr::write_rds(x = weighted_models_list,
+                   file = weighted_baseline_models_filepath)
+  
+} else {
+  
+  weighted_models_list <- readr::read_rds(weighted_baseline_models_filepath)
+  unweighted_models_list <- readr::read_rds(unweighted_baseline_models_filepath)
+  
+}
+
+```
+
+### Combine models into one list
+
+# Select "official" models
+
+# Visual kappa and accuracy results
+
+### Gather data
+
+### Plot kappa
+
+### Plot accuracy
+
+# Session info
+
+```{r session_info}
+sessionInfo()
+```
