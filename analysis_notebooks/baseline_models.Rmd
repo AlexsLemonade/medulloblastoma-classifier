@@ -91,7 +91,7 @@ if (create_models) {
                                                   labels = mb_subgroups,
                                                   model_types = c("ktsp", "rf"),
                                                   initial_seed = 44,
-                                                  n_repeats = 3,
+                                                  n_repeats = 10,
                                                   n_cores = 3,
                                                   ktsp_featureNo = 1000,
                                                   ktsp_n_rules_min = 5,
@@ -118,7 +118,7 @@ if (create_models) {
                                                     labels = mb_subgroups,
                                                     model_types = c("ktsp", "rf"),
                                                     initial_seed = 44,
-                                                    n_repeats = 3,
+                                                    n_repeats = 10,
                                                     n_cores = 3,
                                                     ktsp_featureNo = 1000,
                                                     ktsp_n_rules_min = 5,
@@ -150,7 +150,7 @@ if (create_models) {
                                             labels = mb_subgroups,
                                             model_types = c("mm2s", "lasso"),
                                             initial_seed = 44,
-                                            n_repeats = 3,
+                                            n_repeats = 10,
                                             n_cores = 3,
                                             mm2s_gene_map_filepath = gene_map_filepath)
   
