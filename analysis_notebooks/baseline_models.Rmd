@@ -8,7 +8,7 @@ output:
     toc_float: TRUE
     df_print: paged
 params:
-  create_models: TRUE
+  create_models: FALSE
   overwrite: FALSE
 ---
 
@@ -232,7 +232,14 @@ plot_df <- purrr::map(baseline_list,
                              "subgroup_samples",
                              "metric",
                              "value")) |>
-  dplyr::rename(repeat_index = L1)
+  dplyr::rename(repeat_index = L1) |>
+  dplyr::mutate(model_type = dplyr::recode(model_type,
+                                           ktsp_unweighted = "kTSP (unw)",
+                                           ktsp_weighted = "kTSP (w)",
+                                           rf_unweighted = "RF (unw)",
+                                           rf_weighted = "RF (w)",
+                                           mm2s = "MM2S",
+                                           lasso = "LASSO"))
 
 readr::write_tsv(x = plot_df,
                  file = baseline_plot_df_filepath)
@@ -249,17 +256,22 @@ baseline_kappa_plot <- plot_df |>
   dplyr::filter(metric == "Kappa") |>
   ggplot2::ggplot(ggplot2::aes(x = model_type,
                                y = value,
-                               fill = platform,
                                color = platform)) +
-  ggplot2::geom_violin(position = ggplot2::position_dodge(0.7),
-                       alpha = 0.5,
-                       color = NA) +
+  ggplot2::geom_violin(draw_quantiles = 0.5,
+                       position = ggplot2::position_dodge(0.7),
+                       show.legend = FALSE) +
   ggplot2::geom_point(shape = 16,
+                      alpha = 0.5,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0)) +
+  ggplot2::scale_y_continuous(limits = c(0,1)) +
   ggplot2::labs(x = "Method",
-                y = "Kappa") +
-  ggplot2::theme_bw()
+                y = "Kappa",
+                color = "Platform") +
+  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) + 
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
 
 baseline_kappa_plot
 
@@ -274,26 +286,30 @@ ggplot2::ggsave(filename = baseline_kappa_plot_filepath,
 
 ```{r}
 
+set.seed(1)
+
 baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy") |>
-  ggplot2::ggplot(ggplot2::aes(x = model_type,
-                               y = value,
-                               fill = platform,
-                               color = subgroup)) +
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = model_type,
+                               color = platform)) +
   ggplot2::geom_violin(draw_quantiles = 0.5,
                        show.legend = FALSE,
                        position = ggplot2::position_dodge(0.7)) +
   ggplot2::geom_point(shape = 16,
+                      alpha = 0.5,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
-                                                               jitter.height = 0),
-                      show.legend = FALSE) +
+                                                               jitter.height = 0)) +
   ggplot2::facet_wrap(~ subgroup,
-                      ncol = 2) +
-  ggplot2::scale_color_manual(values = okabe_ito_colors) +
-  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) + 
-  ggplot2::labs(x = "Subgroup",
-                y = "Balanced Accuracy") +
-  ggplot2::theme_bw()
+                      ncol = 1) +
+  ggplot2::scale_x_continuous(limits = c(0,1)) +
+  ggplot2::labs(x = "Balanced Accuracy",
+                y = "Method",
+                color = "Platform") +
+  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
 
 baseline_accuracy_plot
 
@@ -301,6 +317,70 @@ ggplot2::ggsave(filename = baseline_accuracy_plot_filepath,
                 plot = baseline_accuracy_plot,
                 height = 7,
                 width = 7)
+
+```
+
+### Accuracy tables
+
+#### Array test data
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                platform == "Array") |>
+  dplyr::group_by(model_type, subgroup) |>
+  dplyr::summarize(median_accuracy = median(value)) |>
+  tidyr::pivot_wider(names_from = subgroup,
+                     values_from = median_accuracy) |>
+knitr::kable()
+
+```
+
+#### RNA-seq test data
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                platform == "RNA-seq") |>
+  dplyr::group_by(model_type, subgroup) |>
+  dplyr::summarize(median_accuracy = median(value)) |>
+  tidyr::pivot_wider(names_from = subgroup,
+                     values_from = median_accuracy) |>
+  knitr::kable()
+
+```
+
+### Plot accuracy (G3 only)
+
+```{r}
+
+set.seed(1)
+
+baseline_accuracy_G3_plot <- plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                subgroup %in% c("G3")) |>
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = model_type,
+                               color = platform)) +
+  ggplot2::geom_violin(draw_quantiles = 0.5,
+                       show.legend = FALSE,
+                       position = ggplot2::position_dodge(0.7)) +
+  ggplot2::geom_point(shape = 16,
+                      alpha = 0.5,
+                      position = ggplot2::position_jitterdodge(jitter.width = 0.1,
+                                                               jitter.height = 0)) +
+  ggplot2::facet_wrap(~ subgroup,
+                      ncol = 1) +
+  ggplot2::scale_x_continuous(limits = c(0,1)) +
+  ggplot2::labs(x = "Balanced Accuracy",
+                y = "Method",
+                color = "Platform") +
+  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+baseline_accuracy_G3_plot
 
 ```
 
