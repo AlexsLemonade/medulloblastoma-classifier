@@ -247,10 +247,10 @@ set.seed(1)
 
 baseline_kappa_plot <- plot_df |>
   dplyr::filter(metric == "Kappa") |>
-  ggplot2::ggplot(aes(x = model_type,
-                      y = value,
-                      fill = platform,
-                      color = platform)) +
+  ggplot2::ggplot(ggplot2::aes(x = model_type,
+                               y = value,
+                               fill = platform,
+                               color = platform)) +
   ggplot2::geom_violin(position = ggplot2::position_dodge(0.7),
                        alpha = 0.5,
                        color = NA) +
@@ -276,10 +276,10 @@ ggplot2::ggsave(filename = baseline_kappa_plot_filepath,
 
 baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy") |>
-  ggplot2::ggplot(aes(x = model_type,
-                      y = value,
-                      fill = platform,
-                      color = subgroup)) +
+  ggplot2::ggplot(ggplot2::aes(x = model_type,
+                               y = value,
+                               fill = platform,
+                               color = subgroup)) +
   ggplot2::geom_violin(draw_quantiles = 0.5,
                        show.legend = FALSE,
                        position = ggplot2::position_dodge(0.7)) +
