@@ -3369,7 +3369,7 @@ train_test_samples_list &lt;- get_train_test_samples(genex_df = bulk_genex_df,
                                                   train_test_seed = official_train_test_seed,
                                                   proportion_of_studies_train = 0.5)
 
-# confirm it&#39;s the same test samples
+# confirm it&#39;s the same test samples in the same order
 if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) {
   
   stop(&quot;Testing sets do not match!&quot;)
