@@ -47,6 +47,6 @@ convert_gene_names <- function(genex_df,
                   !is.na(.data[[map_to]])) |> # no match left to right
     dplyr::select(-tidyselect::all_of(gene_column_before)) |> # remove old gene column
     dplyr::relocate(tidyselect::all_of(map_to)) |> # move new annotation column to first position
-  dplyr::rename(!!gene_column_after := tidyselect::all_of(map_to)) # rename gene column
+    dplyr::rename(!!gene_column_after := tidyselect::all_of(map_to)) # rename gene column
   
 }
