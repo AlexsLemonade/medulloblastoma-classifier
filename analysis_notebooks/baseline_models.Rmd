@@ -44,14 +44,6 @@ source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
 library(patchwork)
 
-subgroup_colors <- c(G3 = okabe_ito_colors[2],
-                     G4 = okabe_ito_colors[3],
-                     SHH = okabe_ito_colors[4],
-                     WNT = okabe_ito_colors[8])
-
-platform_colors = c(Array = okabe_ito_colors[1],
-                    `RNA-seq` = okabe_ito_colors[9])
-
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
 models_dir <- here::here("models")
@@ -68,6 +60,7 @@ baseline_filepath <- file.path(models_dir, "baseline.rds")
 baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
 baseline_kappa_plot_filepath <- file.path(plots_dir, "baseline_kappa.pdf")
 baseline_accuracy_plot_filepath <- file.path(plots_dir, "baseline_accuracy.pdf")
+baseline_binary_TSP_plot_filepath <- file.path(plots_dir, "baseline_binary_TSP.pdf")
 baseline_figure_filepath <- file.path(plots_dir, "baseline_figure.pdf")
 
 # check that existing baseline model file will not be overwritten if overwrite is FALSE
@@ -505,6 +498,11 @@ if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) 
                                                                   anno_height = 0.05,
                                                                   score_height = 0.05,
                                                                   margin = c(0, 5, 0, 0.5))}
+  
+  ggplot2::ggsave(filename = baseline_binary_TSP_plot_filepath,
+                  plot = binary_TSP_plot(),
+                  width = 7,
+                  height = 7)
   
   binary_TSP_plot()
 
