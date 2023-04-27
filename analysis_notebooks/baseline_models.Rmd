@@ -12,6 +12,24 @@ params:
   overwrite: FALSE
 ---
 
+# Rationale
+
+We want to use single sample prediction models to predict tumor subgroup in medulloblastoma (MB) patient samples.
+Our gene expression data comes from multiple studies, and different studies were generated using different platforms (array and RNA-seq).
+
+Our goals are to train different prediction models (kTSP, RF, MM2S, and LASSO) and to assess model performance on a per-platform and per-subgroup basis.
+Ideally, models would perform well regardless of the platform or subgroup of the sample, but differences in sample size mean some groups may be underrepresented in the data available for training.
+Inverse-weighting may boost performance for smaller groups, and we can test this in kTSP and RF models using parameters for weighted (w) and unweighted (unw) analyses.
+
+To train and test our models, we use the `run_many_models()` function.
+This function allows us to specify what model types we want to analyze, various model parameters, and segregate samples into training/testing sets via a random seed.
+We train and test each model a number of times (e.g. 10 repeats) using different training/testing sets to understand the range of model performance as measured by Kappa and Balanced Accuracy.
+Training/testing sets segregate at the study level, rather than the sample level.
+
+Kappa measures how often our predicted subgroups agree with the true subgroups, accounting for the chance of random agreement (necessary when subgroups are imbalanced).
+Balanced accuracy is the average of a model's sensitivity and specificity, measured on a per-subgroup basis.
+
+
 # Setup
 
 ```{r setup}
@@ -24,6 +42,15 @@ overwrite <- params$overwrite
 source(here::here("utils/color_schemes.R"))
 source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
+library(patchwork)
+
+subgroup_colors <- c(G3 = okabe_ito_colors[2],
+                     G4 = okabe_ito_colors[3],
+                     SHH = okabe_ito_colors[4],
+                     WNT = okabe_ito_colors[8])
+
+platform_colors = c(Array = okabe_ito_colors[1],
+                    `RNA-seq` = okabe_ito_colors[9])
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
@@ -41,6 +68,7 @@ baseline_filepath <- file.path(models_dir, "baseline.rds")
 baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
 baseline_kappa_plot_filepath <- file.path(plots_dir, "baseline_kappa.pdf")
 baseline_accuracy_plot_filepath <- file.path(plots_dir, "baseline_accuracy.pdf")
+baseline_figure_filepath <- file.path(plots_dir, "baseline_figure.pdf")
 
 # check that existing baseline model file will not be overwritten if overwrite is FALSE
 if (create_models &
@@ -62,10 +90,12 @@ if (!create_models & !file.exists(baseline_filepath)) {
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Read in essential data
-bulk_genex_df <- readr::read_tsv(bulk_genex_filepath) |>
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath,
+                                 show_col_types = FALSE) |>
   tibble::column_to_rownames(var = "gene")
 
-bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath) |>
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath,
+                                    show_col_types = FALSE) |>
   dplyr::filter(sample_accession %in% names(bulk_genex_df),
                 subgroup %in% mb_subgroups)
 
@@ -83,9 +113,9 @@ check_input_files(genex_df = bulk_genex_df,
 
 The following code creates both weighted and unweighted kTSP and RF models.
 The MM2S and LASSO models use default settings.
-
 Out of all the repeats, we select one 'official' repeat for visualization.
 The 'official' repeat maximizes the median Kappa across all models within the repeat.
+Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
 
 ```{r}
 
@@ -205,6 +235,11 @@ if (create_models) {
 
 ### Gather data
 
+The variable `baseline_list` is a list of lists.
+The first level of lists correspond to different repeats using different training/testing sets.
+Within each repeat, there are list elements corresponding to particular model results (e.g., `ktsp_weighted` or `lasso`) as well as metadata about the repeat (e.g., the seed used for to determine training/testing sets).
+To create a data frame for plotting, we need to gather modeling metrics (Kappa and Balanced Accuracy) from each model across all the repeats.
+
 ```{r}
 
 plot_df <- purrr::map(baseline_list,
@@ -246,6 +281,28 @@ readr::write_tsv(x = plot_df,
 
 ```
 
+### Kappa tables
+
+
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  dplyr::group_by(platform, model_type) |>
+  dplyr::summarize(median_kappa = median(value),
+                   .groups = "drop") |>
+  tidyr::pivot_wider(names_from = platform,
+                     values_from = median_kappa) |>
+  knitr::kable(caption = "Median Kappa values (by platform)")
+
+```
+
+- Models perform slightly better on Array test data (mid-.90s) than RNA-seq test data (low-.90s) (except for MM2S).
+- kTSP (w) and kTSP (unw) show no difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
+- The reverse is true for RF models, with RF (w) outperformin RF (unw) for both Array and RNA-seq test data
+- In weighted models, RF outperformed kTSP in RNA-seq, while the unweighted kTSP outperformed RF in both platforms
+- MM2S showed better test performance in RNA-seq data despite the original model being trained on Array
+
 ### Plot Kappa
 
 ```{r}
@@ -253,102 +310,83 @@ readr::write_tsv(x = plot_df,
 set.seed(1)
 
 baseline_kappa_plot <- plot_df |>
-  dplyr::filter(metric == "Kappa") |>
-  ggplot2::ggplot(ggplot2::aes(x = model_type,
-                               y = value,
+  dplyr::filter(metric == "Kappa",
+                value >= 0.7) |>
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = model_type,
                                color = platform)) +
   ggplot2::geom_violin(draw_quantiles = 0.5,
                        position = ggplot2::position_dodge(0.7),
                        show.legend = FALSE) +
   ggplot2::geom_point(shape = 16,
-                      alpha = 0.5,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0)) +
-  ggplot2::scale_y_continuous(limits = c(0,1)) +
-  ggplot2::labs(x = "Method",
-                y = "Kappa",
+  ggplot2::scale_x_continuous(limits = c(0.7,1)) +
+  ggplot2::facet_wrap(~ subgroup,
+                      ncol = 1) +
+  ggplot2::labs(x = "Kappa",
+                y = NULL,
                 color = "Platform") +
+  ggplot2::scale_color_manual(values = platform_colors) + 
   ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) + 
   ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
-
-baseline_kappa_plot
+  ggplot2::theme(strip.background = ggplot2::element_blank())
 
 ggplot2::ggsave(filename = baseline_kappa_plot_filepath,
                 plot = baseline_kappa_plot,
                 height = 7,
                 width = 7)
 
+baseline_kappa_plot
+
 ```
 
-### Plot accuracy
-
+To aid in visualization, the following data points were excluded from the previous plot:
 ```{r}
 
-set.seed(1)
-
-baseline_accuracy_plot <- plot_df |>
-  dplyr::filter(metric == "Balanced Accuracy") |>
-  ggplot2::ggplot(ggplot2::aes(x = value,
-                               y = model_type,
-                               color = platform)) +
-  ggplot2::geom_violin(draw_quantiles = 0.5,
-                       show.legend = FALSE,
-                       position = ggplot2::position_dodge(0.7)) +
-  ggplot2::geom_point(shape = 16,
-                      alpha = 0.5,
-                      position = ggplot2::position_jitterdodge(jitter.width = 0.1,
-                                                               jitter.height = 0)) +
-  ggplot2::facet_wrap(~ subgroup,
-                      ncol = 1) +
-  ggplot2::scale_x_continuous(limits = c(0,1)) +
-  ggplot2::labs(x = "Balanced Accuracy",
-                y = "Method",
-                color = "Platform") +
-  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
-
-baseline_accuracy_plot
-
-ggplot2::ggsave(filename = baseline_accuracy_plot_filepath,
-                plot = baseline_accuracy_plot,
-                height = 7,
-                width = 7)
+plot_df |>
+  dplyr::filter(metric == "Kappa",
+                value < 0.7)
 
 ```
 
 ### Accuracy tables
 
 #### Array test data
+
 ```{r}
 
 plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
                 platform == "Array") |>
   dplyr::group_by(model_type, subgroup) |>
-  dplyr::summarize(median_accuracy = median(value)) |>
+  dplyr::summarize(median_accuracy = median(value),
+                   .groups = "drop") |>
   tidyr::pivot_wider(names_from = subgroup,
                      values_from = median_accuracy) |>
-knitr::kable()
+knitr::kable(caption = "Median Balanced Accuracy values")
 
 ```
 
 #### RNA-seq test data
+
 ```{r}
 
 plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
                 platform == "RNA-seq") |>
   dplyr::group_by(model_type, subgroup) |>
-  dplyr::summarize(median_accuracy = median(value)) |>
+  dplyr::summarize(median_accuracy = median(value),
+                   .groups = "drop") |>
   tidyr::pivot_wider(names_from = subgroup,
                      values_from = median_accuracy) |>
-  knitr::kable()
+  knitr::kable(caption = "Median Balanced Accuracy values")
 
 ```
+
+- Overall, prediction models show excellent sensitivity and specificity, with subgroup performance G3 < G4 < SHH < WNT for Array and G4 < G3 < SHH < WNT for RNA-seq
+- We observed the largest discrepancy in model performance with G3 predictions using MM2S with Array test data (as previously documented by MM2S authors), but kTSP, RF, and LASSO methods can improve on it
+- Notably MM2S G3 predictions with RNA-seq data showed more comparable performance with the other methods
 
 ### Plot accuracy (G3 only)
 
@@ -356,9 +394,10 @@ plot_df |>
 
 set.seed(1)
 
-baseline_accuracy_G3_plot <- plot_df |>
+baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
-                subgroup %in% c("G3")) |>
+                subgroup %in% c("G3"),
+                value >= 0.6) |>
   ggplot2::ggplot(ggplot2::aes(x = value,
                                y = model_type,
                                color = platform)) +
@@ -366,21 +405,140 @@ baseline_accuracy_G3_plot <- plot_df |>
                        show.legend = FALSE,
                        position = ggplot2::position_dodge(0.7)) +
   ggplot2::geom_point(shape = 16,
-                      alpha = 0.5,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
-  ggplot2::scale_x_continuous(limits = c(0,1)) +
+  ggplot2::scale_x_continuous(limits = c(0.6,1)) +
   ggplot2::labs(x = "Balanced Accuracy",
-                y = "Method",
+                y = NULL,
                 color = "Platform") +
   ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) +
+  ggplot2::scale_color_manual(values = platform_colors) + 
   ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
+  ggplot2::theme(strip.background = ggplot2::element_blank())
 
-baseline_accuracy_G3_plot
+ggplot2::ggsave(filename = baseline_accuracy_plot_filepath,
+                plot = baseline_kappa_plot,
+                height = 7,
+                width = 7)
+
+baseline_accuracy_plot
+
+```
+
+To aid in visualization, the following data points were excluded from the previous plot:
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                subgroup %in% c("G3"),
+                value < 0.6)
+
+```
+
+### Excluded data point
+
+What's up with the LASSO model on RNA-seq data from repeat 9?
+
+```{r}
+
+lasso_rnaseq_repeat_9_df <- baseline_list[[9]]$test_metadata |>
+  dplyr::filter(platform == "RNA-seq") |>
+  dplyr::left_join(baseline_list[[9]]$lasso$test_results$predicted_labels_df,
+                   by = "sample_accession")
+
+calculate_confusion_matrix(predicted_labels = lasso_rnaseq_repeat_9_df$predicted_labels,
+                           true_labels = lasso_rnaseq_repeat_9_df$subgroup,
+                           labels = mb_subgroups)$table
+
+
+```
+
+For this repeat (only), the model predicts almost all samples to be SHH!
+
+### kTSP (w) binary rules plot
+
+```{r}
+
+official_model <- which(unlist(purrr::map(baseline_list,
+                                          function(x) x$official_model)))
+official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
+official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
+official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_weighted"]]$test_results$model_output
+
+
+train_test_samples_list <- get_train_test_samples(genex_df = bulk_genex_df,
+                                                  metadata_df = bulk_metadata_df,
+                                                  train_test_seed = official_train_test_seed,
+                                                  proportion_of_studies_train = 0.5)
+
+# confirm it's the same test samples
+if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) {
+  
+  stop("Testing sets do not match!")
+  
+} else { # use train_test_samples_list and classifier to visualize binary rules
+  
+  genex_df_test <- bulk_genex_df |>
+    dplyr::select(train_test_samples_list$test)
+  metadata_df_test <- bulk_metadata_df |>
+    dplyr::filter(sample_accession %in% train_test_samples_list$test)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = FALSE)
+  
+  # The plot_binary_TSP() output cannot be saved to a variable directly, but
+  # saving the plot as a function call makes it available to call again later
+  # Source: https://stackoverflow.com/a/46961131
+  binary_TSP_plot <- function() {multiclassPairs::plot_binary_TSP(Data = test_data_object,
+                                                                  classifier = official_ktsp_model, 
+                                                                  prediction = official_ktsp_test_results, 
+                                                                  classes = mb_subgroups,
+                                                                  show_rule_name = FALSE,
+                                                                  show_platform = FALSE,
+                                                                  ref_col = subgroup_colors,
+                                                                  pred_col = subgroup_colors,
+                                                                  legend = FALSE,
+                                                                  anno_height = 0.05,
+                                                                  score_height = 0.05,
+                                                                  margin = c(0, 5, 0, 0.5))}
+  
+  binary_TSP_plot()
+
+}
+
+```
+
+### kTSP (w) confusion matrix
+
+```{r}
+  
+baseline_list[[official_model]][["ktsp_weighted"]]$cm
+
+```
+
+# Baseline figure
+
+```{r}
+
+panel_a_b <- baseline_kappa_plot + baseline_accuracy_plot +
+  patchwork::plot_layout(guides = "collect")
+panel_c <- patchwork::wrap_elements(full = ~ binary_TSP_plot())
+
+figure_plot <- panel_a_b / panel_c +
+  patchwork::plot_annotation(tag_levels = 'a') +
+  patchwork::plot_layout(nrow = 2,
+                         heights = c(1,2))
+
+ggplot2::ggsave(filename = baseline_figure_filepath,
+                plot = figure_plot,
+                width = 7.5,
+                height = 6)
+
+figure_plot
 
 ```
 
