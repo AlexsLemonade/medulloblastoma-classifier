@@ -503,8 +503,6 @@ if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) 
                   plot = binary_TSP_plot(),
                   width = 7,
                   height = 7)
-  
-  binary_TSP_plot()
 
 }
 
