@@ -197,9 +197,12 @@ if (create_models) {
                    "rf_weighted", "rf_unweighted",
                    "lasso", "mm2s")
   
-  official_model <- which.max(unlist(purrr::map(baseline_list,
-                                                function(x) median(unlist(purrr::map(model_types,
-                                                                                     function(y) x[[y]]$cm$overall[["Kappa"]]))))))
+  official_model <- baseline_list |>
+    purrr::map_dbl(\(x) model_types |>
+                     purrr::map_dbl(
+                       \(mtype) x[[mtype]]$cm$overall[["Kappa"]]) |>
+                     median()) |>
+    which.max()
   
   for (model_index in 1:length(baseline_list)) {
     
@@ -456,8 +459,9 @@ For this repeat (only), the model predicts almost all samples to be SHH!
 
 ```{r}
 
-official_model <- which(unlist(purrr::map(baseline_list,
-                                          function(x) x$official_model)))
+official_model <- baseline_list |>
+  purrr::map_lgl(\(x) x$official_model) |>
+  which()
 official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
 official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
 official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_weighted"]]$test_results$model_output
