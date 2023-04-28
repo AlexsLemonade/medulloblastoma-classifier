@@ -135,11 +135,11 @@ if (create_models) {
                                                   rf_weighted = TRUE)
   
   # Add _weighted to names of kTSP and RF list elements
-  weighted_kTSP_RF_models_list <- purrr::map(weighted_kTSP_RF_models_list,
-                                             function(x) setNames(x,
-                                                                  dplyr::recode(names(x),
-                                                                                ktsp = "ktsp_weighted",
-                                                                                rf = "rf_weighted")))
+  weighted_kTSP_RF_models_list <- weighted_kTSP_RF_models_list |>
+    purrr::map(setNames(x,
+                        dplyr::recode(names(x),
+                                      ktsp = "ktsp_weighted",
+                                      rf = "rf_weighted")))
   
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
   unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
@@ -162,11 +162,11 @@ if (create_models) {
                                                     rf_weighted = FALSE)
   
   # Add _unweighted to names of kTSP and RF list elements
-  unweighted_kTSP_RF_models_list <- purrr::map(unweighted_kTSP_RF_models_list,
-                                               function(x) setNames(x,
-                                                                    dplyr::recode(names(x),
-                                                                                  ktsp = "ktsp_unweighted",
-                                                                                  rf = "rf_unweighted")))
+  unweighted_kTSP_RF_models_list <- unweighted_kTSP_RF_models_list |>
+    purrr::map(function(x) setNames(x,
+                                    dplyr::recode(names(x),
+                                                  ktsp = "ktsp_unweighted",
+                                                  rf = "rf_unweighted")))
   
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
@@ -235,21 +235,21 @@ To create a data frame for plotting, we need to gather modeling metrics (Kappa a
 
 ```{r}
 
-plot_df <- purrr::map(baseline_list,
-                      function(x) return_model_metrics(single_repeat = x,
-                                                       model_types = c("ktsp_weighted",
-                                                                       "ktsp_unweighted",
-                                                                       "rf_weighted",
-                                                                       "rf_unweighted",
-                                                                       "mm2s",
-                                                                       "lasso"),
-                                                       metadata_df = bulk_metadata_df,
-                                                       labels = c("G3",
-                                                                  "G4",
-                                                                  "WNT",
-                                                                  "SHH"),
-                                                       platforms = c("Array",
-                                                                     "RNA-seq"))) |>
+plot_df <- baseline_list |>
+  purrr::map(function(x) return_model_metrics(single_repeat = x,
+                                              model_types = c("ktsp_weighted",
+                                                              "ktsp_unweighted",
+                                                              "rf_weighted",
+                                                              "rf_unweighted",
+                                                              "mm2s",
+                                                              "lasso"),
+                                              metadata_df = bulk_metadata_df,
+                                              labels = c("G3",
+                                                         "G4",
+                                                         "WNT",
+                                                         "SHH"),
+                                              platforms = c("Array",
+                                                            "RNA-seq"))) |>
   reshape2::melt(id.vars = c("model_type",
                              "platform",
                              "study",
