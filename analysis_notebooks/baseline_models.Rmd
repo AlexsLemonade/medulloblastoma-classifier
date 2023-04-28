@@ -257,13 +257,13 @@ plot_df <- baseline_list |>
                                               platforms = c("Array",
                                                             "RNA-seq"))) |>
   purrr::list_rbind(names_to = "repeat_index") |>
-  dplyr::mutate(model_type = dplyr::recode(model_type,
-                                           ktsp_unweighted = "kTSP (unw)",
-                                           ktsp_weighted = "kTSP (w)",
-                                           rf_unweighted = "RF (unw)",
-                                           rf_weighted = "RF (w)",
-                                           mm2s = "MM2S",
-                                           lasso = "LASSO"))
+  dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "mm2s" ~ "MM2S",
+                                               "lasso" ~ "LASSO"))
 
 readr::write_tsv(x = plot_df,
                  file = baseline_plot_df_filepath)
@@ -298,8 +298,7 @@ plot_df |>
 set.seed(params$seed)
 
 baseline_kappa_plot <- plot_df |>
-  dplyr::filter(metric == "Kappa",
-                value >= 0.7) |>
+  dplyr::filter(metric == "Kappa") |>
   ggplot2::ggplot(ggplot2::aes(x = value,
                                y = model_type,
                                color = platform)) +
@@ -309,7 +308,7 @@ baseline_kappa_plot <- plot_df |>
   ggplot2::geom_point(shape = 16,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0)) +
-  ggplot2::scale_x_continuous(limits = c(0.7,1)) +
+  ggplot2::coord_cartesian(xlim = c(0.7,1)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
   ggplot2::labs(x = "Kappa",
@@ -384,8 +383,7 @@ set.seed(params$seed)
 
 baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
-                subgroup %in% c("G3"),
-                value >= 0.6) |>
+                subgroup %in% c("G3")) |>
   ggplot2::ggplot(ggplot2::aes(x = value,
                                y = model_type,
                                color = platform)) +
@@ -397,7 +395,7 @@ baseline_accuracy_plot <- plot_df |>
                                                                jitter.height = 0)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
-  ggplot2::scale_x_continuous(limits = c(0.6,1)) +
+  ggplot2::coord_cartesian(xlim = c(0.6,1))
   ggplot2::labs(x = "Balanced Accuracy",
                 y = NULL,
                 color = "Platform") +
