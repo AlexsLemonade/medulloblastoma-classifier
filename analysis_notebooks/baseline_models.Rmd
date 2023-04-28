@@ -190,7 +190,7 @@ if (create_models) {
   baseline_list <- purrr::map2(kTSP_RF_models_list,
                                mm2s_lasso_models_list,
                                c) |>
-    purrr::map(function(x) x[!duplicated(names(x))]) # remove duplicate list items
+    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
   
   # select "official" repeat with greatest median Kappa across models
   model_types <- c("ktsp_weighted", "ktsp_unweighted",
@@ -395,7 +395,7 @@ baseline_accuracy_plot <- plot_df |>
                                                                jitter.height = 0)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
-  ggplot2::coord_cartesian(xlim = c(0.6,1))
+  ggplot2::coord_cartesian(xlim = c(0.6,1)) +
   ggplot2::labs(x = "Balanced Accuracy",
                 y = NULL,
                 color = "Platform") +
