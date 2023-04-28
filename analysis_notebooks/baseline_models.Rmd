@@ -10,6 +10,9 @@ output:
 params:
   create_models: FALSE # train new models (if FALSE, reads existing models from file)
   overwrite: FALSE # if create_models is also TRUE, overwrite existing models file
+  seed: 44 # set initial seed for run_many_models() and before stochastic plots
+  n_repeats: 10 # set number of times to repeat in run_many_models()
+  n_cores: 3 # set number of cores to use in run_many_models()
 ---
 
 # Rationale
@@ -119,9 +122,9 @@ if (create_models) {
                                                   metadata_df = bulk_metadata_df,
                                                   labels = mb_subgroups,
                                                   model_types = c("ktsp", "rf"),
-                                                  initial_seed = 44,
-                                                  n_repeats = 10,
-                                                  n_cores = 3,
+                                                  initial_seed = params$seed,
+                                                  n_repeats = params$n_repeats,
+                                                  n_cores = params$n_cores,
                                                   ktsp_featureNo = 1000,
                                                   ktsp_n_rules_min = 5,
                                                   ktsp_n_rules_max = 50,
@@ -146,9 +149,9 @@ if (create_models) {
                                                     metadata_df = bulk_metadata_df,
                                                     labels = mb_subgroups,
                                                     model_types = c("ktsp", "rf"),
-                                                    initial_seed = 44,
-                                                    n_repeats = 10,
-                                                    n_cores = 3,
+                                                    initial_seed = params$seed,
+                                                    n_repeats = params$n_repeats,
+                                                    n_cores = params$n_cores,
                                                     ktsp_featureNo = 1000,
                                                     ktsp_n_rules_min = 5,
                                                     ktsp_n_rules_max = 50,
@@ -178,9 +181,9 @@ if (create_models) {
                                             metadata_df = bulk_metadata_df,
                                             labels = mb_subgroups,
                                             model_types = c("mm2s", "lasso"),
-                                            initial_seed = 44,
-                                            n_repeats = 10,
-                                            n_cores = 3,
+                                            initial_seed = params$seed,
+                                            n_repeats = params$n_repeats,
+                                            n_cores = params$n_cores,
                                             mm2s_gene_map_filepath = gene_map_filepath)
   
   # merge kTSP, RF, MM2S, and LASSO model lists
@@ -299,7 +302,7 @@ plot_df |>
 
 ```{r}
 
-set.seed(1)
+set.seed(params$seed)
 
 baseline_kappa_plot <- plot_df |>
   dplyr::filter(metric == "Kappa",
@@ -384,7 +387,7 @@ plot_df |>
 
 ```{r}
 
-set.seed(1)
+set.seed(params$seed)
 
 baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
