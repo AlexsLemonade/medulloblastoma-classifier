@@ -256,17 +256,7 @@ plot_df <- baseline_list |>
                                                          "SHH"),
                                               platforms = c("Array",
                                                             "RNA-seq"))) |>
-  reshape2::melt(id.vars = c("model_type",
-                             "platform",
-                             "study",
-                             "which_studies",
-                             "official_model",
-                             "total_samples",
-                             "subgroup",
-                             "subgroup_samples",
-                             "metric",
-                             "value")) |>
-  dplyr::rename(repeat_index = L1) |>
+  purrr::list_rbind(names_to = "repeat_index") |>
   dplyr::mutate(model_type = dplyr::recode(model_type,
                                            ktsp_unweighted = "kTSP (unw)",
                                            ktsp_weighted = "kTSP (w)",
