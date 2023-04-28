@@ -480,18 +480,18 @@ if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) 
   # The plot_binary_TSP() output cannot be saved to a variable directly, but
   # saving the plot as a function call makes it available to call again later
   # Source: https://stackoverflow.com/a/46961131
-  binary_TSP_plot <- function() {multiclassPairs::plot_binary_TSP(Data = test_data_object,
-                                                                  classifier = official_ktsp_model, 
-                                                                  prediction = official_ktsp_test_results, 
-                                                                  classes = mb_subgroups,
-                                                                  show_rule_name = FALSE,
-                                                                  show_platform = FALSE,
-                                                                  ref_col = subgroup_colors,
-                                                                  pred_col = subgroup_colors,
-                                                                  legend = FALSE,
-                                                                  anno_height = 0.05,
-                                                                  score_height = 0.05,
-                                                                  margin = c(0, 5, 0, 0.5))}
+  binary_TSP_plot <- \() {multiclassPairs::plot_binary_TSP(Data = test_data_object,
+                                                           classifier = official_ktsp_model, 
+                                                           prediction = official_ktsp_test_results, 
+                                                           classes = mb_subgroups,
+                                                           show_rule_name = FALSE,
+                                                           show_platform = FALSE,
+                                                           ref_col = subgroup_colors,
+                                                           pred_col = subgroup_colors,
+                                                           legend = FALSE,
+                                                           anno_height = 0.05,
+                                                           score_height = 0.05,
+                                                           margin = c(0, 5, 0, 0.5))}
   
   ggplot2::ggsave(filename = baseline_binary_TSP_plot_filepath,
                   plot = binary_TSP_plot(),
