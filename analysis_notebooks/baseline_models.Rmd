@@ -174,7 +174,7 @@ if (create_models) {
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
                                      unweighted_kTSP_RF_models_list,
-                                     function(x, y) c(x, y))
+                                     c)
   
   # MM2S and LASSO models
   mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
@@ -189,7 +189,7 @@ if (create_models) {
   # merge kTSP, RF, MM2S, and LASSO model lists
   baseline_list <- purrr::map2(kTSP_RF_models_list,
                                mm2s_lasso_models_list,
-                               function(x, y) c(x, y)) |>
+                               c) |>
     purrr::map(function(x) x[!duplicated(names(x))]) # remove duplicate list items
   
   # select "official" repeat with greatest median Kappa across models
