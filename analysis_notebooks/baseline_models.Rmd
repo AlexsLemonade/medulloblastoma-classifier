@@ -29,9 +29,6 @@ This function allows us to specify what model types we want to analyze, various 
 We train and test each model a number of times (e.g. 10 repeats) using different training/testing sets to understand the range of model performance as measured by Kappa and Balanced Accuracy.
 Training/testing sets segregate at the study level, rather than the sample level.
 
-Kappa measures how often our predicted subgroups agree with the true subgroups, accounting for the chance of random agreement (necessary when subgroups are imbalanced).
-Balanced accuracy is the average of a model's sensitivity and specificity, measured on a per-subgroup basis.
-
 
 # Setup
 
@@ -115,6 +112,10 @@ Supplying the same `initial_seed` to each instance of `run_many_models()` ensure
 
 ```{r}
 
+model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                 "rf_weighted", "rf_unweighted",
+                 "lasso", "mm2s")
+
 if (create_models) {
   
   # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
@@ -139,10 +140,10 @@ if (create_models) {
   
   # Add _weighted to names of kTSP and RF list elements
   weighted_kTSP_RF_models_list <- weighted_kTSP_RF_models_list |>
-    purrr::map(setNames(x,
-                        dplyr::recode(names(x),
-                                      ktsp = "ktsp_weighted",
-                                      rf = "rf_weighted")))
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted")))
   
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
   unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
@@ -166,10 +167,10 @@ if (create_models) {
   
   # Add _unweighted to names of kTSP and RF list elements
   unweighted_kTSP_RF_models_list <- unweighted_kTSP_RF_models_list |>
-    purrr::map(function(x) setNames(x,
-                                    dplyr::recode(names(x),
-                                                  ktsp = "ktsp_unweighted",
-                                                  rf = "rf_unweighted")))
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted")))
   
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
@@ -193,10 +194,6 @@ if (create_models) {
     purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
   
   # select "official" repeat with greatest median Kappa across models
-  model_types <- c("ktsp_weighted", "ktsp_unweighted",
-                   "rf_weighted", "rf_unweighted",
-                   "lasso", "mm2s")
-  
   official_model <- baseline_list |>
     purrr::map_dbl(\(x) model_types |>
                      purrr::map_dbl(
@@ -230,7 +227,7 @@ if (create_models) {
 
 ```
 
-# Visualize kappa and accuracy results
+# Visualize Kappa and accuracy results
 
 ### Gather data
 
@@ -242,20 +239,11 @@ To create a data frame for plotting, we need to gather modeling metrics (Kappa a
 ```{r}
 
 plot_df <- baseline_list |>
-  purrr::map(function(x) return_model_metrics(single_repeat = x,
-                                              model_types = c("ktsp_weighted",
-                                                              "ktsp_unweighted",
-                                                              "rf_weighted",
-                                                              "rf_unweighted",
-                                                              "mm2s",
-                                                              "lasso"),
-                                              metadata_df = bulk_metadata_df,
-                                              labels = c("G3",
-                                                         "G4",
-                                                         "WNT",
-                                                         "SHH"),
-                                              platforms = c("Array",
-                                                            "RNA-seq"))) |>
+  purrr::map(return_model_metrics,
+             model_types = model_types,
+             metadata_df = bulk_metadata_df,
+             labels = mb_subgroups,
+             platforms = c("Array", "RNA-seq")) |>
   purrr::list_rbind(names_to = "repeat_index") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                "ktsp_unweighted" ~ "kTSP (unw)",
@@ -272,6 +260,16 @@ readr::write_tsv(x = plot_df,
 
 ### Kappa tables
 
+Kappa measures how often our predicted subgroups agree with the true subgroups, accounting for the chance of random agreement (necessary when subgroups are imbalanced).
+Kappa is an overall measure that applies to an entire set of predictions across subgroups.
+Values of Kappa closer to 1 indicate higher agreement, and values closer to 0 indicate random assignment.
+
+$$ \kappa = \frac{p_o - p_e}{1 - p_e} $$
+
+where $p_o$ is the observed proportion of agreement and $p_e$ is the expected proportion of chance agreement.
+
+The following table summarizes Kappa values stratified by platform (Array or RNA-seq) and model type by showing the median Kappa value.
+
 ```{r}
 
 plot_df |>
@@ -287,7 +285,7 @@ plot_df |>
 
 - Models perform slightly better on Array test data (mid-.90s) than RNA-seq test data (low-.90s) (except for MM2S).
 - kTSP (w) and kTSP (unw) show no difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
-- The reverse is true for RF models, with RF (w) outperformin RF (unw) for both Array and RNA-seq test data
+- The reverse is true for RF models, with RF (w) outperforming RF (unw) for both Array and RNA-seq test data
 - In weighted models, RF outperformed kTSP in RNA-seq, while the unweighted kTSP outperformed RF in both platforms
 - MM2S showed better test performance in RNA-seq data despite the original model being trained on Array
 
@@ -328,7 +326,9 @@ baseline_kappa_plot
 
 ```
 
-To aid in visualization, the following data points were excluded from the previous plot:
+To aid in visualization, the following data points were excluded from the previous plot.
+Later we explore this [excluded data point](#excluded-data-point) in more detail.
+
 ```{r}
 
 plot_df |>
@@ -338,6 +338,18 @@ plot_df |>
 ```
 
 ### Accuracy tables
+
+Balanced accuracy is the average sensitivity and specificity of a model and is measured per subgroup.
+
+$$ \text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2} $$
+
+where
+
+$$ \text{Sensitivity} = \frac{TP}{TP + FN} \text{ and Specificity} = \frac{TN}{TN + FP} $$
+
+for true and false positive and negative predictions.
+
+The following table summarizes Balanced Accuracy values stratified by model type separately for each platform (Array or RNA-seq) by showing the median Kappa value.
 
 #### Array test data
 
@@ -374,6 +386,8 @@ plot_df |>
 - Overall, prediction models show excellent sensitivity and specificity, with subgroup performance G3 < G4 < SHH < WNT for Array and G4 < G3 < SHH < WNT for RNA-seq
 - We observed the largest discrepancy in model performance with G3 predictions using MM2S with Array test data (as previously documented by MM2S authors), but kTSP, RF, and LASSO methods can improve on it
 - Notably MM2S G3 predictions with RNA-seq data showed more comparable performance with the other methods
+
+The following plot illustrates the differences observed between model types in G3 subgroup Balanced Accuracy.
 
 ### Plot accuracy (G3 only)
 
@@ -413,7 +427,8 @@ baseline_accuracy_plot
 
 ```
 
-To aid in visualization, the following data points were excluded from the previous plot:
+To aid in visualization, the following data points were excluded from the previous plot.
+Later we explore this [excluded data point](#excluded-data-point) in more detail.
 ```{r}
 
 plot_df |>
@@ -426,6 +441,7 @@ plot_df |>
 ### Excluded data point
 
 What's up with the LASSO model on RNA-seq data from repeat 9?
+Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
 
 ```{r}
 
@@ -448,7 +464,7 @@ For this repeat (only), the model predicts almost all samples to be SHH!
 ```{r}
 
 official_model <- baseline_list |>
-  purrr::map_lgl(\(x) x$official_model) |>
+  purrr::map_lgl("official_model") |>
   which()
 official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
 official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
