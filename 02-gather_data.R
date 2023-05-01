@@ -56,38 +56,38 @@ pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
 
 get_genex_data <- function(genex_filepath,
                            mb_sample_accessions){
-  
+
   # for a gene expression file located at genex_filepath,
   # read in columns associated with sample accessions in the mb_sample_accessions vector
-  
+
   genex_df_columns <- readr::read_tsv(genex_filepath,
                                       col_types = "c",
                                       n_max = 0)
-  
+
   # we expect the structure of gene expression files read in this way to be:
   # genes (rows) x samples (columns)
   # gene names are kept in column 1 with column header "Gene"
   # sample names are found in columns 2-N
   if (names(genex_df_columns)[1] != "Gene") {
-    
+
     stop("First column name of gene expression data should be 'Gene' in get_genex_data().")
-    
+
   }
-  
-  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions  
-  
+
+  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions
+
   select_these_columns_types <- stringr::str_c(c("c", # for the gene column
                                                  ifelse(select_these_samples_TF,
                                                         "d",
                                                         "-")),
                                                collapse = "")
-  
+
   genex_df <- readr::read_tsv(genex_filepath,
                               col_types = select_these_columns_types) |>
     tibble::column_to_rownames(var = "Gene")
-  
+
   return(genex_df)
-  
+
 }
 
 ################################################################################
@@ -124,9 +124,9 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
                                                   skip = 1) |>
+  dplyr::filter(!duplicated(gene)) |>
   convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene")
@@ -156,9 +156,9 @@ genex_data_list[["St. Jude"]] <- bulk_metadata |>
                tibble::column_to_rownames("SYMBOL")) |>
   dplyr::bind_cols() |>
   tibble::rownames_to_column("SYMBOL") |>
+  dplyr::filter(!duplicated(SYMBOL)) |>
   convert_gene_names(gene_column_before = "SYMBOL",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene") |>
@@ -189,9 +189,9 @@ pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
                                        show_col_types = FALSE)
 
 # grab the names of the individual expression files
-pseudobulk_expression_files <- file.path(data_dir, 
-                                         "GSE119926", 
-                                         stringr::str_c(pseudobulk_metadata$sample_accession, 
+pseudobulk_expression_files <- file.path(data_dir,
+                                         "GSE119926",
+                                         stringr::str_c(pseudobulk_metadata$sample_accession,
                                                         "_", pseudobulk_metadata$title, ".txt.gz"))
 names(pseudobulk_expression_files) <- pseudobulk_metadata$title
 
@@ -204,7 +204,7 @@ pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
                                                               show_col_types = FALSE) |>
                                               tibble::column_to_rownames(var = "X1"))
 
-# revert log transformed-TPM values back to original TPM values using equation 
+# revert log transformed-TPM values back to original TPM values using equation
 # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
 # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
 tpm_df_list <- lapply(pseudobulk_expression_df_list,
@@ -220,9 +220,9 @@ pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
 
 # convert gene names from SYMBOL to ENSEMBL
 pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix |>
+  dplyr::filter(!duplicated(gene)) |>
   convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL")
 
