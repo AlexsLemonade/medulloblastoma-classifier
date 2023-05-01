@@ -1,10 +1,10 @@
 convert_gene_names <- function(genex_df,
                                gene_column_before,
                                gene_column_after,
-                               gene_map_df,
                                map_from,
-                               map_to) {
-  
+                               map_to,
+                               ah_date = "2022-10-30") {
+
   # Converts the gene column of a gene expression matrix to a different annotation style
   # e.g. from SYMBOL to ENSEMBL
   #
@@ -16,37 +16,63 @@ convert_gene_names <- function(genex_df,
   #  genex_df: gene expression matrix with a gene name column
   #  gene_column_before: name of the gene column before conversion
   #  gene_column_after: name of the gene column after conversion
-  #  gene_map_df: data frame mapping gene annotations across columns (one gene per row)
-  #  map_from: the annotation style of the original gene column
-  #  map_to: the annotation style of the new gene column
+  #  map_from: the annotation style of the original gene column (e.g., ENSEMBL, ENTREZID, SYMBOL)
+  #  map_to: the annotation style of the new gene column (e.g., ENSEMBL, ENTREZID, SYMBOL)
+  #  ah_date: AnnotationHub snapshot date (default: 2022-10-30)
   #
   # Output
   #  Gene expression matrix with a "gene" column
-  
+
   # check that gene_column_before is in genex_df
-  
+
   if(!(gene_column_before %in% names(genex_df))) {
-  
-    stop("Gene column missing from gene expression matrix in convert_gene_names().")  
-    
+
+    stop("Gene column missing from gene expression matrix in convert_gene_names().")
+
   }
-  
-  # check that map_from and map_to are in gene_map_df
-  
-  if(!all(c(map_from, map_to) %in% names(gene_map_df))) {
-    
-    stop("Annotation styles missing from gene map in convert_gene_names().")
-    
+
+  # set up AnnotationHub
+  AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
+  ah <- suppressMessages(AnnotationHub::AnnotationHub())
+  AnnotationHub::snapshotDate(ah) <- ah_date # set AnnotationHub snapshot date
+  hs_orgdb <- suppressMessages(AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]) # humans
+
+  gene_map_vector <- suppressMessages(AnnotationDbi::mapIds(x = hs_orgdb,
+                                                            keys = genex_df[[gene_column_before]],
+                                                            keytype = map_from,
+                                                            column = map_to,
+                                                            multiVals = "first"))
+
+  # stop if any genes did not have a match
+  if (any(is.na(gene_map_vector))) {
+
+    stop(stringr::str_c("In convert_gene_names(), the following genes had no mapping from ",
+                        map_from, " to ", map_to, ": ",
+                        stringr::str_c(
+                          names(gene_map_vector[which(is.na(gene_map_vector))]),
+                          collapse = ", ")))
+
   }
-  
-  genex_df |>
-    dplyr::left_join(gene_map_df |> dplyr::select(tidyselect::all_of(c(map_from, map_to))),
-                     by = setNames(map_from, gene_column_before)) |>
-    dplyr::filter(!duplicated(.data[[gene_column_before]]), # multi-mapped left to right
-                  !duplicated(.data[[map_to]]), # multi-mapped right to left
-                  !is.na(.data[[map_to]])) |> # no match left to right
-    dplyr::select(-tidyselect::all_of(gene_column_before)) |> # remove old gene column
-    dplyr::relocate(tidyselect::all_of(map_to)) |> # move new annotation column to first position
-    dplyr::rename(!!gene_column_after := tidyselect::all_of(map_to)) # rename gene column
-  
+
+  # check that dimensions match up
+  if (length(gene_map_vector) != nrow(genex_df)) {
+
+    stop("In convert_gene_names(), length of gene map does not match number of genes in expression matrix.")
+
+  }
+
+  # check that the order of genes is the same in gene_map_vector and genex_df
+  if (!all(names(gene_map_vector) == genex_df[[gene_column_before]])) {
+
+    stop("In convert_gene_names(), order of gene map does not match order of genes in expression matrix.")
+
+  }
+
+  genex_df_mapped <- genex_df |>
+    tibble::add_column(!!gene_column_after := gene_map_vector,
+                       .before = gene_column_before) |>
+    dplyr::select(-tidyselect::all_of(gene_column_before))
+
+  return(genex_df_mapped)
+
 }
