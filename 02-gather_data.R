@@ -127,7 +127,6 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath
   dplyr::filter(!duplicated(gene)) |>
   convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene")
@@ -160,7 +159,6 @@ genex_data_list[["St. Jude"]] <- bulk_metadata |>
   dplyr::filter(!duplicated(SYMBOL)) |>
   convert_gene_names(gene_column_before = "SYMBOL",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene") |>
@@ -225,7 +223,6 @@ pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix |>
   dplyr::filter(!duplicated(gene)) |>
   convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
-                     gene_map_df = gene_map_df,
                      map_from = "SYMBOL",
                      map_to = "ENSEMBL")
 
