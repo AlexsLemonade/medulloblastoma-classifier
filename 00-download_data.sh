@@ -3,7 +3,7 @@
 # Steven Foltz
 # November-December 2022
 #
-# Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv --ah_date "2022-10-26"
+# Usage: 00_download_data.sh --data_sources_file data/data_sources.tsv
 # where data/data_sources.tsv is a TSV file with accession, data_source, and url columns
 
 #!/bin/bash
@@ -19,9 +19,6 @@ processed_data="processed_data"
 # set input data sources file
 data_sources_file="data/data_sources.tsv"
 
-# set default AnnotationHub snapshot date
-ah_date="2022-10-26"
-
 # allow for alternative input data sources file
 while [ $# -gt 0 ]; do
     if [[ $1 == *'--'* ]]; then
@@ -35,7 +32,7 @@ if [[ ! -f ${data_sources_file} ]]; then
 
   echo Input data_sources_file ${data_sources_file} does not exist.
   exit 1
-  
+
 fi
 
 # read in each column of data sources file one line at a time
@@ -46,7 +43,7 @@ while read accession download_source url; do
   [[ ${accession} =~ ^#.* ]] && continue
 
   if [[ ${accession} == "E-MTAB-292" ]]; then
-  
+
     # E-MTAB-292 is part of ArrayExpress.
     # We can come back to this dataset in the future.
     # For now it is not clear how to easily download processed expression data.
@@ -55,14 +52,14 @@ while read accession download_source url; do
   elif [[ ${download_source} == refine.bio ]]; then
 
     if [[ -d ${data}/${accession} ]]; then
-  
+
       echo Data for ${accession} already exists and will not be downloaded.
-  
+
     else
-    
+
       echo Downloading ${accession} from refine.bio...
       refinebio create-token -s
-    
+
       refinebio download-dataset \
         --email-address steven.foltz@ccdatalab.org \
         --path ${data}/${accession}.zip \
@@ -72,9 +69,9 @@ while read accession download_source url; do
         --skip-quantile-normalization True
 
       unzip -d ${data}/${accession} ${data}/${accession}.zip && rm -f ${data}/${accession}.zip
-    
+
       sleep 1
-      
+
     fi
 
   elif [[ ${download_source} == url ]]; then
@@ -82,52 +79,35 @@ while read accession download_source url; do
     mkdir -p ${data}/${accession}
     url_basename=$(basename ${url})
     file_name=${data}/${accession}/${url_basename}
-    
+
     if [[ -f ${file_name} ]]; then
-      
+
       echo File ${file_name} already exists and will not be downloaded.
-  
+
     else
-    
+
       echo Downloading ${accession} ${url_basename}...
-      
+
       curl -o ${file_name} --silent ${url}
-      
+
       sleep 1
-      
+
     fi
-    
+
     if [[ "${file_name##*.}" == tar ]]; then
-    
+
     	tar -xf ${file_name} -C ${data}/${accession}
-    
-    fi 
-  
+
+    fi
+
   else
-  
+
     echo Error with: ${accession} ${download_source} ${url}
     exit 1
-    
+
   fi
-  
+
 done < ${data_sources_file}
-
-################################################################################
-# Gene map
-################################################################################
-
-gene_map_file=${processed_data}/gene_map.tsv
-
-if [[ -f ${gene_map_file} ]]; then
-
-  echo File ${gene_map_file} already exists and will not be re-created.
-  
-else
-
-  echo Creating new gene map file...
-  Rscript utils/create_gene_map.R --annotationhub_snapshot_date ${ah_date}
-
-fi
 
 ################################################################################
 # md5sum of downloaded data
