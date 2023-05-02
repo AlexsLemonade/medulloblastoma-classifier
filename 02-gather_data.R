@@ -10,6 +10,7 @@ processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
 
+source(file.path(utils_dir, "convert_gene_names.R"))
 source(file.path(utils_dir, "single-cell.R"))
 source(file.path(utils_dir, "TPM_conversion.R"))
 
@@ -55,38 +56,38 @@ pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
 
 get_genex_data <- function(genex_filepath,
                            mb_sample_accessions){
-  
+
   # for a gene expression file located at genex_filepath,
   # read in columns associated with sample accessions in the mb_sample_accessions vector
-  
+
   genex_df_columns <- readr::read_tsv(genex_filepath,
                                       col_types = "c",
                                       n_max = 0)
-  
+
   # we expect the structure of gene expression files read in this way to be:
   # genes (rows) x samples (columns)
   # gene names are kept in column 1 with column header "Gene"
   # sample names are found in columns 2-N
   if (names(genex_df_columns)[1] != "Gene") {
-    
+
     stop("First column name of gene expression data should be 'Gene' in get_genex_data().")
-    
+
   }
-  
-  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions  
-  
+
+  select_these_samples_TF <- names(genex_df_columns)[-1] %in% mb_sample_accessions
+
   select_these_columns_types <- stringr::str_c(c("c", # for the gene column
                                                  ifelse(select_these_samples_TF,
                                                         "d",
                                                         "-")),
                                                collapse = "")
-  
+
   genex_df <- readr::read_tsv(genex_filepath,
                               col_types = select_these_columns_types) |>
     tibble::column_to_rownames(var = "Gene")
-  
+
   return(genex_df)
-  
+
 }
 
 ################################################################################
@@ -123,13 +124,12 @@ genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath
                                                   col_names = TRUE,
                                                   show_col_types = FALSE,
                                                   skip = 1) |>
-  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
-                   by = c("gene" = "SYMBOL")) |>
-  dplyr::filter(!duplicated(gene),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) |>
-  dplyr::select(-gene) |>
-  tibble::column_to_rownames(var = "ENSEMBL")
+  dplyr::filter(!duplicated(gene)) |>
+  convert_gene_names(gene_column_before = "gene",
+                     gene_column_after = "gene",
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL") |>
+  tibble::column_to_rownames(var = "gene")
 
 ### OpenPBTA
 
@@ -156,13 +156,12 @@ genex_data_list[["St. Jude"]] <- bulk_metadata |>
                tibble::column_to_rownames("SYMBOL")) |>
   dplyr::bind_cols() |>
   tibble::rownames_to_column("SYMBOL") |>
-  dplyr::left_join(gene_map_df |> dplyr::select(ENSEMBL, SYMBOL),
-                   by = "SYMBOL") |>
-  dplyr::filter(!duplicated(SYMBOL),
-                !duplicated(ENSEMBL),
-                !is.na(ENSEMBL)) |>
-  dplyr::select(-SYMBOL) |>
-  tibble::column_to_rownames(var = "ENSEMBL") |>
+  dplyr::filter(!duplicated(SYMBOL)) |>
+  convert_gene_names(gene_column_before = "SYMBOL",
+                     gene_column_after = "gene",
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL") |>
+  tibble::column_to_rownames(var = "gene") |>
   convert_gene_counts_to_TPM(gene_lengths_df = GENCODE_gene_lengths_df)
 
 ################################################################################
@@ -199,51 +198,48 @@ for (i in 1:length(sample_accession_ids)) {
 
   sample_acc <- sample_accession_ids[i]
   sample_title <- sample_titles[i]
-  
-  pseudobulk_expression_filepath <- file.path(data_dir, 
-                                              "GSE119926", 
+
+  pseudobulk_expression_filepath <- file.path(data_dir,
+                                              "GSE119926",
                                               str_c(sample_acc, "_", sample_title, ".txt.gz"))
-  
+
   scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
                                     skip = 1,
                                     col_names = FALSE,
                                     show_col_types = FALSE) |>
     dplyr::rename("gene" = "X1") |>
-    dplyr::left_join(gene_map_df |>
-                       dplyr::select(ENSEMBL, SYMBOL),
-                     by = c("gene" = "SYMBOL")) |>
-    dplyr::filter(!duplicated(gene),
-                  !duplicated(ENSEMBL),
-                  !is.na(ENSEMBL)) |>
-    dplyr::select(-gene) |>
-    dplyr::select(gene = ENSEMBL, everything()) |>
+    dplyr::filter(!duplicated(gene)) |>
+    convert_gene_names(gene_column_before = "gene",
+                       gene_column_after = "gene",
+                       map_from = "SYMBOL",
+                       map_to = "ENSEMBL") |>
     tibble::column_to_rownames(var = "gene")
-  
-  # revert log transformed-TPM values back to original TPM values using equation 
+
+  # revert log transformed-TPM values back to original TPM values using equation
   # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
   # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
   tpm_genex_df <- 10*(2^scrna_genex_df - 1)
-  
+
   # average the TPM values across cells
   average_tpm_vector <- rowMeans(tpm_genex_df)
-  
+
   # combine the list of TPM values into a single matrix
   if (is.null(pseudobulk_df)) {
-    
+
     pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
                                     "{sample_title}" := average_tpm_vector)
-                                    
+
   } else {
-    
+
     pseudobulk_df <- pseudobulk_df |>
       tibble::add_column("{sample_title}" := average_tpm_vector)
-    
+
   }
-  
+
   # define output file names for SCE objects
   sce_output_filepath = file.path(pseudobulk_sce_output_dir,
                                   stringr::str_c(sample_title, "_sce.rds"))
-  
+
   # convert TPM matrix to SingleCellExperiment objects
   SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
     # calculate UMAP results
@@ -252,7 +248,7 @@ for (i in 1:length(sample_accession_ids)) {
     perform_graph_clustering() |>
     # write to file
     readr::write_rds(file = sce_output_filepath)
-  
+
 }
 
 # save pseudobulk df object
