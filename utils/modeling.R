@@ -970,7 +970,7 @@ return_model_metrics <- function(single_repeat,
                                  labels,
                                  platforms = NULL,
                                  studies = NULL) {
-  
+
   # Returns the Kappa and Balanced Accuracy metrics from a set of models
   # associated with a single repeat (e.g., one repeat from run_many_models()).
   # Use this function inside purrr::map() with entire list output from run_many_models().
@@ -989,88 +989,95 @@ return_model_metrics <- function(single_repeat,
   #
   # Outputs
   #  Data frame of model metrics stratified by model types, platforms, and studies
-  
+
+  # check that all model_types are present in the repeat
+  if (!all(model_types %in% names(single_repeat))) {
+
+    stop("In return_model_metrics(), some model types missing from model list.")
+
+  }
+
   # define the eventual output df
   metrics_df <- NULL
-  
+
   # if no platforms are specified, analyze all platforms together
   if (is.null(platforms)) {
-    
+
     platforms <- "Combined"
-    
+
   }
-  
+
   # if no studies are specified, analyze all studies together
   if (is.null(studies)) {
-    
+
     studies <- "Combined"
-    
+
   }
-  
+
   # Collect the Kappa and Balanced Accuracy from each test result, stratfied
   # by the model type, the test data's platform, and the particular study data
   # came from. Kappa is an Overall metric, and Balanced Accuracy is by subgroup.
-  
+
   # Loop over model_types
   for (model_type in model_types) {
-    
+
     # Check that metadata exists for all test samples
     if (all(single_repeat[[model_type]]$test_results$predicted_labels_df$sample_accession %in%
             metadata_df$sample_accession)) {
-      
+
       # merge test results with sample metadata
       df <- single_repeat[[model_type]]$test_results$predicted_labels_df |>
         dplyr::left_join(metadata_df,
-                         by = "sample_accession")  
-      
+                         by = "sample_accession")
+
     } else {
-      
+
       stop("Sample accessions missing from metadata_df in return_model_metrics().")
-      
+
     }
-    
+
     # Loop over platforms and studies
     for (this_platform in platforms) {
-      
+
       for (this_study in studies) {
-        
+
         this_df <- df
-        
+
         # filter by platform
         if (this_platform != "Combined") {
-          
+
           this_df <- this_df |>
             dplyr::filter(platform == this_platform)
-          
+
         }
-        
+
         # filter by study
         if (this_study != "Combined") {
-          
+
           this_df <- this_df |>
             dplyr::filter(study == this_study)
-          
+
         }
-        
+
         total_samples <- nrow(this_df)
         # if at least one sample matches platform/study criteria
         if (total_samples >= 1) {
-          
+
           # confusion matrix
           cm <- calculate_confusion_matrix(predicted_labels = this_df$predicted_labels,
                                            true_labels = this_df$subgroup,
                                            labels = labels)
-          
+
           # number of test samples from each subgroup
           n_subgroup_samples <- unlist(purrr::map(labels,
                                                   function(x) sum(this_df$subgroup == x)))
-          
+
           # combine Kappa (one Overall value) with Balanced Accuracy (one value per subgroup)
           metric_tibble <- tibble::tibble(subgroup = c("Overall", labels),
                                           subgroup_samples = c(total_samples, n_subgroup_samples),
                                           metric = c("Kappa", rep("Balanced Accuracy", length(labels))),
                                           value = c(cm$overall[["Kappa"]], cm$byClass[,"Balanced Accuracy"]))
-          
+
           # make results a tidy data frame
           loop_tibble <- tibble::tibble(model_type = model_type,
                                         platform = this_platform,
@@ -1080,17 +1087,17 @@ return_model_metrics <- function(single_repeat,
                                         official_model = single_repeat$official_model,
                                         total_samples = total_samples,
                                         metric_tibble)
-          
+
           # bind results from different combinations of model type, platform, and studies
           metrics_df <- dplyr::bind_rows(metrics_df,
-                                         loop_tibble)  
-          
+                                         loop_tibble)
+
         }
-        
-      }        
+
+      }
     }
   }
-  
+
   return(metrics_df)
-  
+
 }
