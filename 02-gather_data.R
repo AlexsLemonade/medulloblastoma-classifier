@@ -84,6 +84,7 @@ get_genex_data <- function(genex_filepath,
 
   genex_df <- readr::read_tsv(genex_filepath,
                               col_types = select_these_columns_types) |>
+    dplyr::filter(!duplicated(Gene)) |>
     tibble::column_to_rownames(var = "Gene")
 
   return(genex_df)
@@ -96,9 +97,6 @@ get_genex_data <- function(genex_filepath,
 
 bulk_metadata <- readr::read_tsv(bulk_metadata_input_filepath,
                                  col_types = "c")
-
-gene_map_df <- readr::read_tsv(gene_map_input_filepath,
-                               col_types = "c")
 
 ################################################################################
 # create a list containing each data set
@@ -201,7 +199,7 @@ for (i in 1:length(sample_accession_ids)) {
 
   pseudobulk_expression_filepath <- file.path(data_dir,
                                               "GSE119926",
-                                              str_c(sample_acc, "_", sample_title, ".txt.gz"))
+                                              stringr::str_c(sample_acc, "_", sample_title, ".txt.gz"))
 
   scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
                                     skip = 1,
