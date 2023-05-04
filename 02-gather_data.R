@@ -84,6 +84,7 @@ get_genex_data <- function(genex_filepath,
 
   genex_df <- readr::read_tsv(genex_filepath,
                               col_types = select_these_columns_types) |>
+    dplyr::filter(!duplicated(Gene)) |>
     tibble::column_to_rownames(var = "Gene")
 
   return(genex_df)
@@ -96,9 +97,6 @@ get_genex_data <- function(genex_filepath,
 
 bulk_metadata <- readr::read_tsv(bulk_metadata_input_filepath,
                                  col_types = "c")
-
-gene_map_df <- readr::read_tsv(gene_map_input_filepath,
-                               col_types = "c")
 
 ################################################################################
 # create a list containing each data set
@@ -197,21 +195,21 @@ names(pseudobulk_expression_files) <- pseudobulk_metadata$title
 
 # read in individual expression files
 pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
-                                            function(x)
-                                              readr::read_tsv(x,
-                                                              skip = 1,
-                                                              col_names = FALSE,
-                                                              show_col_types = FALSE) |>
+                                            \(x) readr::read_tsv(x,
+                                                                 skip = 1,
+                                                                 col_names = FALSE,
+                                                                 show_col_types = FALSE) |>
                                               tibble::column_to_rownames(var = "X1"))
 
 # revert log transformed-TPM values back to original TPM values using equation
 # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
 # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
-tpm_df_list <- lapply(pseudobulk_expression_df_list,
-                      function(x) 10*(2^x - 1))
+tpm_df_list <- pseudobulk_expression_df_list |>
+  purrr::map(\(x) 10*(2^x - 1))
 
 # average the TPM values across cells for each data frame
-average_tpm_list <- lapply(tpm_df_list, rowMeans)
+average_tpm_list <- tpm_df_list |>
+  purrr::map(rowMeans)
 
 # combine the list of TPM values into a single matrix
 pseudobulk_gene_names <- names(average_tpm_list[[1]])
