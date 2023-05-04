@@ -43,17 +43,6 @@ convert_gene_names <- function(genex_df,
                                                             column = map_to,
                                                             multiVals = "first"))
 
-  # stop if any genes did not have a match
-  if (any(is.na(gene_map_vector))) {
-
-    stop(stringr::str_c("In convert_gene_names(), the following genes had no mapping from ",
-                        map_from, " to ", map_to, ": ",
-                        stringr::str_c(
-                          names(gene_map_vector[which(is.na(gene_map_vector))]),
-                          collapse = ", ")))
-
-  }
-
   # check that dimensions match up
   if (length(gene_map_vector) != nrow(genex_df)) {
 
@@ -69,9 +58,11 @@ convert_gene_names <- function(genex_df,
   }
 
   genex_df_mapped <- genex_df |>
-    tibble::add_column(!!gene_column_after := gene_map_vector,
-                       .before = gene_column_before) |>
-    dplyr::select(-tidyselect::all_of(gene_column_before))
+    dplyr::select(-tidyselect::all_of(gene_column_before)) |>
+    tibble::add_column("{gene_column_after}" := gene_map_vector,
+                       .before = 1) |>
+    dplyr::filter(!is.na(gene_map_vector), # if no map between key and value
+                  !duplicated(gene_map_vector)) # if keys map to the same value
 
   return(genex_df_mapped)
 
