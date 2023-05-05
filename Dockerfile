@@ -61,3 +61,4 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     version = 3.16)"
 
 ENV RENV_DISABLED=TRUE
+WORKDIR /home/rstudio
