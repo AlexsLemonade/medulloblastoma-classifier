@@ -5,5 +5,9 @@
 data
 processed_data
 
+# ignore renv
+renv
+
 # Other files to ignore
 .Rproj.user
+
