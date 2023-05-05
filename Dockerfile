@@ -1,4 +1,4 @@
-FROM rocker/verse:4.2.2
+FROM rocker/r-ver:4.2.2
 
 # Update apt-get and install other libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,47 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install pyrefinebio v0.4.9
 RUN pip3 install pyrefinebio==0.4.9
 
-# R Bioconductor packages
-RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
-    'AnnotationHub', \
-    'Biobase', \
-    'BiocStyle', \
-    'bluster', \
-    'GSVA', \
-    'GenomicFeatures', \
-    'GEOquery', \
-    'leukemiasEset', \
-    'scater', \
-    'scran', \
-    'switchBox'), \
-    update = FALSE, \
-    version = 3.16)"
 
-# R packages (R-forge)
-RUN install2.r --error --deps TRUE --repos https://r-forge.r-project.org \
-    estimate
+# Renv install all packages
+WORKDIR /renv
+COPY renv.lock renv.lock
 
-# R packages (CRAN)
-RUN install2.r --error --deps TRUE --repos $CRAN \
-    caret \
-    doParallel \
-    glmnet \
-    here \
-    MM2S \
-    multiclassPairs \
-    optparse \
-    patchwork
+RUN Rscript -e "install.packages(c('renv', 'BiocManager'))"
+RUN Rscript -e "renv::restore()" && \
+      rm -rf ~/.local/share/renv && \
+      rm -rf /tmp/downloaded_packages && \
+      rm -rf /tmp/Rtmp*
 
-# Threading issue with preprocessCore::normalize.quantiles
-# https://support.bioconductor.org/p/122925/#124701
-# https://github.com/bmbolstad/preprocessCore/issues/1#issuecomment-326756305
-# put this last with force = TRUE to ensure it is properly installed
-RUN Rscript -e "options(warn = 2); BiocManager::install( \
-    'preprocessCore', \
-    configure.args = '--disable-threading', \
-    force = TRUE, \
-    update = FALSE, \
-    version = 3.16)"
-
-ENV RENV_DISABLED=TRUE
+ENV RENV_DISABLED TRUE
 WORKDIR /home
