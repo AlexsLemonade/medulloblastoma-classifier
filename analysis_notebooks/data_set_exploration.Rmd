@@ -1,0 +1,160 @@
+---
+title: "Summary of available data"
+author: "Steven M. Foltz"
+date: "2023"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+# Setup
+```{r setup}
+
+library(patchwork)
+
+# directories
+processed_data_dir <- here::here("processed_data")
+plots_dir <- here::here("plots")
+plots_data_dir <- file.path(plots_dir, "data")
+utils_dir <- here::here("utils")
+
+source(file.path(utils_dir, "color_schemes.R"))
+
+# input filepaths
+bulk_metadata_filepath <- file.path(processed_data_dir,
+                                    "bulk_metadata.tsv")
+pseudobulk_metadata_filepath <- file.path(processed_data_dir,
+                                          "pseudobulk_metadata.tsv")
+
+# output filepaths
+n_samples_per_subgroup_plot_filepath <- file.path(plots_dir, "n_samples_per_subgroup.pdf")
+bulk_mb_studies_plot_filepath <- file.path(plots_dir, "bulk_mb_studies.pdf")
+prop_samples_per_platform_plot_filepath <- file.path(plots_dir, "prop_samples_per_platform.pdf")
+
+# read in metadata files
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath,
+                                    show_col_types = FALSE)
+pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
+                                          show_col_types = FALSE)
+
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+
+```
+
+# n samples per subgroup
+
+```{r}
+
+subgroup_numbers <- bulk_metadata_df |>
+  dplyr::bind_rows(pseudobulk_metadata_df |>
+                     dplyr::mutate(subgroup = "MB scRNA",
+                                   platform = "RNA-seq") |>
+                     dplyr::select(sample_accession = title,
+                                   subgroup,
+                                   study,
+                                   is_duplicate,
+                                   platform)) |>
+  dplyr::count(subgroup, platform) |>
+  dplyr::mutate(mb_subgroup = dplyr::case_when(subgroup %in% mb_subgroups ~ "MB subgroups (bulk)",
+                                               is.na(subgroup) ~ "MB subgroups (bulk)",
+                                               TRUE ~ "Other data sets"))
+
+n_samples_per_subgroup_plot_object <- subgroup_numbers |>
+  ggplot2::ggplot(ggplot2::aes(x = subgroup,
+                               y = n,
+                               fill = platform)) +
+  ggplot2::geom_col() +
+  ggplot2::geom_text(data = subgroup_numbers |>
+                       dplyr::group_by(subgroup, mb_subgroup) |>
+                       dplyr::summarize(total = sum(n),
+                                        .groups = "drop"),
+                     ggplot2::aes(x = subgroup,
+                                  y = total,
+                                  label = total,
+                                  fill = NULL),
+                     vjust = 0,
+                     nudge_y = 5) +
+  ggplot2::facet_grid(. ~ mb_subgroup,
+                      scales = "free_x",
+                      space = "free") +
+  ggplot2::scale_fill_manual(values = platform_colors) +
+  ggplot2::labs(x = "Subgroup",
+                y = "Count",
+                fill = "Platform") +
+  ggplot2::theme_bw()
+
+ggplot2::ggsave(filename = n_samples_per_subgroup_plot_filepath,
+                plot = n_samples_per_subgroup_plot_object,
+                height = 6,
+                width = 7.5)
+
+n_samples_per_subgroup_plot_object
+
+```
+
+```{r}
+
+bulk_mb_studies_plot_object <- bulk_metadata_df |>
+  dplyr::filter(subgroup %in% mb_subgroups) |>
+  ggplot2::ggplot(ggplot2::aes(x = forcats::fct_infreq(study),
+                               fill = subgroup)) +
+  ggplot2::geom_bar() +
+  ggplot2::facet_grid(. ~ platform,
+                      scales = "free_x",
+                      space = "free") +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::labs(x = "Study",
+                y = "Count",
+                fill = "Subgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45,
+                                                     hjust = 1))
+
+ggplot2::ggsave(filename = bulk_mb_studies_plot_filepath,
+                plot = bulk_mb_studies_plot_object,
+                height = 6,
+                width = 7.5)
+
+bulk_mb_studies_plot_object
+
+```
+# Proportion of samples per platform
+
+```{r}
+
+prop_samples_per_platform_plot_object <- bulk_metadata_df |>
+  dplyr::filter(subgroup %in% mb_subgroups) |>
+  ggplot2::ggplot(ggplot2::aes(x = subgroup,
+             fill = platform)) +
+  ggplot2::geom_bar(position = "fill") +
+  ggplot2::scale_y_continuous(labels = scales::percent) +
+  ggplot2::labs(x = "Subgroup",
+       y = "Percentage",
+       fill = "Platform") +
+  ggplot2::scale_fill_manual(values = platform_colors) +
+  ggplot2::theme_bw()
+
+ggplot2::ggsave(filename = prop_samples_per_platform_plot_filepath,
+                plot = prop_samples_per_platform_plot_object,
+                height = 6,
+                width = 7.5)
+
+prop_samples_per_platform_plot_object
+
+```
+
+# Combined plot
+
+```{r}
+(n_samples_per_subgroup_plot_object + prop_samples_per_platform_plot_object + patchwork::plot_layout(widths = c(3,1), guides = "collect")) / bulk_mb_studies_plot_object + 
+  patchwork::plot_annotation(tag_levels = "a")
+
+```
+
+# Session info
+
+```{r session_info}
+sessionInfo()
+```
