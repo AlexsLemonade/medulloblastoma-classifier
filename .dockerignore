@@ -5,9 +5,8 @@
 data
 processed_data
 
-# ignore renv
+# ignore renv for docker
 renv
 
 # Other files to ignore
 .Rproj.user
-
