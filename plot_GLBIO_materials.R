@@ -1,24 +1,7 @@
 # GLBIO presentation and poster materials
 
-library(tidyverse)
-library(patchwork)
-
-################################################################################
-# color schemes
-################################################################################
-
-# palette.colors returns a named list, which must be unnamed to not match color names to category labels
-okabe_ito_colors <- unname(grDevices::palette.colors(palette = "Okabe-Ito"))
-
-# set subgroup colors
-subgroup_colors <- c(G3 = okabe_ito_colors[2],
-                     G4 = okabe_ito_colors[3],
-                     SHH = okabe_ito_colors[4],
-                     WNT = okabe_ito_colors[8])
-
-# set platform colors
-platform_colors = c(Array = okabe_ito_colors[1],
-                    `RNA-seq` = okabe_ito_colors[9])
+#library(tidyverse)
+source("utils/color_schemes.R")
 
 ################################################################################
 # data necessary for producing plots
@@ -26,6 +9,7 @@ platform_colors = c(Array = okabe_ito_colors[1],
 
 # directories
 processed_data_dir <- here::here("processed_data")
+glbio_dir <- here::here("GLBIO")
 
 # input filepaths
 bulk_metadata_filepath <- file.path(processed_data_dir,
@@ -43,9 +27,9 @@ pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
 #### output filepaths (go in GLBIO folder?)
 
 # data set summaries
-n_samples_per_subgroup_plot_filepath
-bulk_mb_studies_plot_filepath
-prop_samples_per_platform_plot_filepath
+n_samples_per_subgroup_plot_filepath <- file.path(glbio_dir, "n_samples_per_subgroup.pdf")
+bulk_mb_studies_plot_filepath <- file.path(glbio_dir, "bulk_mb_studies.pdf")
+prop_samples_per_platform_plot_filepath <- file.path(glbio_dir, "prop_samples_per_platform.pdf")
 
 # baseline modeling
 
@@ -144,7 +128,7 @@ ggplot2::ggsave(filename = prop_samples_per_platform_plot_filepath,
                 height = 6,
                 width = 7.5)
 
-# Combined data set summary plot
+################################################################################
+# baseline modling
+################################################################################
 
-(n_samples_per_subgroup_plot_object + prop_samples_per_platform_plot_object + patchwork::plot_layout(widths = c(3,1), guides = "collect")) / bulk_mb_studies_plot_object +
-  patchwork::plot_annotation(tag_levels = "a")
