@@ -187,8 +187,8 @@ if (create_models) {
                                     rf_weighted = TRUE))
                
   # write models to file
-  readr::write_rds(x = targeted_list,
-                   file = targeted_filepath)
+  readr::write_rds(x = random_list,
+                   file = random_filepath)
   
 } else { # if create_models = FALSE and models already exist
   
