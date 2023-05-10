@@ -1,0 +1,273 @@
+---
+title: "Train and test models to predict MB subgroups using a reduced/targeted gene set"
+author: "Steven Foltz"
+date: "2023"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+params:
+  create_models: FALSE # train new models (if FALSE, reads existing models from file)
+  overwrite: FALSE # if create_models is also TRUE, overwrite existing models file
+  seed: 44 # set initial seed for run_many_models() and before stochastic plots
+  n_repeats: 10 # set number of times to repeat in run_many_models()
+  n_cores: 3 # set number of cores to use in run_many_models()
+---
+
+# Rationale
+
+# Setup
+
+```{r setup}
+
+# get input parameters
+create_models <- params$create_models
+overwrite <- params$overwrite
+
+# Source code and libraries
+source(here::here("utils/color_schemes.R"))
+#source(here::here("utils/convert_gene_names.R"))
+source(here::here("utils/modeling.R"))
+library(patchwork)
+
+# Define directories and input/output file paths
+processed_data_dir <- here::here("processed_data")
+models_dir <- here::here("models")
+plots_dir <- here::here("plots")
+plots_data_dir <- file.path(plots_dir, "data")
+
+bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
+bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
+
+baseline_filepath <- file.path(models_dir, "baseline.rds")
+targeted_filepath <- file.path(models_dir, "targeted_gene_set.rds")
+random_filepath <- file.path(models_dir, "random_gene_sets.rds")
+
+# check that existing targeted gene set model file will not be overwritten if overwrite is FALSE
+if (create_models &
+    (file.exists(targeted_filepath)) &
+    !overwrite) {
+  
+  stop("Targeted gene set model output file already exists and overwrite is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
+  
+}
+
+# check that existing random gene sets model file will not be overwritten if overwrite is FALSE
+if (create_models &
+    (file.exists(random_filepath)) &
+    !overwrite) {
+  
+  stop("Random gene sets model output file already exists and overwrite is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
+  
+}
+
+
+# check that files exist if create_models is FALSE
+if (!create_models & !file.exists(baseline_filepath)) {
+  
+  stop("Model output file does not exist and create_models is set to FALSE in analysis_notebooks/baseline.Rmd.")
+  
+}
+# set subgroups analyzed in this notebook (canonical MB subgroups)
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+# Read in essential data
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath,
+                                 show_col_types = FALSE) |>
+  tibble::column_to_rownames(var = "gene")
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(sample_accession %in% names(bulk_genex_df),
+                subgroup %in% mb_subgroups)
+bulk_genex_df <- bulk_genex_df |>
+  dplyr::select(dplyr::all_of(bulk_metadata_df$sample_accession))
+check_input_files(genex_df = bulk_genex_df,
+                  metadata_df = bulk_metadata_df)
+```
+
+# Train and test MB subgroup models
+
+### Create kTSP, RF, MM2S, and LASSO models
+
+The following code creates both weighted and unweighted kTSP and RF models.
+The MM2S and LASSO models use default settings.
+Out of all the repeats, we select one 'official' repeat for visualization.
+The 'official' repeat maximizes the median Kappa across all models within the repeat.
+Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
+
+```{r}
+model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                 "rf_weighted", "rf_unweighted",
+                 "lasso", "mm2s")
+if (create_models) {
+  
+  # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
+  weighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                                  metadata_df = bulk_metadata_df,
+                                                  labels = mb_subgroups,
+                                                  model_types = c("ktsp", "rf"),
+                                                  initial_seed = params$seed,
+                                                  n_repeats = params$n_repeats,
+                                                  n_cores = params$n_cores,
+                                                  ktsp_featureNo = 1000,
+                                                  ktsp_n_rules_min = 5,
+                                                  ktsp_n_rules_max = 50,
+                                                  ktsp_weighted = TRUE,
+                                                  rf_num.trees = 500,
+                                                  rf_genes_altogether = 50,
+                                                  rf_genes_one_vs_rest = 50,
+                                                  rf_gene_repetition = 1,
+                                                  rf_rules_altogether = 50,
+                                                  rf_rules_one_vs_rest = 50,
+                                                  rf_weighted = TRUE)
+  
+  # Add _weighted to names of kTSP and RF list elements
+  weighted_kTSP_RF_models_list <- weighted_kTSP_RF_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted")))
+  
+  # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
+  unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                                    metadata_df = bulk_metadata_df,
+                                                    labels = mb_subgroups,
+                                                    model_types = c("ktsp", "rf"),
+                                                    initial_seed = params$seed,
+                                                    n_repeats = params$n_repeats,
+                                                    n_cores = params$n_cores,
+                                                    ktsp_featureNo = 1000,
+                                                    ktsp_n_rules_min = 5,
+                                                    ktsp_n_rules_max = 50,
+                                                    ktsp_weighted = FALSE,
+                                                    rf_num.trees = 500,
+                                                    rf_genes_altogether = 50,
+                                                    rf_genes_one_vs_rest = 50,
+                                                    rf_gene_repetition = 1,
+                                                    rf_rules_altogether = 50,
+                                                    rf_rules_one_vs_rest = 50,
+                                                    rf_weighted = FALSE)
+  
+  # Add _unweighted to names of kTSP and RF list elements
+  unweighted_kTSP_RF_models_list <- unweighted_kTSP_RF_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted")))
+  
+  # merge weighted and unweighted kTSP and RF model lists
+  kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
+                                     unweighted_kTSP_RF_models_list,
+                                     c)
+  
+  # MM2S and LASSO models
+  mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
+                                            metadata_df = bulk_metadata_df,
+                                            labels = mb_subgroups,
+                                            model_types = c("mm2s", "lasso"),
+                                            initial_seed = params$seed,
+                                            n_repeats = params$n_repeats,
+                                            n_cores = params$n_cores,
+                                            mm2s_gene_map_filepath = gene_map_filepath)
+  
+  # merge kTSP, RF, MM2S, and LASSO model lists
+  baseline_list <- purrr::map2(kTSP_RF_models_list,
+                               mm2s_lasso_models_list,
+                               c) |>
+    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
+  
+  # select "official" repeat with greatest median Kappa across models
+  official_model <- baseline_list |>
+    purrr::map_dbl(\(x) model_types |>
+                     purrr::map_dbl(
+                       \(mtype) x[[mtype]]$cm$overall[["Kappa"]]) |>
+                     median()) |>
+    which.max()
+  
+  for (model_index in 1:length(baseline_list)) {
+    
+    if (model_index == official_model) {
+      
+      baseline_list[[model_index]][["official_model"]] <- TRUE
+      
+    } else {
+      
+      baseline_list[[model_index]][["official_model"]] <- FALSE
+      
+    }
+    
+  }
+  
+  # write models to file
+  readr::write_rds(x = baseline_list,
+                   file = baseline_filepath)
+  
+} else { # if create_models = FALSE and models already exist
+  
+  baseline_list <- readr::read_rds(baseline_filepath)
+  
+}
+```
+
+# Visualize Kappa and accuracy results
+
+### Gather data
+
+The variable `baseline_list` is a list of lists.
+The first level of lists correspond to different repeats using different training/testing sets.
+Within each repeat, there are list elements corresponding to particular model results (e.g., `ktsp_weighted` or `lasso`) as well as metadata about the repeat (e.g., the seed used for to determine training/testing sets).
+To create a data frame for plotting, we need to gather modeling metrics (Kappa and Balanced Accuracy) from each model across all the repeats.
+
+```{r}
+plot_df <- baseline_list |>
+  purrr::map(return_model_metrics,
+             model_types = model_types,
+             metadata_df = bulk_metadata_df,
+             labels = mb_subgroups,
+             platforms = c("Array", "RNA-seq")) |>
+  purrr::list_rbind(names_to = "repeat_index") |>
+  dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "mm2s" ~ "MM2S",
+                                               "lasso" ~ "LASSO"))
+readr::write_tsv(x = plot_df,
+                 file = baseline_plot_df_filepath)
+```
+
+### Kappa tables
+
+Kappa measures how often our predicted subgroups agree with the true subgroups, accounting for the chance of random agreement (necessary when subgroups are imbalanced).
+Kappa is an overall measure that applies to an entire set of predictions across subgroups.
+Values of Kappa closer to 1 indicate higher agreement, and values closer to 0 indicate random assignment.
+
+$$ \kappa = \frac{p_o - p_e}{1 - p_e} $$
+
+where $p_o$ is the observed proportion of agreement and $p_e$ is the expected proportion of chance agreement.
+
+The following table summarizes Kappa values stratified by platform (Array or RNA-seq) and model type by showing the median Kappa value.
+
+```{r}
+plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  dplyr::group_by(platform, model_type) |>
+  dplyr::summarize(median_kappa = median(value),
+                   .groups = "drop") |>
+  tidyr::pivot_wider(names_from = platform,
+                     values_from = median_kappa) |>
+  knitr::kable(caption = "Median Kappa values (by platform)")
+```
+
+- Models perform slightly better on Array test data (mid-.90s) than RNA-seq test data (low-.90s) (except for MM2S).
+- kTSP (w) and kTSP (unw) show no difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
+- The reverse is true for RF models, with RF (w) outperforming RF (unw) for both Array and RNA-seq test data
+- In weighted models, RF outperformed kTSP in RNA-seq, while the unweighted kTSP outperformed RF in both platforms
+- MM2S showed better test performance in RNA-seq data despite the original model being trained on Array
+
+
+# Session info
+```{r session_info}
+sessionInfo()
+```
