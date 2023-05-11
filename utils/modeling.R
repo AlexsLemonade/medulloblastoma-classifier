@@ -1061,7 +1061,10 @@ return_model_metrics <- function(single_repeat,
                                               labels = labels)) |>
       # names of returned list are a combination of platform and study
       purrr::list_rbind(names_to = "platform_study") |>
-      tidyr::separate(platform_study, into = c("platform", "study"), sep = "\\.") |>
+      tidyr::separate(platform_study,
+                      into = c("platform", "study"),
+                      sep = "\\.",
+                      extra = "merge") |> # Allows for study to have period in name (St. Jude)
       # add model type and official model status as metainfo
       tibble::add_column(model_type = model_type,
                          .before = "platform") |>
