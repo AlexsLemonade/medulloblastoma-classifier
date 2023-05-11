@@ -37,9 +37,9 @@ RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
 # R packages (R-forge)
 RUN install2.r --error --deps TRUE --repos https://r-forge.r-project.org \
     estimate
-    
+
 # R packages (CRAN)
-RUN install2.r --error --deps TRUE --repos https://cran.r-project.org \
+RUN install2.r --error --deps TRUE \
     caret \
     doParallel \
     glmnet \
@@ -60,3 +60,5 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     update = FALSE, \
     version = 3.16)"
 
+ENV RENV_DISABLED=TRUE
+WORKDIR /home/rstudio
