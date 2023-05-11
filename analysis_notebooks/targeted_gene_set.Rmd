@@ -44,6 +44,11 @@ baseline_filepath <- file.path(models_dir, "baseline.rds")
 targeted_filepath <- file.path(models_dir, "targeted_gene_set.rds")
 random_filepath <- file.path(models_dir, "random_gene_sets.rds")
 
+baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
+targeted_plot_df_filepath <- file.path(plots_data_dir, "targeted_plot_df.tsv")
+random_plot_df_filepath <- file.path(plots_data_dir, "random_plot_df.tsv")
+targeted_delta_kappa_plot_df_filepath <- file.path(plots_data_dir, "targeted_delta_kappa_plot_df.tsv")
+
 # check that existing targeted gene set model file will not be overwritten if overwrite is FALSE
 if (create_models &
     (file.exists(targeted_filepath)) &
@@ -130,19 +135,18 @@ random_gene_set_bulk_genex_df_list <- random_gene_set_list |>
 ```{r}
 
 targeted_genes_df_ENTREZID <- targeted_genes_df |>
-  tibble::rownames_to_column(var = "gene") |>
-  convert_gene_names(gene_column_before = "Gene",
+  convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
                      map_from = "ENSEMBL",
                      map_to = "ENTREZID")
 
 n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
-                                     \(x) sum(x %in% row.names(genex_df_test_ENTREZID))) |>
+                                     \(x) sum(x %in% row.names(targeted_genes_df_ENTREZID))) |>
   purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
   sum()
 
 ifelse(n_mm2s_common_pathways >= 24,
-       "Yes!", "Unfornately, no.")
+       "Yes!", "Unfortunately, no.")
 
 ```
 
@@ -224,7 +228,7 @@ if (create_models) {
 
 # Visualize Kappa and accuracy results
 
-### Gather data
+### Gather targeted data
 
 ```{r}
 
@@ -235,13 +239,86 @@ targeted_plot_df <- targeted_list |>
              labels = mb_subgroups,
              platforms = c("Array", "RNA-seq")) |>
   purrr::list_rbind(names_to = "repeat_index") |>
+  dplyr::filter(metric == "Kappa") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                "ktsp" ~ "kTSP (w)",
                                                "rf" ~ "RF (w)",
                                                "lasso" ~ "LASSO"))
 
-readr::write_tsv(x = plot_df,
-                 file = baseline_plot_df_filepath)
+readr::write_tsv(x = targeted_plot_df,
+                 file = targeted_plot_df_filepath)
+```
+
+### Gather random data
+
+```{r}
+
+random_plot_df <- random_list |>
+  purrr::map(\(x) x |>
+               purrr::map(return_model_metrics,
+                          model_types = model_types,
+                          metadata_df = bulk_metadata_df,
+                          labels = mb_subgroups,
+                          platforms = c("Array", "RNA-seq")) |>
+               purrr::list_rbind(names_to = "repeat_index") |>
+               dplyr::filter(metric == "Kappa") |>
+               dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                                            "ktsp" ~ "kTSP (w)",
+                                                            "rf" ~ "RF (w)",
+                                                            "lasso" ~ "LASSO"))) |>
+  purrr::list_rbind(names_to = "random_index")
+
+readr::write_tsv(x = random_plot_df,
+                 file = random_plot_df_filepath)
+
+```
+
+# Find delta kappa values
+
+```{r}
+
+baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(metric == "Kappa")
+
+targeted_delta_kappa_plot_df <- targeted_plot_df |>
+  dplyr::select(repeat_index,
+                model_type,
+                platform,
+                targeted_kappa = value) |>
+  dplyr::left_join(baseline_plot_df |>
+                     dplyr::select(repeat_index,
+                                   model_type,
+                                   platform,
+                                   baseline_kappa = value),
+                   by = c("repeat_index",
+                          "model_type",
+                          "platform")) |>
+  dplyr::mutate(delta_kappa = targeted_kappa - baseline_kappa) |>
+  readr::write_tsv(file = targeted_delta_kappa_plot_df_filepath)
+
+set.seed(1)
+
+targeted_delta_kappa_plot_object <- targeted_delta_kappa_plot_df |>
+  ggplot2::ggplot(ggplot2::aes(x = model_type,
+                               y = delta_kappa,
+                               color = platform)) +
+  ggplot2::geom_violin(position = ggplot2::position_dodge(width = 0.7),
+                       show.legend = FALSE) +
+  ggplot2::geom_point(position = ggplot2::position_jitterdodge(jitter.width = 0.1,
+                                                               jitter.height = 0,
+                                                               dodge.width = 0.7)) +
+  ggplot2::scale_color_manual(values = platform_colors) +
+  ggplot2::labs(x = "Method",
+                y = "Delta Kappa",
+                color = "Platform",
+                title = "Change in Kappa with Targeted Gene Set") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+targeted_delta_kappa_plot_object
+
 ```
 
 # Session info
