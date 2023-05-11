@@ -53,8 +53,6 @@ plots_data_dir <- file.path(plots_dir, "data")
 bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
 bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
 
-gene_map_filepath <- file.path(processed_data_dir, "gene_map.tsv")
-
 baseline_filepath <- file.path(models_dir, "baseline.rds")
 
 baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
@@ -184,8 +182,7 @@ if (create_models) {
                                             model_types = c("mm2s", "lasso"),
                                             initial_seed = params$seed,
                                             n_repeats = params$n_repeats,
-                                            n_cores = params$n_cores,
-                                            mm2s_gene_map_filepath = gene_map_filepath)
+                                            n_cores = params$n_cores)
   
   # merge kTSP, RF, MM2S, and LASSO model lists
   baseline_list <- purrr::map2(kTSP_RF_models_list,
