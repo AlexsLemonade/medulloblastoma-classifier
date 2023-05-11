@@ -122,7 +122,8 @@ run_many_models <- function(genex_df,
   cl <- parallel::makeCluster(n_cores, outfile = "log") # use log file for troubleshooting
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl,
-                          c("get_train_test_samples",
+                          c("convert_gene_names",
+                            "get_train_test_samples",
                             "run_one_model",
                             "check_input_files",
                             "calculate_confusion_matrix",
@@ -134,10 +135,13 @@ run_many_models <- function(genex_df,
                             "train_lasso",
                             "test_lasso"))
 
+  # these namespaces must be loaded for test_MM2S() and test_lasso() functions to work
+  # done globally before splitting into parallel processes for consistency
+  suppressMessages(library(MM2S))
+  suppressMessages(library(glmnet))
+
   # run n_repeats in parallel
   model_list <- foreach(n = 1:n_repeats) %dopar% {
-
-    suppressMessages(library(MM2S)) # namespace must be loaded, done globally for consistency
 
     # set up this repeat's train/test split
     train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
@@ -817,6 +821,9 @@ test_mm2s <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
 
+  # load MM2S library (necessary for MM2S.human() function to work)
+  library(MM2S)
+
   # convert genex_df gene names to from ENSEMBL to ENTREZID
   genex_df_test_ENTREZID <- genex_df_test |>
     tibble::rownames_to_column(var = "ENSEMBL") |>
@@ -922,6 +929,9 @@ test_lasso <- function(genex_df_test,
   check_input_files(genex_df = genex_df_test,
                     metadata_df = metadata_df_test)
 
+  # load glmnet library (necessary for predict() function to work on cv.glmnet object)
+  library(glmnet)
+
   # do basic normalization: make each column sums to 1
   genex_df_test <- apply(genex_df_test, 2, function(x) x/sum(x))
 
@@ -935,9 +945,12 @@ test_lasso <- function(genex_df_test,
                           type = "response") |>
     as.data.frame() |>
     setNames(lasso_subgroups) |>
-    dplyr::mutate(prediction = names(.)[max.col(.)]) |>
     tibble::rownames_to_column(var = "sample_accession") |>
     tibble::as_tibble()
+
+  # add top scoring prediction column
+  test_results <- test_results |>
+    dplyr::mutate(prediction = lasso_subgroups[max.col(m = test_results[,-1])])
 
   # create df with sample names and predicted labels
   predicted_labels_df <- dplyr::tibble(sample_accession = metadata_df_test$sample_accession,
@@ -949,4 +962,160 @@ test_lasso <- function(genex_df_test,
 
   return(test_results_list)
 
+}
+
+return_model_metrics <- function(single_repeat,
+                                 model_types,
+                                 metadata_df,
+                                 labels,
+                                 platforms = NULL,
+                                 studies = NULL) {
+
+  # Returns the Kappa and Balanced Accuracy metrics from a set of models
+  # associated with a single repeat (e.g., one repeat from run_many_models()).
+  # Use this function inside purrr::map() with entire list output from run_many_models().
+  #
+  # Inputs
+  #  single_repeat: single element of a models list corresponding to one repeat
+  #    single_repeat is a list with one slot per model_type in addition to
+  #    slots with metainfo about the repeat
+  #  model_types: vector of model types to be assessed (e.g. c("ktsp", "rf)) (must be given)
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #  platforms: vector of platforms to be assessed separately (e.g., c("Array", "RNA-seq"))
+  #    if platforms = NULL, results are presented in aggregate
+  #  studies: vector of studies to be assessed separately (e.g., c("GSE85217", "OpenPBTA"))
+  #    if studies = NULL, results are presented in aggregate
+  #
+  # Outputs
+  #  Data frame of model metrics stratified by model types, platforms, and studies
+
+  # check that all model_types are present in the repeat
+  if (!all(model_types %in% names(single_repeat))) {
+
+    stop("In return_model_metrics(), some model types missing from model list.")
+
+  }
+
+  # define the eventual output df
+  metrics_df <- NULL
+
+  # Loop over model_types
+  for (model_type in model_types) {
+
+    # Check that metadata exists for all test samples
+    if (all(single_repeat[[model_type]]$test_results$predicted_labels_df$sample_accession %in%
+            metadata_df$sample_accession)) {
+
+      # merge test results with sample metadata
+      df <- single_repeat[[model_type]]$test_results$predicted_labels_df |>
+        dplyr::left_join(metadata_df,
+                         by = "sample_accession")
+
+    } else {
+
+      stop("Sample accessions missing from metadata_df in return_model_metrics().")
+
+    }
+
+    # if no platforms or studies are specified, analyze everything together
+    if (is.null(platforms) & is.null(studies)) {
+
+      df <- df |>
+        dplyr::mutate(platform_group = stringr::str_c(unique(platform), collapse = ","),
+                      study_group = stringr::str_c(unique(study), collapse = ","))
+
+    } else if (is.null(platforms) & !is.null(studies)) {
+
+      df <- df |>
+        dplyr::filter(study %in% studies) |>
+        dplyr::group_by(study) |>
+        dplyr::mutate(platform_group = stringr::str_c(unique(platform), collapse = ","),
+                      study_group = study)
+
+    } else if (!is.null(platforms) & is.null(studies)) {
+
+      df <- df |>
+        dplyr::filter(platform %in% platforms) |>
+        dplyr::group_by(platform) |>
+        dplyr::mutate(platform_group = platform,
+                      study_group = stringr::str_c(unique(study), collapse = ","))
+
+    } else {
+
+      df <- df |>
+        dplyr::filter(platform %in% platforms,
+                      study %in% studies) |>
+        dplyr::mutate(platform_group = platform,
+                      study_group = study)
+
+    }
+
+    # create a list of data frames defined by platform and study group
+    model_type_df <- split(df,
+                           f = list(df$platform_group,
+                                    df$study_group),
+                           drop = TRUE) |>
+      # map each data frame to calculate_model_metrics
+      purrr::map(\(x) calculate_model_metrics(df = x,
+                                              labels = labels)) |>
+      # names of returned list are a combination of platform and study
+      purrr::list_rbind(names_to = "platform_study") |>
+      tidyr::separate(platform_study,
+                      into = c("platform", "study"),
+                      sep = "\\.",
+                      extra = "merge") |> # Allows for study to have period in name (St. Jude)
+      # add model type and official model status as metainfo
+      tibble::add_column(model_type = model_type,
+                         .before = "platform") |>
+      tibble::add_column(official_model = single_repeat[["official_model"]],
+                         .before = "platform")
+
+    metrics_df <- dplyr::bind_rows(metrics_df, model_type_df)
+
+  }
+
+  return(metrics_df)
+
+}
+
+calculate_model_metrics <- function(df, labels) {
+
+  # Calculate the Kappa and Balanced Accuracy metrics from a set of predictions
+  #
+  # Inputs
+  #  df: data frame with "predicted_labels" and true "subgroup" labels
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #
+  # Outputs
+  #  Data frame of model metrics
+
+  total_n <- nrow(df)
+
+  # if at least one sample matches platform/study criteria
+  if (total_n >= 1) {
+
+    # confusion matrix
+    cm <- calculate_confusion_matrix(predicted_labels = df$predicted_labels,
+                                     true_labels = df$subgroup,
+                                     labels = labels)
+
+    # number of test samples from each subgroup
+    n_subgroup_samples <- purrr::map_dbl(labels,
+                                         \(x) sum(df$subgroup == x))
+
+    # combine Kappa (one Overall value) with Balanced Accuracy (one value per subgroup)
+    return_df <- tibble::tibble(total_samples = total_n,
+                                subgroup = c("Overall", labels),
+                                subgroup_samples = c(total_n, n_subgroup_samples),
+                                metric = c("Kappa", rep("Balanced Accuracy", length(labels))),
+                                value = c(cm$overall[["Kappa"]], cm$byClass[,"Balanced Accuracy"]))
+
+    return(return_df)
+
+  } else {
+
+    return(NULL)
+
+  }
 }
