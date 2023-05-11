@@ -128,7 +128,7 @@ pseudobulk_subgroups_plot_object <- pseudobulk_plot_df |>
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
                       space = "free_y",
                       scales = "free_y") +
-  ggplot2::scale_fill_manual(values = okabe_ito_colors) +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
   ggplot2::labs(x = "Pseudobulk Score Percentage",
                 y = NULL,
                 fill = "Predicted Subgroup") +
@@ -241,7 +241,7 @@ percentage_subgroups_plot_object <- single_cell_plot_df |>
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
                       space = "free_y",
                       scales = "free_y") +
-  ggplot2::scale_fill_manual(values = okabe_ito_colors) +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
   ggplot2::labs(y = NULL,
                 x = "Single-cell Percentage",
                 fill = "Predicted Subgroup") +
@@ -292,7 +292,7 @@ confidence_umap_plot_object <- single_cell_plot_df |>
                                color = predicted_labels)) +
   ggplot2::geom_point(shape = 16,
                       alpha = 0.5) +
-  ggplot2::scale_color_manual(values = okabe_ito_colors) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::scale_alpha_continuous(range = c(0, 1)) +
   ggplot2::facet_wrap(~ sample_with_subgroup,
                       nrow = 1,
@@ -401,7 +401,7 @@ confidence_plot_object <- single_cell_plot_df |>
   ggplot2::facet_wrap(~ sample_with_subgroup,
                       nrow = 1,
                       scales = "free") +
-  ggplot2::scale_color_manual(values = okabe_ito_colors) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::scale_y_continuous(limits = c(0, NA)) +
   ggplot2::labs(title = "Single cell prediction confidence",
                 x = "Predicted Subgroup",
