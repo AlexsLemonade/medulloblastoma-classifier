@@ -59,7 +59,15 @@ subgroup_numbers <- bulk_metadata_df |>
   dplyr::count(subgroup, platform) |>
   dplyr::mutate(mb_subgroup = dplyr::case_when(subgroup %in% mb_subgroups ~ "MB subgroups (bulk)",
                                                is.na(subgroup) ~ "MB subgroups (bulk)",
-                                               TRUE ~ "Other data sets"))
+                                               TRUE ~ "Other data sets")) |>
+  dplyr::mutate(subgroup = dplyr::case_when(is.na(subgroup) ~ "Missing",
+                                            TRUE ~ subgroup)) |>
+  dplyr::mutate(subgroup = factor(subgroup, levels = c(mb_subgroups,
+                                                       "Missing",
+                                                       "LGG",
+                                                       "MB scRNA",
+                                                       "Normal"),
+                                  ordered = TRUE))
 
 n_samples_per_subgroup_plot_object <- subgroup_numbers |>
   ggplot2::ggplot(ggplot2::aes(x = subgroup,
@@ -120,6 +128,7 @@ ggplot2::ggsave(filename = bulk_mb_studies_plot_filepath,
 bulk_mb_studies_plot_object
 
 ```
+
 # Proportion of samples per platform
 
 ```{r}
