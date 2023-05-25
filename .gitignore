@@ -1,4 +1,5 @@
 .DS_Store
 .Rproj.user
 data
+models
 processed_data
