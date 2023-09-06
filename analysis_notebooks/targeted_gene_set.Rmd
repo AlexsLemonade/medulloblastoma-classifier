@@ -47,7 +47,11 @@ random_filepath <- file.path(models_dir, "random_gene_sets.rds")
 baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
 targeted_plot_df_filepath <- file.path(plots_data_dir, "targeted_plot_df.tsv")
 random_plot_df_filepath <- file.path(plots_data_dir, "random_plot_df.tsv")
+
 targeted_delta_kappa_plot_df_filepath <- file.path(plots_data_dir, "targeted_delta_kappa_plot_df.tsv")
+random_delta_kappa_plot_df_filepath <- file.path(plots_data_dir, "random_delta_kappa_plot_df.tsv")
+
+delta_kappa_plot_filepath <- file.path(plots_dir, "targeted_random_delta_kappa.pdf")
 
 # check that existing targeted gene set model file will not be overwritten if overwrite is FALSE
 if (create_models &
@@ -108,7 +112,8 @@ targeted_genes_df <- readr::read_tsv(file = targeted_genes_filepath,
   convert_gene_names(gene_column_before = "Gene",
                      gene_column_after = "gene",
                      map_from = "SYMBOL",
-                     map_to = "ENSEMBL")
+                     map_to = "ENSEMBL",
+                     ah_date = "2022-04-25")
 
 # reduce bulk genex df to overlap with targeted genes
 bulk_genex_df_targeted <- bulk_genex_df[row.names(bulk_genex_df) %in% targeted_genes_df$gene, ]
@@ -131,17 +136,17 @@ random_gene_set_bulk_genex_df_list <- random_gene_set_list |>
 
 ### Can we use MM2S with targeted gene set?
 
-
 ```{r}
 
 targeted_genes_df_ENTREZID <- targeted_genes_df |>
   convert_gene_names(gene_column_before = "gene",
                      gene_column_after = "gene",
                      map_from = "ENSEMBL",
-                     map_to = "ENTREZID")
+                     map_to = "ENTREZID",
+                     ah_date = "2022-04-25")
 
 n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
-                                     \(x) sum(x %in% row.names(targeted_genes_df_ENTREZID))) |>
+                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
   purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
   sum()
 
@@ -285,7 +290,7 @@ targeted_delta_kappa_plot_df <- targeted_plot_df |>
   dplyr::select(repeat_index,
                 model_type,
                 platform,
-                targeted_kappa = value) |>
+                kappa = value) |>
   dplyr::left_join(baseline_plot_df |>
                      dplyr::select(repeat_index,
                                    model_type,
@@ -294,30 +299,75 @@ targeted_delta_kappa_plot_df <- targeted_plot_df |>
                    by = c("repeat_index",
                           "model_type",
                           "platform")) |>
-  dplyr::mutate(delta_kappa = targeted_kappa - baseline_kappa) |>
+  dplyr::mutate(delta_kappa = kappa - baseline_kappa) |>
   readr::write_tsv(file = targeted_delta_kappa_plot_df_filepath)
+
+random_delta_kappa_plot_df <- random_plot_df |>
+  dplyr::select(repeat_index,
+                model_type,
+                platform,
+                kappa = value) |>
+  dplyr::left_join(baseline_plot_df |>
+                     dplyr::select(repeat_index,
+                                   model_type,
+                                   platform,
+                                   baseline_kappa = value),
+                   by = c("repeat_index",
+                          "model_type",
+                          "platform")) |>
+  dplyr::mutate(delta_kappa = kappa - baseline_kappa) |>
+  readr::write_tsv(file = targeted_delta_kappa_plot_df_filepath)
+
+readr::write_tsv(x = targeted_delta_kappa_plot_df,
+                 file = targeted_delta_kappa_plot_df_filepath)
+
+readr::write_tsv(x = random_delta_kappa_plot_df,
+                 file = random_delta_kappa_plot_df_filepath)
 
 set.seed(1)
 
-targeted_delta_kappa_plot_object <- targeted_delta_kappa_plot_df |>
+delta_kappa_plot_object <- dplyr::bind_rows(targeted_delta_kappa_plot_df |>
+                                                       dplyr::mutate(gene_set = "Targeted"),
+                                                     random_delta_kappa_plot_df |>
+                                                       dplyr::mutate(gene_set = "Random")) |>
   ggplot2::ggplot(ggplot2::aes(x = model_type,
                                y = delta_kappa,
                                color = platform)) +
   ggplot2::geom_violin(position = ggplot2::position_dodge(width = 0.7),
+                       draw_quantiles = 0.5,
                        show.legend = FALSE) +
   ggplot2::geom_point(position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0,
                                                                dodge.width = 0.7)) +
+  ggplot2::facet_wrap(~ gene_set,
+                      nrow = 1) +
   ggplot2::scale_color_manual(values = platform_colors) +
+  ggplot2::coord_cartesian(ylim = c(-0.2, 0.1)) + 
   ggplot2::labs(x = "Method",
                 y = "Delta Kappa",
-                color = "Platform",
-                title = "Change in Kappa with Targeted Gene Set") +
+                color = "Platform") +
   ggplot2::theme_bw() +
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
-targeted_delta_kappa_plot_object
+ggplot2::ggsave(filename = delta_kappa_plot_filepath,
+                plot = delta_kappa_plot_object,
+                height = 7,
+                width = 7)
+
+delta_kappa_plot_object
+
+```
+
+To aid in visualization, the following data points were excluded from the previous plot.
+
+```{r}
+
+dplyr::bind_rows(targeted_delta_kappa_plot_df |>
+                   dplyr::mutate(gene_set = "Targeted"),
+                 random_delta_kappa_plot_df |>
+                   dplyr::mutate(gene_set = "Random")) |>
+  dplyr::filter(delta_kappa > 0.1 | delta_kappa < -0.2)
 
 ```
 
