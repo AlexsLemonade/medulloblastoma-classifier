@@ -9,6 +9,9 @@ dependencies:
   - jq>=1.7
   - dvc>=2.36.0
   - dvc-s3>=2.18.0
+  - pip>=24.2
+  - pip:
+    - pyrefinebio==0.4.9
 platforms:
   - linux-64
   - osx-64
