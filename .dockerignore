@@ -1,12 +1,8 @@
-# ignore git
-.git
+# Ignore everything by default
+*
 
-# ignore data folders
-data
-processed_data
-
-# ignore renv for docker
-renv
-
-# Other files to ignore
-.Rproj.user
+# Include specific files in the docker environment
+!/renv.lock
+!/requirements.txt
+!/environment.yml
+!/conda-lock.yml
