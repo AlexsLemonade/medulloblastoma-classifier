@@ -2,6 +2,9 @@
 .DS_Store
 .Rproj.user
 
+# R history
+.Rhistory
+
 # Directories with large files
 data
 models
