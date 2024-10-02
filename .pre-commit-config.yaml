@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+      - id: detect-private-key
+      - name: General file size limit
+        id: check-added-large-files
+        args: ["--maxkb=300"]
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: forbid-environments
+        name: Check for included environments
+        entry: Environment directories for conda, virtualenv, or renv should not be included in commits
+        language: fail
+        files: "(conda-meta|pyvenv.cfg|renv/library)"
