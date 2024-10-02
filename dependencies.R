@@ -1,2 +1,5 @@
 library(gridGraphics)
 library(switchBox)
+library(preprocessCore)
+library(getopt)
+library(optparse)
