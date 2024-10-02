@@ -1,53 +1,42 @@
-FROM rocker/verse:4.2.2
+FROM bioconductor/bioconductor_docker:3.16
 
-# Update apt-get and install other libraries
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libbz2-dev \
-    libgdal-dev \
-    libgeos-dev \
-    libglpk40 \
-    liblzma-dev \
-    libmagick++-dev \
-    libproj-dev \
-    libudunits2-dev \
-    libxt-dev \
-    python3-pip \
-    python3-dev
+# set a name for the conda environment
+ARG ENV_NAME=medulloblastoma-classifier
 
-# Install pyrefinebio v0.4.9
-RUN pip3 install pyrefinebio==0.4.9
+# set environment variables to install conda
+ENV PATH="/opt/conda/bin:${PATH}"
 
-# R Bioconductor packages
-RUN Rscript -e "options(warn = 2); BiocManager::install(c( \
-    'AnnotationHub', \
-    'Biobase', \
-    'BiocStyle', \
-    'bluster', \
-    'GSVA', \
-    'GenomicFeatures', \
-    'GEOquery', \
-    'leukemiasEset', \
-    'scater', \
-    'scran', \
-    'switchBox'), \
-    update = FALSE, \
-    version = 3.16)"
+# Install conda via miniforge
+# adapted from https://github.com/conda-forge/miniforge-images/blob/master/ubuntu/Dockerfile
+RUN curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" -o /tmp/miniforge.sh \
+  && bash /tmp/miniforge.sh -b -p /opt/conda \
+  && rm -f /tmp/miniforge.sh \
+  && conda clean --tarballs --index-cache --packages --yes \
+  && find /opt/conda -follow -type f -name '*.a' -delete \
+  && find /opt/conda -follow -type f -name '*.pyc' -delete \
+  && conda clean --force-pkgs-dirs --all --yes
 
-# R packages (R-forge)
-RUN install2.r --error --deps TRUE --repos https://r-forge.r-project.org \
-    estimate
+# Activate conda environments in bash
+RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh \
+  && echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/skel/.bashrc \
+  && echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 
-# R packages (CRAN)
-RUN install2.r --error --deps TRUE \
-    caret \
-    doParallel \
-    glmnet \
-    here \
-    MM2S \
-    multiclassPairs \
-    optparse \
-    patchwork
+# Install conda-lock
+RUN conda install --channel=conda-forge --name=base conda-lock \
+  && conda clean --all --yes
+
+# Install renv
+RUN Rscript -e "install.packages('renv')"
+
+# Disable the renv cache to install packages directly into the R library
+ENV RENV_CONFIG_CACHE_ENABLED=FALSE
+
+# Copy conda lock file to image
+COPY conda-lock.yml conda-lock.yml
+
+# restore from conda-lock.yml file and clean up to reduce image size
+RUN conda-lock install -n ${ENV_NAME} conda-lock.yml \
+  && conda clean --all --yes
 
 # Threading issue with preprocessCore::normalize.quantiles
 # https://support.bioconductor.org/p/122925/#124701
@@ -59,6 +48,18 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     force = TRUE, \
     update = FALSE, \
     version = 3.16)"
+
+# Copy the renv.lock file from the host environment to the image
+COPY renv.lock renv.lock
+
+# restore from renv.lock file and clean up to reduce image size
+RUN Rscript -e 'renv::restore()' \
+  && rm -rf ~/.cache/R/renv \
+  && rm -rf /tmp/downloaded_packages \
+  && rm -rf /tmp/Rtmp*
+
+# Activate conda environment on bash launch
+RUN echo "conda activate ${ENV_NAME}" >> ~/.bashrc
 
 ENV RENV_DISABLED=TRUE
 WORKDIR /home/rstudio
