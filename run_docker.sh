@@ -4,9 +4,9 @@ sudo snap install docker
 
 sleep 3 && sudo chmod 666 /var/run/docker.sock
 
-docker pull envest/mbssp:R-4.2.2
+docker pull ghcr.io/alexslemonade/medulloblastoma-classifier:latest
 
-docker run -d --rm --mount type=volume,dst=/home/rstudio,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=/home/ubuntu -e PASSWORD=onecupatatime envest/mbssp:R-4.2.2
+docker run -d --rm --mount type=volume,dst=/home/rstudio,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=/home/ubuntu -e PASSWORD=onecupatatime ghcr.io/alexslemonade/medulloblastoma-classifier
 
 container_id=$(docker ps -ql)
 
