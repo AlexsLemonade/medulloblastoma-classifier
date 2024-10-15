@@ -152,7 +152,7 @@ test_single_cells <- function(sample_acc,
   sce_object <- readr::read_rds(sce_filepath)
 
   # read in gene expression matrix
-  genex_df_this_sample <- sce_object@assays@data@listData[[1]]
+  genex_df_this_sample <- SingleCellExperiment::counts(sce_object)
 
   # get number of cells to be tested
   n_cells <- ncol(genex_df_this_sample)
