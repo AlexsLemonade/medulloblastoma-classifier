@@ -7,7 +7,7 @@
 nb_dir <- here::here("analysis_notebooks")
 
 # notebook file paths
-test_pseudobulk_and_single_cells_filepath <- file.path(nb_dir, "test_pseudobulk_and_single_cells.Rmd")
+predict_pseudobulk_and_single_cells_filepath <- file.path(nb_dir, "predict_pseudobulk_and_single_cells.Rmd")
 
-# Test pseudobulk and single cells
-rmarkdown::render(test_pseudobulk_and_single_cells_filepath)
+# Predict pseudobulk and single cells
+rmarkdown::render(predict_pseudobulk_and_single_cells_filepath)
