@@ -29,28 +29,28 @@ library(patchwork)
 # Directories
 models_dir <- here::here("models")
 plots_dir <- here::here("plots")
-plots_data_dir <- file.path(plots_dir, "data")
+plots_data_dir <- here::here(plots_dir, "data")
 processed_data_dir <- here::here("processed_data")
-pseudobulk_sce_dir <- file.path(processed_data_dir, "pseudobulk_sce")
+pseudobulk_sce_dir <- here::here(processed_data_dir, "pseudobulk_sce")
 
 # Input files
-pseudobulk_genex_filepath <- file.path(processed_data_dir, "pseudobulk_genex.tsv")
-pseudobulk_metadata_filepath <- file.path(processed_data_dir, "pseudobulk_metadata.tsv")
+pseudobulk_genex_filepath <- here::here(processed_data_dir, "pseudobulk_genex.tsv")
+pseudobulk_metadata_filepath <- here::here(processed_data_dir, "pseudobulk_metadata.tsv")
 
 # baseline models are generated prior to this in the notebook analysis_notebooks/baseline_models.Rmd
 # there is one baseline model designated as the official model that is used to test single cells here
 # "baseline" means that we used all genes and all available training/test data in modeling
-baseline_models_filepath <- file.path(models_dir, "baseline.rds")
+baseline_models_filepath <- here::here(models_dir, "baseline.rds")
 
 # Output files
-single_cell_plot_data_filepath <- file.path(plots_data_dir, "single_cell_test_predictions.tsv")
-pseudobulk_plot_data_filepath <- file.path(plots_data_dir, "pseudobulk_test_predictions.tsv")
-pseudobulk_subgroups_plot_filepath <- file.path(plots_dir, "single_cell_pseudobulk_subgroups.pdf")
-percentage_subgroups_plot_filepath <- file.path(plots_dir, "single_cell_percentage_subgroups.pdf")
-confidence_umap_plot_filepath <- file.path(plots_dir, "single_cell_confidence_umap.pdf")
-cluster_umap_plot_filepath <- file.path(plots_dir, "single_cell_cluster_umap.pdf")
-combined_percentage_plot_filepath <- file.path(plots_dir, "single_cell_combined_percentage.pdf")
-combined_umap_plot_filepath <- file.path(plots_dir, "single_cell_combined_umap.pdf")
+single_cell_plot_data_filepath <- here::here(plots_data_dir, "single_cell_test_predictions.tsv")
+pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
+pseudobulk_subgroups_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_subgroups.pdf")
+percentage_subgroups_plot_filepath <- here::here(plots_dir, "single_cell_percentage_subgroups.pdf")
+confidence_umap_plot_filepath <- here::here(plots_dir, "single_cell_confidence_umap.pdf")
+cluster_umap_plot_filepath <- here::here(plots_dir, "single_cell_cluster_umap.pdf")
+combined_percentage_plot_filepath <- here::here(plots_dir, "single_cell_combined_percentage.pdf")
+combined_umap_plot_filepath <- here::here(plots_dir, "single_cell_combined_umap.pdf")
 
 # Read in data
 pseudobulk_genex_df <- readr::read_tsv(pseudobulk_genex_filepath,
@@ -104,9 +104,9 @@ pseudobulk_plot_df <- purrr::map(model_types,
                                    dplyr::mutate(model_type = model_type)) |>
   dplyr::bind_rows() |>
   dplyr::left_join(pseudobulk_metadata_df |>
-              dplyr::select(sample_accession,
-                            subgroup),
-              by = "sample_accession") |>
+                     dplyr::select(sample_accession,
+                                   subgroup),
+                   by = "sample_accession") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                "ktsp" ~ "kTSP (w)",
                                                "rf" ~ "RF (w)"))
@@ -155,8 +155,8 @@ pseudobulk_subgroups_plot_object
 model_test_list <- purrr::map(model_types,
                               \(model_type) purrr::map(pseudobulk_metadata_df$title,
                                                        \(x) test_single_cells(sample_acc = x,
-                                                                              sce_filepath = file.path(pseudobulk_sce_dir,
-                                                                                                       stringr::str_c(x, "_sce.rds")),
+                                                                              sce_filepath = here::here(pseudobulk_sce_dir,
+                                                                                                        stringr::str_c(x, "_sce.rds")),
                                                                               metadata_df = pseudobulk_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
@@ -173,11 +173,11 @@ model_test_list <- purrr::map(model_types,
 ### Prep plotting data
 
 ```{r}
-  
+
 return_umap_cluster <- function(sample_title) {
   
-  sce_filepath <- file.path(pseudobulk_sce_dir,
-                            stringr::str_c(sample_title, "_sce.rds"))
+  sce_filepath <- here::here(pseudobulk_sce_dir,
+                             stringr::str_c(sample_title, "_sce.rds"))
   
   sce_object <- readr::read_rds(sce_filepath)
   
@@ -494,7 +494,7 @@ combined_umap_plot_object <- cluster_umap_plot_object + confidence_umap_plot_obj
   patchwork::plot_annotation(tag_levels = 'a') +
   patchwork::plot_layout(guides = "collect") &
   ggplot2::theme(legend.position = "bottom")
-  
+
 ggplot2::ggsave(filename = combined_umap_plot_filepath,
                 plot = combined_umap_plot_object,
                 width = 7.5,
