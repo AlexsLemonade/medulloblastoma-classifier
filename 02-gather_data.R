@@ -192,10 +192,10 @@ sample_titles <- pseudobulk_metadata$title
 
 pseudobulk_df <- NULL
 
-for (i in 1:length(sample_accession_ids)) {
+for (sample_iter in 1:length(sample_accession_ids)) {
 
-  sample_acc <- sample_accession_ids[i]
-  sample_title <- sample_titles[i]
+  sample_acc <- sample_accession_ids[sample_iter]
+  sample_title <- sample_titles[sample_iter]
 
   pseudobulk_expression_filepath <- file.path(data_dir,
                                               "GSE119926",
