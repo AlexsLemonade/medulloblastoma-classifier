@@ -167,9 +167,13 @@ test_single_cells <- function(sample_acc,
     dplyr::filter(sample_accession == sample_acc) |>
     dplyr::pull(subgroup)
 
+  # If the sample_subgroup vector is longer than 1, more than one row has this
+  # sample accession, meaning that sample accession is not a unique identifier
+  # in this metadata (and this should be addressed by the user)
+
   if (length(sample_subgroup) != 1) {
 
-    stop("Wait -- sample accession is not unique in scRNA metadata")
+    stop(glue::glue("Sample accession ", sample_acc, " is not unique in scRNA metadata."))
 
   }
 
