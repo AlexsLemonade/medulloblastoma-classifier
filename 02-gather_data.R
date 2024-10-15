@@ -222,6 +222,9 @@ for (sample_iter in 1:length(sample_accession_ids)) {
   average_tpm_vector <- rowMeans(tpm_genex_df)
 
   # combine the list of TPM values into a single matrix
+  # if pseudobulk_df does not contain data yet (i.e. if sample_iter is 1),
+  # then create it a gene column and sample column for the first sample,
+  # otherwise, add a column for each additional sample
   if (is.null(pseudobulk_df)) {
 
     pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
