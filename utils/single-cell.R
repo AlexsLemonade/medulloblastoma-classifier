@@ -118,7 +118,6 @@ test_single_cells <- function(sample_acc,
                               gene_map_df,
                               labels,
                               classifier,
-                              model_type,
                               study = "GSE119926",
                               platform = "scRNA-seq") {
   # Applies prediction model to gene expression matrix
@@ -128,31 +127,24 @@ test_single_cells <- function(sample_acc,
   #  sce_filepath: file path to a single cell experiment object RDS file
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
-  #  classifier: classifier model
-  #  model_type: prediction model used, must be one of 'ktsp' or 'rf'
+  #  classifier: classifier model (model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest)
   #  study: study ID for this sample (default: GSE119926)
   #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
 
-  if ( model_type %in% c("ktsp", "rf") ) {
+  if ( class(classifier) == "OnevsrestScheme_TSP" ) {
 
-    if ( model_type == "ktsp" & class(classifier) != "OnevsrestScheme_TSP" ) {
+    model_type <- "ktsp"
 
-      stop("Type of model specified by classifier parameter in test_single_cells() does not match model_type, which must be 'ktsp' or 'rf'.")
+  } else if ( class(classifier) == "rule_based_RandomForest" ) {
 
-    }
-
-    if ( model_type == "rf" & class(classifier) != "rule_based_RandomForest" ) {
-
-      stop("Type of model specified by classifier parameter in test_single_cells() does not match model_type, which must be 'ktsp' or 'rf'.")
-
-    }
+    model_type <- "rf"
 
   } else {
 
-    stop("model_type in test_single_cells() must be 'ktsp' or 'rf'.")
+    stop("classifier model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest")
 
   }
 
