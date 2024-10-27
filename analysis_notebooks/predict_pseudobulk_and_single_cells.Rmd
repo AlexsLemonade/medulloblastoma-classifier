@@ -173,7 +173,7 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
 
 ```{r}
 
-return_umap_cluster <- function(sample_title) {
+get_umap_coord_and_cluster <- function(sample_title) {
   
   sce_filepath <- here::here(pseudobulk_sce_dir,
                              stringr::str_c(sample_title, "_sce.rds"))
@@ -193,7 +193,7 @@ return_umap_cluster <- function(sample_title) {
 }
 
 umap_list <- purrr::map(pseudobulk_metadata_df$title,
-                        \(sample_title) return_umap_cluster(sample_title)) |>
+                        \(sample_title) get_umap_coord_and_cluster(sample_title)) |>
   dplyr::bind_rows()
 
 single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
