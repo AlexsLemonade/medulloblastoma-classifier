@@ -62,13 +62,13 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 ```{r}
 
 pseudobulk_subgroups_plot_object <- pseudobulk_plot_df |>
-  dplyr::filter(model_type == "kTSP (w)") |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
                                fill = predicted_subgroup)) +
   ggplot2::geom_col(position = "fill") +
   ggplot2::scale_x_continuous(labels = scales::percent) +
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      cols = ggplot2::vars(model_type),
                       space = "free_y",
                       scales = "free_y") +
   ggplot2::scale_fill_manual(values = subgroup_colors) +
@@ -96,14 +96,14 @@ pseudobulk_subgroups_plot_object
 ```{r}
 
 percentage_subgroups_plot_object <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp") |>
-  dplyr::count(sample_accession, subgroup, predicted_labels) |>
+  dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = n,
                                fill = predicted_labels)) +
   ggplot2::geom_col(position = ggplot2::position_fill()) +
   ggplot2::scale_x_continuous(labels = scales::percent) +
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      cols = ggplot2::vars(model_type),
                       space = "free_y",
                       scales = "free_y") +
   ggplot2::scale_fill_manual(values = subgroup_colors) +
@@ -148,8 +148,7 @@ mixed_samples_with_subgroup <- pseudobulk_metadata_df |>
 ```{r}
 
 confidence_umap_plot_object <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                sample_accession %in% mixed_samples) |>
+  dplyr::filter(sample_accession %in% mixed_samples) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
   ggplot2::ggplot(ggplot2::aes(x = UMAP_1,
@@ -159,8 +158,8 @@ confidence_umap_plot_object <- single_cell_plot_df |>
                       alpha = 0.5) +
   ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::scale_alpha_continuous(range = c(0, 1)) +
-  ggplot2::facet_wrap(~ sample_with_subgroup,
-                      ncol = 1,
+  ggplot2::facet_grid(rows = ggplot2::vars(sample_with_subgroup),
+                      cols = ggplot2::vars(model_type),
                       scales = "free") +
   ggplot2::labs(x = "UMAP 1",
                 y = "UMAP 2",
@@ -184,8 +183,7 @@ confidence_umap_plot_object
 ```{r}
 
 cluster_umap_plot_object <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                sample_accession %in% mixed_samples) |>
+  dplyr::filter(sample_accession %in% mixed_samples) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
   ggplot2::ggplot(ggplot2::aes(x = UMAP_1,
@@ -193,8 +191,8 @@ cluster_umap_plot_object <- single_cell_plot_df |>
                                color = factor(cluster))) +
   ggplot2::geom_point(shape = 16,
                       alpha = 0.5) +
-  ggplot2::facet_wrap(~ sample_with_subgroup,
-                      ncol = 1,
+  ggplot2::facet_grid(rows = ggplot2::vars(sample_with_subgroup),
+                      cols = ggplot2::vars(model_type),
                       scales = "free") +
   ggplot2::scale_color_brewer(palette = "Set1") +
   ggplot2::labs(x = "UMAP 1",
@@ -218,40 +216,41 @@ cluster_umap_plot_object
 
 ```{r}
 
-typical_confidence <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                !is.na(confidence)) |>
+typical_confidence_df <- single_cell_plot_df |>
+  dplyr::filter(!is.na(confidence)) |>
   dplyr::group_by(sample_accession,
                   subgroup,
-                  predicted_labels) |>
+                  predicted_labels,
+                  model_type) |>
   dplyr::summarize(median_confidence = median(confidence),
                    .groups = "drop") |>
   tidyr::pivot_wider(names_from = predicted_labels,
                      values_from = median_confidence) |>
   dplyr::rowwise() |>
   dplyr::mutate(subgroup_conf = c(G3, G4, SHH, WNT)[which(mb_subgroups == subgroup)]) |>
-  dplyr::pull(subgroup_conf) |>
-  median()
+  dplyr::ungroup() |>
+  dplyr::group_by(model_type) |>
+  dplyr::summarize(median_subgroup_conf = median(subgroup_conf))
 
 cell_counts_df <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                sample_accession %in% mixed_samples,
+  dplyr::filter(sample_accession %in% mixed_samples,
                 !is.na(confidence)) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
   dplyr::count(sample_with_subgroup,
+               model_type,
                predicted_labels)
 
 confidence_plot_object <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                sample_accession %in% mixed_samples,
+  dplyr::filter(sample_accession %in% mixed_samples,
                 !is.na(confidence)) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
   ggplot2::ggplot(ggplot2::aes(x = predicted_labels,
                                y = confidence,
                                color = predicted_labels)) +
-  ggplot2::geom_hline(yintercept = typical_confidence,
+  ggplot2::geom_hline(data = typical_confidence_df,
+                      mapping = ggplot2::aes(yintercept = median_subgroup_conf),
                       lty = 2) +
   ggplot2::geom_violin(fill = NA,
                        draw_quantiles = 0.5,
@@ -266,8 +265,8 @@ confidence_plot_object <- single_cell_plot_df |>
                      y = 0,
                      vjust = 0,
                      show.legend = FALSE) +
-  ggplot2::facet_wrap(~ sample_with_subgroup,
-                      ncol = 1,
+  ggplot2::facet_grid(rows = ggplot2::vars(sample_with_subgroup),
+                      cols = ggplot2::vars(model_type),
                       scales = "free") +
   ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::scale_y_continuous(limits = c(0, NA)) +
@@ -296,15 +295,16 @@ confidence_plot_object
 ```{r}
 
 joint_G3_G4_df <- single_cell_plot_df |>
-  dplyr::filter(model_type == "ktsp",
-                sample_accession %in% mixed_samples,
+  dplyr::filter(sample_accession %in% mixed_samples,
                 !is.na(confidence)) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
   dplyr::filter(predicted_labels %in% c("G3", "G4"))
 
 # what percentage of cells have no contribution from SHH or WNT (G3 and G4 only)
-diagonal_pct <- mean(joint_G3_G4_df$SHH == 0 & joint_G3_G4_df$WNT == 0)*100
+diagonal_pct_list <- joint_G3_G4_df |>
+  split(joint_G3_G4_df$model_type) |>
+  purrr::map(\(x) mean(x$SHH == 0 & x$WNT == 0)*100)
 
 joint_G3_G4_confidence_plot_object <- joint_G3_G4_df |>
   ggplot2::ggplot(ggplot2::aes(x = G3/total,
@@ -317,10 +317,12 @@ joint_G3_G4_confidence_plot_object <- joint_G3_G4_df |>
   ggplot2::geom_point(shape = 16,
                       alpha = 0.5) +
   ggplot2::geom_density_2d(show.legend = FALSE) +
-  ggplot2::facet_wrap(~ sample_with_subgroup,
-                      ncol = 1,
+  ggplot2::facet_grid(rows = ggplot2::vars(sample_with_subgroup),
+                      cols = ggplot2::vars(model_type),
                       scales = "free") +
   ggplot2::scale_color_manual(values = subgroup_colors) +
+  ggplot2::scale_x_continuous(limits = c(0,1)) +
+  ggplot2::scale_y_continuous(limits = c(0,1)) +
   ggplot2::labs(x = "G3 Confidence",
                 y = "G4 Confidence",
                 color = "Predicted Subgroup") +
@@ -334,7 +336,7 @@ joint_G3_G4_confidence_plot_object
 ```
 
 - Prediction confidence of G3 and G4 cells forms a spectrum between poles at 100% G3 and 100% G4.
-- Some cells have some score contributed from other subgroups, but most (`r round(diagonal_pct, 1)`%) are on the diagonal.
+- For kTSP (w), some cells have some score contributed from other subgroups, but most (`r round(diagonal_pct_list[["kTSP (w)"]], 1)`%) are on the diagonal.
 
 # Combined plots
 
