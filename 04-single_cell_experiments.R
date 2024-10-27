@@ -15,4 +15,4 @@ pseudobulk_and_single_cells_analysis_notebook_filepath <- file.path(nb_dir, "pre
 source(predict_pseudobulk_and_single_cells_filepath)
 
 # Predict pseudobulk and single cells
-rmarkdown::render(predict_pseudobulk_and_single_cells_filepath)
+rmarkdown::render(pseudobulk_and_single_cells_analysis_notebook_filepath)
