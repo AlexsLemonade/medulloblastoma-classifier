@@ -66,7 +66,6 @@ official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
                         rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
-model_types <- c("ktsp", "rf")
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 ```
@@ -91,17 +90,18 @@ pseudobulk_test_list <- list("ktsp" = test_ktsp(genex_df_test = pseudobulk_genex
 
 ```{r}
 
-pseudobulk_plot_df <- purrr::map(model_types,
-                                 \(model_type) pseudobulk_test_list[[model_type]]$model_output |>
-                                   as.data.frame() |>
-                                   tibble::rownames_to_column(var = "sample_accession") |>
-                                   tibble::as_tibble() |>
-                                   tidyr::pivot_longer(cols = all_of(mb_subgroups),
-                                                       names_to = "predicted_subgroup") |>
-                                   dplyr::select(sample_accession,
-                                                 predicted_subgroup,
-                                                 value) |>
-                                   dplyr::mutate(model_type = model_type)) |>
+pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list, # list of test objects and
+                                  names(pseudobulk_test_list), # their classifier model types
+                                  \(pseudobulk_test, model_type) pseudobulk_test$model_output |>
+                                    as.data.frame() |>
+                                    tibble::rownames_to_column(var = "sample_accession") |>
+                                    tibble::as_tibble() |>
+                                    tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                                                        names_to = "predicted_subgroup") |>
+                                    dplyr::select(sample_accession,
+                                                  predicted_subgroup,
+                                                  value) |>
+                                    dplyr::mutate(model_type = model_type)) |>
   dplyr::bind_rows() |>
   dplyr::left_join(pseudobulk_metadata_df |>
                      dplyr::select(sample_accession,
@@ -152,7 +152,7 @@ pseudobulk_subgroups_plot_object
 
 ```{r message = FALSE}
 
-model_test_list <- purrr::map(model_types,
+model_test_list <- purrr::map(names(classifier_list), # classifier model types
                               \(model_type) purrr::map(pseudobulk_metadata_df$title,
                                                        \(x) test_single_cells(sample_acc = x,
                                                                               sce_filepath = here::here(pseudobulk_sce_dir,
@@ -160,11 +160,10 @@ model_test_list <- purrr::map(model_types,
                                                                               metadata_df = pseudobulk_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
-                                                                              model_type = model_type,
                                                                               study = "GSE119926",
                                                                               platform = "scRNA-seq")) |>
                                 purrr::set_names(pseudobulk_metadata_df$title)) |>
-  purrr::set_names(model_types)
+  purrr::set_names(names(classifier_list))
 
 ```
 
@@ -197,17 +196,18 @@ umap_list <- purrr::map(pseudobulk_metadata_df$title,
                         \(sample_title) return_umap_cluster(sample_title)) |>
   dplyr::bind_rows()
 
-single_cell_plot_df <- purrr::map(model_types,
-                                  \(model_type) purrr::map(model_test_list[[model_type]],
-                                                           \(x) dplyr::bind_cols(x$predicted_labels_df,
-                                                                                 tibble::as_tibble(x$model_output)) |>
-                                                             tidyr::separate_wider_delim(cols = sample_accession,
-                                                                                         delim = "_",
-                                                                                         names = c("sample_accession",
-                                                                                                   "cell_index"))) |>
-                                    dplyr::bind_rows()) |>
-  purrr::set_names(model_types) |>
-  dplyr::bind_rows(.id = "model_type") |>
+single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
+                                   names(model_test_list), # their classifier model types
+                                   \(model_test, model_type) purrr::map(model_test,
+                                                                        \(x) dplyr::bind_cols(x$predicted_labels_df,
+                                                                                              tibble::as_tibble(x$model_output)) |>
+                                                                          tidyr::separate_wider_delim(cols = sample_accession,
+                                                                                                      delim = "_",
+                                                                                                      names = c("sample_accession",
+                                                                                                                "cell_index"))) |>
+                                     dplyr::bind_rows() |>
+                                     dplyr::mutate(model_type = model_type)) |>
+  dplyr::bind_rows() |>
   dplyr::rowwise() |>
   dplyr::mutate(max = max(G3, G4, SHH, WNT),
                 total = sum(G3, G4, SHH, WNT),
@@ -313,6 +313,7 @@ ggplot2::ggsave(filename = confidence_umap_plot_filepath,
                 height = 6)
 
 confidence_umap_plot_object
+
 ```
 
 ### Plot UMAPs with subgroup prediction
@@ -347,6 +348,7 @@ ggplot2::ggsave(filename = cluster_umap_plot_filepath,
                 height = 6)
 
 cluster_umap_plot_object
+
 ```
 
 ### Plot confidence of individual cell predictions
@@ -474,6 +476,7 @@ joint_G3_G4_confidence_plot_object
 # Combined plots
 
 ```{r}
+
 combined_percentage_plot_object <- pseudobulk_subgroups_plot_object + percentage_subgroups_plot_object +
   patchwork::plot_layout(guides = "collect") +
   patchwork::plot_annotation(tag_levels = 'a') &
