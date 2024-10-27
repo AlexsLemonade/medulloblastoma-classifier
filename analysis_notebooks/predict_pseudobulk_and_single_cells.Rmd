@@ -37,8 +37,10 @@ pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_pre
 # Output plots
 pseudobulk_subgroups_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_subgroups.pdf")
 percentage_subgroups_plot_filepath <- here::here(plots_dir, "single_cell_percentage_subgroups.pdf")
-confidence_umap_plot_filepath <- here::here(plots_dir, "single_cell_confidence_umap.pdf")
+subgroup_umap_plot_filepath <- here::here(plots_dir, "single_cell_subgroup_umap.pdf")
+confidence_plot_filepath <- here::here(plots_dir, "single_cell_confidence.pdf")
 cluster_umap_plot_filepath <- here::here(plots_dir, "single_cell_cluster_umap.pdf")
+
 combined_percentage_plot_filepath <- here::here(plots_dir, "single_cell_combined_percentage.pdf")
 combined_umap_plot_filepath <- here::here(plots_dir, "single_cell_combined_umap.pdf")
 
@@ -147,7 +149,7 @@ mixed_samples_with_subgroup <- pseudobulk_metadata_df |>
 
 ```{r}
 
-confidence_umap_plot_object <- single_cell_plot_df |>
+subgroup_umap_plot_object <- single_cell_plot_df |>
   dplyr::filter(sample_accession %in% mixed_samples) |>
   dplyr::left_join(mixed_samples_with_subgroup,
                    by = "sample_accession") |>
@@ -169,16 +171,16 @@ confidence_umap_plot_object <- single_cell_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
-ggplot2::ggsave(filename = confidence_umap_plot_filepath,
-                plot = confidence_umap_plot_object,
+ggplot2::ggsave(filename = subgroup_umap_plot_filepath,
+                plot = subgroup_umap_plot_object,
                 width = 7.5,
                 height = 6)
 
-confidence_umap_plot_object
+subgroup_umap_plot_object
 
 ```
 
-### Plot UMAPs with subgroup prediction
+### Plot UMAPs with assigned clusters
 
 ```{r}
 
@@ -278,7 +280,7 @@ confidence_plot_object <- single_cell_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
-ggplot2::ggsave(filename = confidence_umap_plot_filepath,
+ggplot2::ggsave(filename = confidence_plot_filepath,
                 plot = confidence_plot_object,
                 width = 7.5, height = 6)
 
@@ -358,7 +360,7 @@ combined_percentage_plot_object
 
 ```{r}
 
-combined_umap_plot_object <- cluster_umap_plot_object + confidence_umap_plot_object + confidence_plot_object +
+combined_umap_plot_object <- cluster_umap_plot_object + subgroup_umap_plot_object + confidence_plot_object +
   patchwork::plot_annotation(tag_levels = 'a') +
   patchwork::plot_layout(guides = "collect") &
   ggplot2::theme(legend.position = "bottom")
