@@ -145,7 +145,10 @@ single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
                                    study,
                                    subgroup,
                                    is_PDX),
-                   by = "sample_accession")
+                   by = "sample_accession") |>
+  dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp" ~ "kTSP (w)",
+                                               "rf" ~ "RF (w)"))
 
 readr::write_tsv(x = single_cell_plot_df,
                  file = single_cell_plot_data_filepath)
