@@ -1,3 +1,10 @@
+# Use existing prediction models trained on bulk data to predict subgroups
+# of pseudobulk and single cells using scRNA-seq data from Hovestadt, et. al
+# https://www.nature.com/articles/s41586-019-1434-6
+#
+# Steven Foltz
+# 2023
+
 set.seed(8222)
 
 # Load libraries
@@ -12,6 +19,7 @@ processed_data_dir <- here::here("processed_data")
 pseudobulk_sce_dir <- here::here(processed_data_dir, "pseudobulk_sce")
 
 # Input files
+# pseudobulk data for each sample was generated in 02-gather_data.R
 pseudobulk_genex_filepath <- here::here(processed_data_dir, "pseudobulk_genex.tsv")
 pseudobulk_metadata_filepath <- here::here(processed_data_dir, "pseudobulk_metadata.tsv")
 
@@ -25,9 +33,11 @@ single_cell_plot_data_filepath <- here::here(plots_data_dir, "single_cell_test_p
 pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
 
 # Read in data
+
 pseudobulk_genex_df <- readr::read_tsv(pseudobulk_genex_filepath,
                                        show_col_types = FALSE) |>
   tibble::column_to_rownames(var = "gene")
+
 pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
                                           show_col_types = FALSE) |>
   dplyr::mutate(sample_accession = title)
@@ -152,7 +162,6 @@ single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
 
 readr::write_tsv(x = single_cell_plot_df,
                  file = single_cell_plot_data_filepath)
-
 
 # Session info
 
