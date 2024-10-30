@@ -4,6 +4,8 @@ run_many_models <- function(genex_df,
                             metadata_df,
                             labels,
                             model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                            array_studies_for_training = NULL,
+                            rnaseq_studies_for_training = NULL,
                             initial_seed = 44,
                             n_repeats = 1,
                             n_cores = 1,
@@ -28,6 +30,8 @@ run_many_models <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
+  #  array_studies_for_training: vector of array studies to always include in training set
+  #  rnaseq_studies_for_training: vector of RNA-seq studies to always include in training set
   #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
   #  n_repeats: how many times to repeat each modeling type (default: 1)
   #  n_cores: number of cores to use (default: 1)
@@ -148,7 +152,8 @@ run_many_models <- function(genex_df,
                                                       metadata_df = metadata_df,
                                                       train_test_seed = train_test_seeds[n],
                                                       proportion_of_studies_train = 0.5,
-                                                      always_train = "GSE37418")
+                                                      always_train_array = array_studies_for_training,
+                                                      always_train_rnaseq = rnaseq_studies_for_training)
 
     # split genex and metadata by train/test status
     genex_df_train <- genex_df |>
