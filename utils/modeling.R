@@ -204,7 +204,8 @@ get_train_test_samples <- function(genex_df,
                                    metadata_df,
                                    train_test_seed,
                                    proportion_of_studies_train = 0.5,
-                                   always_train = NULL) {
+                                   always_train_array = NULL,
+                                   always_train_rnaseq = NULL) {
 
   # Split data into training and test sets. Data gets split at project level.
   # Some proportion of projects become "training", remainder becomes "test".
@@ -215,6 +216,8 @@ get_train_test_samples <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  train_test_seed: seed used for reproducibility given same input data
   #  proportion_of_studies_train: proportion of studies used as training data
+  #  always_train_array: vector of array studies to always include in training set
+  #  always_train_rnaseq: vector of RNA-seq studies to always include in training set
   #
   # Outputs
   #  List of samples used for "train" and "test" sets
@@ -240,19 +243,19 @@ get_train_test_samples <- function(genex_df,
     stop("proportion_of_studies_train must be numeric and in the range [0,1]")
   }
 
-  set.seed(train_test_seed)
-
   # Vector of array studies
   array_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "Array") |>
+                  platform == "Array",
+                  !(study %in% always_train_array)) |>
     dplyr::pull(study) |>
     unique()
 
   # Vector of RNA-seq studies
   rnaseq_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "RNA-seq") |>
+                  platform == "RNA-seq",
+                  !(study %in% always_train_rnaseq)) |>
     dplyr::pull(study) |>
     unique()
 
@@ -265,9 +268,52 @@ get_train_test_samples <- function(genex_df,
   n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
   n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
 
+  # check that studies listed in always_train_array or always_train_rnaseq are
+  # actually in metadata
+  always_train_array_error_message <- NULL
+  if (!all(always_train_array %in% array_studies)) {
+
+    missing_array <- always_train_array[which(!(always_train_array %in% array_studies))]
+
+    always_train_array_error_message <- stringr::str_c(
+      "Array studies ",
+      stringr::str_c(missing_array, collapse = ", "),
+      " are required to be in training data but are not found in metadata.")
+
+  }
+
+  always_train_rnaseq_error_message <- NULL
+  if (!all(always_train_rnaseq %in% rnaseq_studies)) {
+
+    missing_rnaseq <- always_train_rnaseq[which(!(always_train_rnaseq %in% rnaseq_studies))]
+
+    always_train_rnaseq_error_message <- stringr::str_c(
+      "RNA-seq studies ",
+      stringr::str_c(missing_rnaseq, collapse = ", "),
+      " are required to be in training data but are not found in metadata.")
+
+  }
+
+  if (!is.null(always_train_array_error_message) | !is.null(always_train_rnaseq_error_message)) {
+
+    stop(stringr::str_c(c(always_train_array_error_message,
+                          always_train_rnaseq_error_message),
+                        collapse = " "))
+
+  }
+
   # Randomly sample studies for training set
-  array_studies_train <- sample(array_studies, size = n_array_studies_train)
-  rnaseq_studies_train <- sample(rnaseq_studies, size = n_rnaseq_studies_train)
+  set.seed(train_test_seed)
+
+  array_studies_to_choose_from_for_training <- array_studies[! array_studies %in% always_train_array]
+  rnaseq_studies_to_choose_from_for_training <- rnaseq_studies[! rnaseq_studies %in% always_train_rnaseq]
+
+  array_studies_train <- c(always_train_array,
+                           sample(array_studies_to_choose_from_for_training,
+                                  size = n_array_studies_train - length(always_train_array)))
+  rnaseq_studies_train <- c(always_train_rnaseq,
+                            sample(rnaseq_studies_to_choose_from_for_training,
+                                   size = n_rnaseq_studies_train - length(always_train_rnaseq)))
 
   # Force other studies to be used as test set
   array_studies_test <- setdiff(array_studies, array_studies_train)
