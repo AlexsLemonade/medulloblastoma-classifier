@@ -246,16 +246,14 @@ get_train_test_samples <- function(genex_df,
   # Vector of array studies
   array_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "Array",
-                  !(study %in% always_train_array)) |>
+                  platform == "Array") |>
     dplyr::pull(study) |>
     unique()
 
   # Vector of RNA-seq studies
   rnaseq_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
-                  platform == "RNA-seq",
-                  !(study %in% always_train_rnaseq)) |>
+                  platform == "RNA-seq") |>
     dplyr::pull(study) |>
     unique()
 
