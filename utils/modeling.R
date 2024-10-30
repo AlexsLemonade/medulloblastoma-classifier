@@ -147,7 +147,8 @@ run_many_models <- function(genex_df,
     train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
                                                       metadata_df = metadata_df,
                                                       train_test_seed = train_test_seeds[n],
-                                                      proportion_of_studies_train = 0.5)
+                                                      proportion_of_studies_train = 0.5,
+                                                      always_train = "GSE37418")
 
     # split genex and metadata by train/test status
     genex_df_train <- genex_df |>
@@ -202,7 +203,8 @@ run_many_models <- function(genex_df,
 get_train_test_samples <- function(genex_df,
                                    metadata_df,
                                    train_test_seed,
-                                   proportion_of_studies_train = 0.5) {
+                                   proportion_of_studies_train = 0.5,
+                                   always_train = NULL) {
 
   # Split data into training and test sets. Data gets split at project level.
   # Some proportion of projects become "training", remainder becomes "test".
