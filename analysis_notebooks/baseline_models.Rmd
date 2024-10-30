@@ -107,7 +107,7 @@ The MM2S and LASSO models use default settings.
 Out of all the repeats, we select one 'official' repeat for visualization.
 The 'official' repeat maximizes the median Kappa across all models within the repeat.
 Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
-We always include the array study GSE37418 because a comparison tool (medulloPackage) also trained on that study.
+We always include the array study GSE37418 in training because a comparison tool (medulloPackage) also trained on that study.
 
 ```{r}
 
