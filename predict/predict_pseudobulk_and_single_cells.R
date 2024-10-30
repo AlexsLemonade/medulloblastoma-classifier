@@ -60,9 +60,7 @@ pseudobulk_test_list <- list("ktsp" = test_ktsp(genex_df_test = pseudobulk_genex
                                             metadata_df_test = pseudobulk_metadata_df,
                                             classifier = classifier_list[["rf"]]))
 
-# Plot pseudobulk subgroup predictions
-
-### Prep plotting data
+# Prep pseudobulk plot data
 
 pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list, # list of test objects and
                                   names(pseudobulk_test_list), # their classifier model types
@@ -103,9 +101,7 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
                                 purrr::set_names(pseudobulk_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
 
-# Single cell subgroup predictions
-
-### Prep plotting data
+# Prep single cell plot data
 
 get_umap_coord_and_cluster <- function(sample_title) {
 
