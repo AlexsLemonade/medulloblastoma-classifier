@@ -4,7 +4,7 @@
     "Repositories": [
       {
         "Name": "CRAN",
-        "URL": "https://p3m.dev/cran/latest"
+        "URL": "https://packagemanager.posit.co/cran/2023-04-20"
       }
     ]
   },
@@ -2630,6 +2630,27 @@
         "R"
       ],
       "Hash": "57af0c3da1f1a50680b186591c3359af"
+    },
+    "medulloPackage": {
+      "Package": "medulloPackage",
+      "Version": "0.1.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "medullo-classifier-package",
+      "RemoteUsername": "d3b-center",
+      "RemoteRef": "v0.1.1",
+      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c",
+      "Requirements": [
+        "R",
+        "caret",
+        "dplyr",
+        "e1071",
+        "lattice",
+        "plyr",
+        "reshape2"
+      ],
+      "Hash": "fef6bd9b86183aa8618a881ce51f2c47"
     },
     "memoise": {
       "Package": "memoise",
