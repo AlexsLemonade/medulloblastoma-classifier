@@ -964,6 +964,70 @@ test_lasso <- function(genex_df_test,
 
 }
 
+test_medullo <- function(genex_df_test,
+                         metadata_df_test,
+                         ah_date = "2022-10-30") {
+
+  # Test medulloPackage method
+  #
+  # Inputs
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  ah_date: AnnotationHub snapshot date for gene identifier conversion (default: 2022-10-30)
+  #
+  # Outputs
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the object returned by medulloPackage::classify()
+
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
+
+  # required for loading of dataset
+  library(medulloPackage)
+
+  # identify the RNA-seq samples by accession identifier
+  rnaseq_samples <- metadata_df_test |>
+    dplyr::filter(platform == "RNA-seq") |>
+    dplyr::pull(sample_accession)
+
+  # log2 transform the RNA-seq samples, which is a requirement for
+  # medulloPackage -- all data should be an abundance measure such as TPM
+  genex_df_test <- genex_df_test |>
+    dplyr::mutate_at(c(rnaseq_samples), ~ log2(.x + 1))
+
+  # convert genex_df gene names to from ENSEMBL to gene symbol as required
+  # by medulloPackage
+  genex_df_test_SYMBOL <- genex_df_test |>
+    tibble::rownames_to_column(var = "ENSEMBL") |>
+    convert_gene_names(gene_column_before = "ENSEMBL",
+                       gene_column_after = "gene",
+                       map_from = "ENSEMBL",
+                       map_to = "SYMBOL",
+                       ah_date = ah_date) |>
+    tibble::column_to_rownames(var = "gene")
+
+  # Running separately for individual samples and rbind() results as shown in
+  # example for running individual samples: https://github.com/d3b-center/medullo-classifier-package/blob/9acc2096f1de6d80b054daabcb959e9ffd4d926c/README.md#example
+  test_results <- data.frame()
+  for (sample_iter in seq_along(genex_df_test_SYMBOL)) {
+    exprs <- genex_df_test_SYMBOL[, sample_iter, drop = FALSE]
+    predicted_class <- medulloPackage::classify(exprs)
+    test_results <- rbind(test_results, predicted_class)
+  }
+
+  # Extract the subgroup labels from the test results object -- available as
+  # best.fit https://github.com/d3b-center/medullo-classifier-package/blob/9acc2096f1de6d80b054daabcb959e9ffd4d926c/README.md#run
+  predicted_labels_df <- dplyr::tibble(sample_accession = test_results$sample,
+                                       predicted_labels = test_results$best.fit)
+
+  # create output list with predicted labels and the modeling object
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
+                            model_output = test_results)
+
+}
+
 return_model_metrics <- function(single_repeat,
                                  model_types,
                                  metadata_df,
