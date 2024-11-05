@@ -437,7 +437,7 @@ run_one_model <- function(type,
                                     metadata_df_test = metadata_df_test,
                                     ah_date = ah_date)
 
-    # TODO: labels value may need to change
+    # Label normalization happens within the test_medullo() function
     medullo_cm <- calculate_confusion_matrix(predicted_labels = medullo_results$predicted_labels_df$predicted_labels,
                                              true_labels = metadata_df_test$subgroup,
                                              labels = labels)
@@ -1036,6 +1036,14 @@ test_medullo <- function(genex_df_test,
     predicted_class <- medulloPackage::classify(exprs)
     test_results <- rbind(test_results, predicted_class)
   }
+
+  # Mutate subgroup labels to match what we have elsewhere
+  test_results <- test_results |>
+    dplyr::mutate(best.fit = dplyr::case_when(
+      best.fit == "Group4" ~ "G4",
+      best.fit == "Group3" ~ "G3",
+      .default = best.fit
+    ))
 
   # Extract the subgroup labels from the test results object -- available as
   # best.fit https://github.com/d3b-center/medullo-classifier-package/blob/9acc2096f1de6d80b054daabcb959e9ffd4d926c/README.md#run
