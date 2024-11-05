@@ -442,7 +442,8 @@ run_one_model <- function(type,
                                              true_labels = metadata_df_test$subgroup,
                                              labels = labels)
 
-    model <- list(test_results = medullo_results)
+    model <- list(test_results = medullo_results,
+                  cm = medullo_cm)
 
   } else {
 
