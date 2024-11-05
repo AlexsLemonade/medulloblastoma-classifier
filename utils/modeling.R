@@ -63,11 +63,11 @@ run_many_models <- function(genex_df,
   check_input_files(genex_df = genex_df,
                     metadata_df = metadata_df)
 
-  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso", "medullopackage"
   if (!is.vector(model_types) |
-      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso", "medullopackage"))) {
 
-    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso', or 'medullopackage'")
 
   }
 
