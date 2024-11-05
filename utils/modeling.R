@@ -3,7 +3,13 @@ suppressMessages(library(foreach))
 run_many_models <- function(genex_df,
                             metadata_df,
                             labels,
-                            model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                            model_types = c(
+                              "ktsp",
+                              "rf",
+                              "mm2s",
+                              "lasso",
+                              "medullopackage"
+                            ),
                             initial_seed = 44,
                             n_repeats = 1,
                             n_cores = 1,
@@ -18,7 +24,7 @@ run_many_models <- function(genex_df,
                             rf_rules_altogether = 50,
                             rf_rules_one_vs_rest = 50,
                             rf_weighted = TRUE,
-                            mm2s_ah_date = "2022-10-30") {
+                            ah_date = "2022-10-30") {
 
   # Wrapper function to run many modeling jobs in parallel. New train/test sets
   # are created for each repeat. The same train/test data is used for each model.
@@ -47,8 +53,8 @@ run_many_models <- function(genex_df,
   #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
-  #  MM2S parameters:
-  #    mm2s_ah_date: AnnotationHub snapshot date (default: 2022-10-30)
+  #  MM2S & medulloPackage parameters:
+  #    ah_date: AnnotationHub snapshot date (default: 2022-10-30)
   #
   # Output
   #  Model list with levels for repeat number and model type
@@ -133,7 +139,8 @@ run_many_models <- function(genex_df,
                             "test_rf",
                             "test_mm2s",
                             "train_lasso",
-                            "test_lasso"))
+                            "test_lasso",
+                            "test_medullo"))
 
   # these namespaces must be loaded for test_MM2S() and test_lasso() functions to work
   # done globally before splitting into parallel processes for consistency
@@ -179,7 +186,7 @@ run_many_models <- function(genex_df,
                                                         rf_rules_altogether = rf_rules_altogether,
                                                         rf_rules_one_vs_rest = rf_rules_one_vs_rest,
                                                         rf_weighted = rf_weighted,
-                                                        mm2s_ah_date = mm2s_ah_date)) |>
+                                                        ah_date = ah_date)) |>
       purrr::set_names(model_types) # set names of each list element corresponding to model type
 
     # add metadata about this repeat (seeds used, train/test metadata)
@@ -308,7 +315,7 @@ run_one_model <- function(type,
                           rf_rules_altogether = 50,
                           rf_rules_one_vs_rest = 50,
                           rf_weighted = TRUE,
-                          mm2s_ah_date = "2022-10-30") {
+                          ah_date = "2022-10-30") {
 
   # Run a single model specified by the model type, input data, and parameters
   #
@@ -336,8 +343,8 @@ run_one_model <- function(type,
   #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
-  #  MM2S parameters:
-  #    mm2s_ah_date: AnnotationHub snapshot date (default: 2022-10-30)
+  #  MM2S & medulloPackage parameters:
+  #    ah_date: AnnotationHub snapshot date (default: 2022-10-30)
 
 
   # Outputs
@@ -396,7 +403,7 @@ run_one_model <- function(type,
     mm2s_results <- test_mm2s(genex_df_test = genex_df_test,
                               metadata_df_test = metadata_df_test,
                               model_seed = model_seed,
-                              ah_date = mm2s_ah_date)
+                              ah_date = ah_date)
 
     mm2s_cm <- calculate_confusion_matrix(predicted_labels = mm2s_results$predicted_labels_df$predicted_labels,
                                           true_labels = metadata_df_test$subgroup,
@@ -424,9 +431,22 @@ run_one_model <- function(type,
                   test_results = lasso_results,
                   cm = lasso_cm)
 
+  } else if (type == "medullopackage") {
+
+    medullo_results <- test_medullo(genex_df_test = genex_df_test,
+                                    metadata_df_test = metadata_df_test,
+                                    ah_date = ah_date)
+
+    # TODO: labels value may need to change
+    medullo_cm <- calculate_confusion_matrix(predicted_labels = medullo_results$predicted_labels_df$predicted_labels,
+                                             true_labels = metadata_df_test$subgroup,
+                                             labels = labels)
+
+    model <- list(test_results = medullo_results)
+
   } else {
 
-    stop("Type of model must be 'ktsp', 'rf', 'mm2s', or 'lasso'.")
+    stop("Type of model must be 'ktsp', 'rf', 'mm2s', 'lasso', or 'medullopackage'.")
 
   }
 
