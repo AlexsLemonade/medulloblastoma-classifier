@@ -112,7 +112,7 @@ Supplying the same `initial_seed` to each instance of `run_many_models()` ensure
 
 model_types <- c("ktsp_weighted", "ktsp_unweighted",
                  "rf_weighted", "rf_unweighted",
-                 "lasso", "mm2s")
+                 "lasso", "mm2s", "medullopackage")
 
 if (create_models) {
   
