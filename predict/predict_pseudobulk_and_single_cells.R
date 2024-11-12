@@ -158,7 +158,3 @@ single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
 
 readr::write_tsv(x = single_cell_plot_df,
                  file = single_cell_plot_data_filepath)
-
-# Session info
-
-sessionInfo()
