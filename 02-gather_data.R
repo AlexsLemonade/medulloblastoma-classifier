@@ -187,61 +187,71 @@ pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
                                        show_col_types = FALSE)
 
 # grab the names of the individual expression files
-pseudobulk_expression_files <- file.path(data_dir,
-                                         "GSE119926",
-                                         stringr::str_c(pseudobulk_metadata$sample_accession,
-                                                        "_", pseudobulk_metadata$title, ".txt.gz"))
-names(pseudobulk_expression_files) <- pseudobulk_metadata$title
+sample_accession_ids <- pseudobulk_metadata$sample_accession
+sample_titles <- pseudobulk_metadata$title
 
-# read in individual expression files
-pseudobulk_expression_df_list <- purrr::map(pseudobulk_expression_files,
-                                            \(x) readr::read_tsv(x,
-                                                                 skip = 1,
-                                                                 col_names = FALSE,
-                                                                 show_col_types = FALSE) |>
-                                              tibble::column_to_rownames(var = "X1"))
+pseudobulk_df <- NULL
 
-# revert log transformed-TPM values back to original TPM values using equation
-# 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
-# found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
-tpm_df_list <- pseudobulk_expression_df_list |>
-  purrr::map(\(x) 10*(2^x - 1))
+for (sample_iter in 1:length(sample_accession_ids)) {
 
-# average the TPM values across cells for each data frame
-average_tpm_list <- tpm_df_list |>
-  purrr::map(rowMeans)
+  sample_acc <- sample_accession_ids[sample_iter]
+  sample_title <- sample_titles[sample_iter]
 
-# combine the list of TPM values into a single matrix
-pseudobulk_gene_names <- names(average_tpm_list[[1]])
-pseudobulk_matrix <- dplyr::bind_cols(gene = pseudobulk_gene_names,
-                                      average_tpm_list)
+  pseudobulk_expression_filepath <- file.path(data_dir,
+                                              "GSE119926",
+                                              stringr::str_c(sample_acc, "_", sample_title, ".txt.gz"))
 
-# convert gene names from SYMBOL to ENSEMBL
-pseudobulk_matrix_ENSEMBL <- pseudobulk_matrix |>
-  dplyr::filter(!duplicated(gene)) |>
-  convert_gene_names(gene_column_before = "gene",
-                     gene_column_after = "gene",
-                     map_from = "SYMBOL",
-                     map_to = "ENSEMBL")
+  scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
+                                    skip = 1,
+                                    col_names = FALSE,
+                                    show_col_types = FALSE) |>
+    dplyr::rename("gene" = "X1") |>
+    dplyr::filter(!duplicated(gene)) |>
+    convert_gene_names(gene_column_before = "gene",
+                       gene_column_after = "gene",
+                       map_from = "SYMBOL",
+                       map_to = "ENSEMBL") |>
+    tibble::column_to_rownames(var = "gene")
 
-# save matrix object
-readr::write_tsv(pseudobulk_matrix_ENSEMBL,
-                 pseudobulk_genex_df_output_filepath)
+  # revert log transformed-TPM values back to original TPM values using equation
+  # 10*(2^x - 1) -- determined by working back from the equation log2(TPM/10+1)
+  # found at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905406
+  tpm_genex_df <- 10*(2^scrna_genex_df - 1)
 
-# convert matrices to SingleCellExperiment objects
-sce_list <- convert_dataframe_list_to_sce(tpm_df_list)
+  # average the TPM values across cells
+  average_tpm_vector <- rowMeans(tpm_genex_df)
 
-# calculate UMAP results
-sce_list_umap <- purrr::map(sce_list, function(x) add_sce_umap(x))
+  # combine the list of TPM values into a single matrix
+  # if pseudobulk_df does not contain data yet (i.e. if sample_iter is 1),
+  # then create a gene column and sample column for the first sample,
+  # otherwise, add a column for each additional sample
+  if (is.null(pseudobulk_df)) {
 
-# perform clustering
-sce_list_clustered <- purrr::map(sce_list_umap, function(x) perform_graph_clustering(x))
+    pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
+                                    "{sample_title}" := average_tpm_vector)
 
-# define output file names for SCE objects
-output_filenames <- paste0(names(sce_list_clustered), "_sce.rds")
+  } else {
 
-# write SCE objects to file
-for (i in 1:length(sce_list_clustered)) {
-  readr::write_rds(sce_list_clustered[[i]],
-                   file.path(pseudobulk_sce_output_dir, output_filenames[[i]]))
+    pseudobulk_df <- pseudobulk_df |>
+      tibble::add_column("{sample_title}" := average_tpm_vector)
+
+  }
+
+  # define output file names for SCE objects
+  sce_output_filepath = file.path(pseudobulk_sce_output_dir,
+                                  stringr::str_c(sample_title, "_sce.rds"))
+
+  # convert TPM matrix to SingleCellExperiment objects
+  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
+    # calculate UMAP results
+    add_sce_umap() |>
+    # perform clustering
+    perform_graph_clustering() |>
+    # write to file
+    readr::write_rds(file = sce_output_filepath)
+
 }
+
+# save pseudobulk df object
+readr::write_tsv(pseudobulk_df,
+                 pseudobulk_genex_df_output_filepath)
