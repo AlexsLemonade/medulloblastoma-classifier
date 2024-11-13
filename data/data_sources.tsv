@@ -31,3 +31,5 @@ OpenPBTA	url	https://s3.amazonaws.com/d3b-openaccess-us-east-1-prd-pbta/data/rel
 GSE119926	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE119nnn/GSE119926/suppl/GSE119926_RAW.tar
 GSE119926	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE119nnn/GSE119926/matrix/GSE119926_series_matrix.txt.gz
 GENCODE	url https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_31/gencode.v31.annotation.gtf.gz
+GSE155446	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/GSE155446_human_cell_metadata.csv.gz
+GSE155466	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/GSE155446_human_raw_counts.csv.gz
