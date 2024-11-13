@@ -112,7 +112,7 @@ Supplying the same `initial_seed` to each instance of `run_many_models()` ensure
 
 model_types <- c("ktsp_weighted", "ktsp_unweighted",
                  "rf_weighted", "rf_unweighted",
-                 "lasso", "mm2s")
+                 "lasso", "mm2s", "medullopackage")
 
 if (create_models) {
   
@@ -167,19 +167,21 @@ if (create_models) {
   unweighted_kTSP_RF_models_list <- unweighted_kTSP_RF_models_list |>
     purrr::map(\(x) setNames(x,
                              dplyr::case_match(names(x),
-                                               "ktsp" ~ "ktsp_weighted",
-                                               "rf" ~ "rf_weighted")))
+                                               "ktsp" ~ "ktsp_unweighted",
+                                               "rf" ~ "rf_unweighted")))
   
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
                                      unweighted_kTSP_RF_models_list,
                                      c)
   
-  # MM2S and LASSO models
+  # MM2S, LASSO, and medulloPackage models
   mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
                                             metadata_df = bulk_metadata_df,
                                             labels = mb_subgroups,
-                                            model_types = c("mm2s", "lasso"),
+                                            model_types = c("mm2s", 
+                                                            "lasso",
+                                                            "medullopackage"),
                                             initial_seed = params$seed,
                                             n_repeats = params$n_repeats,
                                             n_cores = params$n_cores)
@@ -248,7 +250,8 @@ plot_df <- baseline_list |>
                                                "rf_unweighted" ~ "RF (unw)",
                                                "rf_weighted" ~ "RF (w)",
                                                "mm2s" ~ "MM2S",
-                                               "lasso" ~ "LASSO"))
+                                               "lasso" ~ "LASSO",
+                                               "medullopackage" ~ "medulloPackage"))
 
 readr::write_tsv(x = plot_df,
                  file = baseline_plot_df_filepath)
