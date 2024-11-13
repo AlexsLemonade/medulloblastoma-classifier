@@ -8,7 +8,7 @@ processed_data_dir <- here::here("processed_data")
 
 # input file names
 GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
-GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_Asian_MB_RNA-seq.txt.gz")
+GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_series_matrix.txt.gz")
 openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
 sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
 GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
@@ -24,7 +24,7 @@ pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
 ################################################################################
 
 clean_mb_subgroups <- function(df){
-  
+
   df <- df |>
     dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
                                               subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
@@ -32,9 +32,9 @@ clean_mb_subgroups <- function(df){
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
                                               TRUE ~ subgroup))
-  
+
   return(df)
-  
+
 }
 
 ################################################################################
@@ -110,15 +110,9 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # This file contains both metadata and expression values
 # Here, we only want the first two rows (the metadata rows), then transpose it,
 # then clean it up for combination with metadata from other studies.
-GSE164677_metadata <- readr::read_tsv(GSE164677_metadata_input_filename,
-                                      col_names = FALSE,
-                                      col_types = "c",
-                                      n_max = 2) |>
-  tibble::column_to_rownames(var = "X1") |>
-  t() |>
-  tibble::as_tibble() |>
-  dplyr::select(sample_accession = gene,
-                subgroup = group) |>
+GSE164677_parsed <- GEOquery::parseGEO(GSE164677_metadata_input_filename)
+GSE164677_metadata <- tibble::tibble(sample_accession = GSE164677_parsed$geo_accession,
+                                     subgroup = GSE164677_parsed$`medulloblastoma subgroup:ch1`) |>
   dplyr::mutate(study = "GSE164677",
                 is_duplicate = FALSE,
                 platform = "RNA-seq") |>
@@ -137,7 +131,7 @@ openpbta_mb_metadata <- readr::read_tsv(file = openpbta_metadata_input_filename,
                   sep = ", ",
                   extra = "merge") |>
   dplyr::mutate(subgroup = dplyr::na_if(x = subgroup,
-                                        y = "To be classified")) |> 
+                                        y = "To be classified")) |>
   dplyr::arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) |> # patient ID, sample ID
   dplyr::mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) |> # marks 2+ instance of patient ID
   dplyr::rename("sample_accession" = "Kids_First_Biospecimen_ID") |>
@@ -227,5 +221,5 @@ dplyr::bind_rows(GSE124814_metadata,
                  openpbta_mb_metadata,
                  openpbta_lgg_metadata,
                  sj_metadata) |>
-  dplyr::filter(!is_duplicate) |> 
+  dplyr::filter(!is_duplicate) |>
   readr::write_tsv(file = bulk_metadata_output_filename)
