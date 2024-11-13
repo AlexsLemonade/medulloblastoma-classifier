@@ -23,7 +23,8 @@ GSE67850	refine.bio	NA
 GSE73038	refine.bio	NA
 GSE74195	refine.bio	NA
 GSE85217	refine.bio	NA
-GSE164677	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE164nnn/GSE164677/suppl/GSE164677_Asian_MB_RNA-seq.txt.gz
+GSE164677	url	https://www.ncbi.nlm.nih.gov/geo/download/?type=rnaseq_counts&acc=GSE164677&format=file&file=GSE164677_norm_counts_TPM_GRCh38.p13_NCBI.tsv.gz
+GSE164677	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE164nnn/GSE164677/matrix/GSE164677_series_matrix.txt.gz
 OpenPBTA	url	https://s3.amazonaws.com/d3b-openaccess-us-east-1-prd-pbta/data/release-v22-20220505/pbta-histologies.tsv
 OpenPBTA	url	https://s3.amazonaws.com/d3b-openaccess-us-east-1-prd-pbta/data/release-v22-20220505/pbta-gene-expression-rsem-tpm.stranded.rds
 OpenPBTA	url	https://s3.amazonaws.com/d3b-openaccess-us-east-1-prd-pbta/data/release-v22-20220505/pbta-gene-expression-rsem-tpm.polya.rds
