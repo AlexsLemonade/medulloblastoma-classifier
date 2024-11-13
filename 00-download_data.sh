@@ -77,7 +77,7 @@ while read accession download_source url; do
   elif [[ ${download_source} == url ]]; then
 
     mkdir -p ${data}/${accession}
-    url_basename=$(basename ${url})
+    url_basename=$(basename ${url} | rev | cut -f1 -d'=' | rev)
     file_name=${data}/${accession}/${url_basename}
 
     if [[ -f ${file_name} ]]; then
