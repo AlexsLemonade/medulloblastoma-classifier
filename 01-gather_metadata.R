@@ -12,6 +12,7 @@ GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677
 openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
 sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
 GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
+GSE155446_metadata_input_filename <- file.path(data_dir, "GSE155446", "GSE155446_human_cell_metadata.csv.gz")
 
 # output file names
 bulk_metadata_output_filename <- file.path(processed_data_dir,
@@ -26,12 +27,13 @@ pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
 clean_mb_subgroups <- function(df){
 
   df <- df |>
-    dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
-                                              subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
+    dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3", "GP3") ~ "G3",
+                                              subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4", "GP4") ~ "G4",
                                               subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                              TRUE ~ subgroup))
+                                              subgroup %in% c("GP3/4") ~ NA,
+                                              .default = subgroup))
 
   return(df)
 
@@ -207,11 +209,27 @@ GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filen
                 platform,
                 is_PDX,
                 subtype = methylation.subtype.ch1) |>
-  clean_mb_subgroups() |>
-  readr::write_tsv(file = pseudobulk_metadata_output_filename)
+  clean_mb_subgroups()
 
 ################################################################################
-# combine metadata and write to file
+# GSE155446
+################################################################################
+
+GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
+                                      col_types = "c") |>
+  dplyr::select(sample_accession = geo_sample_id,
+                title = geo_sample_id,
+                subgroup = subgroup) |>
+  unique() |>
+  dplyr::mutate(study = "GSE155446",
+                is_duplicate = FALSE,
+                platform = "Pseudo-bulk",
+                is_PDX = FALSE,
+                subtype = NA) |>
+  clean_mb_subgroups()
+
+################################################################################
+# combine bulk metadata and write to file
 ################################################################################
 
 # 4 MB subgroups, NA subgroup, Normal subgroup, LGG
@@ -222,3 +240,12 @@ dplyr::bind_rows(GSE124814_metadata,
                  sj_metadata) |>
   dplyr::filter(!is_duplicate) |>
   readr::write_tsv(file = bulk_metadata_output_filename)
+
+################################################################################
+# combine pseudo-bulk metadata and write to file
+################################################################################
+
+dplyr::bind_rows(GSE119926_metadata,
+                 GSE155446_metadata) |>
+  dplyr::filter(!is_duplicate) |>
+  readr::write_tsv(file = pseudobulk_metadata_output_filename)
