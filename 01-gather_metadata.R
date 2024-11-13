@@ -192,7 +192,7 @@ sj_metadata <- readr::read_tsv(file = sj_metadata_input_filename,
 # GSE119926
 ################################################################################
 
-GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filename) |>
+GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filename) |>
   as.data.frame() |>
   dplyr::mutate(is_duplicate = FALSE,
                 study = "GSE119926",
