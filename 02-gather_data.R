@@ -28,7 +28,7 @@ pseudobulk_metadata_input_filepath <- here::here(processed_data_dir,
 GSE124184_experiment_accessions_input_filepath <- here::here(data_dir,
                                                              "GSE124814_experiment_accessions.tsv")
 GSE164677_genex_input_filepath <- here::here(data_dir, "GSE164677",
-                                             "GSE164677_Asian_MB_RNA-seq.txt.gz")
+                                             "GSE164677_norm_counts_TPM_GRCh38.p13_NCBI.tsv.gz")
 OpenPBTA_polya_genex_input_filepath <- here::here(data_dir, "OpenPBTA",
                                                   "pbta-gene-expression-rsem-tpm.polya.rds")
 OpenPBTA_stranded_genex_input_filepath <- here::here(data_dir, "OpenPBTA",
@@ -120,12 +120,12 @@ names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accessio
 
 genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath,
                                                   col_names = TRUE,
-                                                  show_col_types = FALSE,
-                                                  skip = 1) |>
-  dplyr::filter(!duplicated(gene)) |>
-  convert_gene_names(gene_column_before = "gene",
+                                                  show_col_types = FALSE) |>
+  dplyr::mutate(GeneID = as.character(GeneID)) |>
+  dplyr::filter(!duplicated(GeneID)) |>
+  convert_gene_names(gene_column_before = "GeneID",
                      gene_column_after = "gene",
-                     map_from = "SYMBOL",
+                     map_from = "ENTREZID",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene")
 
