@@ -7,18 +7,18 @@ data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
 
 # input file names
-GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
-GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_series_matrix.txt.gz")
-openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
-sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
-GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
-GSE155446_metadata_input_filename <- file.path(data_dir, "GSE155446", "GSE155446_human_cell_metadata.csv.gz")
+GSE124814_metadata_input_filename <- here::here(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
+GSE164677_metadata_input_filename <- here::here(data_dir, "GSE164677", "GSE164677_series_matrix.txt.gz")
+openpbta_metadata_input_filename <- here::here(data_dir, "OpenPBTA", "pbta-histologies.tsv")
+sj_metadata_input_filename <- here::here(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
+GSE119926_metadata_input_filename <- here::here(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
+GSE155446_metadata_input_filename <- here::here(data_dir, "GSE155446", "GSE155446_human_cell_metadata.csv.gz")
 
 # output file names
-bulk_metadata_output_filename <- file.path(processed_data_dir,
-                                           "bulk_metadata.tsv")
-pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
-                                                 "pseudobulk_metadata.tsv")
+bulk_metadata_output_filename <- here::here(processed_data_dir,
+                                            "bulk_metadata.tsv")
+pseudobulk_metadata_output_filename <- here::here(processed_data_dir,
+                                                  "pseudobulk_metadata.tsv")
 
 ################################################################################
 # functions
