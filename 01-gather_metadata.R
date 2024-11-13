@@ -28,7 +28,7 @@ clean_mb_subgroups <- function(df){
   df <- df |>
     dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
                                               subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
-                                              subgroup %in% c("NORM") ~ "Normal",
+                                              subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
                                               TRUE ~ subgroup))
@@ -107,12 +107,11 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # GSE164677
 ################################################################################
 
-# This file contains both metadata and expression values
-# Here, we only want the first two rows (the metadata rows), then transpose it,
-# then clean it up for combination with metadata from other studies.
-GSE164677_parsed <- GEOquery::parseGEO(GSE164677_metadata_input_filename)
-GSE164677_metadata <- tibble::tibble(sample_accession = GSE164677_parsed$geo_accession,
-                                     subgroup = GSE164677_parsed$`medulloblastoma subgroup:ch1`) |>
+# Get the GEO series metadata file and transform it
+GSE164677_metadata <- GEOquery::getGEO(filename = GSE164677_metadata_input_filename) |>
+  as.data.frame() |>
+  dplyr::select(sample_accession = geo_accession,
+                subgroup = medulloblastoma.subgroup.ch1) |>
   dplyr::mutate(study = "GSE164677",
                 is_duplicate = FALSE,
                 platform = "RNA-seq") |>
