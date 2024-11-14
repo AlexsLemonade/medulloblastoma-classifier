@@ -288,7 +288,7 @@ get_train_test_samples <- function(genex_df,
     always_train_array_error_message <- stringr::str_c(
       "Array studies ",
       stringr::str_c(missing_array, collapse = ", "),
-      " are required to be in training data but are not found in metadata.")
+      " are required to be in training data but are not found in metadata.\n")
 
   }
 
@@ -300,7 +300,7 @@ get_train_test_samples <- function(genex_df,
     always_train_rnaseq_error_message <- stringr::str_c(
       "RNA-seq studies ",
       stringr::str_c(missing_rnaseq, collapse = ", "),
-      " are required to be in training data but are not found in metadata.")
+      " are required to be in training data but are not found in metadata.\n")
 
   }
 
