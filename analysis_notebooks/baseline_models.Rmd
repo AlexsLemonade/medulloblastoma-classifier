@@ -107,6 +107,7 @@ The MM2S and LASSO models use default settings.
 Out of all the repeats, we select one 'official' repeat for visualization.
 The 'official' repeat maximizes the median Kappa across all models within the repeat.
 Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
+We always include the array study GSE37418 in training because a comparison tool (medulloPackage) also trained on that study.
 
 ```{r}
 
@@ -121,6 +122,7 @@ if (create_models) {
                                                   metadata_df = bulk_metadata_df,
                                                   labels = mb_subgroups,
                                                   model_types = c("ktsp", "rf"),
+                                                  array_studies_for_training = "GSE37418",
                                                   initial_seed = params$seed,
                                                   n_repeats = params$n_repeats,
                                                   n_cores = params$n_cores,
@@ -148,6 +150,7 @@ if (create_models) {
                                                     metadata_df = bulk_metadata_df,
                                                     labels = mb_subgroups,
                                                     model_types = c("ktsp", "rf"),
+                                                    array_studies_for_training = "GSE37418",
                                                     initial_seed = params$seed,
                                                     n_repeats = params$n_repeats,
                                                     n_cores = params$n_cores,
@@ -182,6 +185,7 @@ if (create_models) {
                                             model_types = c("mm2s", 
                                                             "lasso",
                                                             "medullopackage"),
+                                            array_studies_for_training = "GSE37418",
                                             initial_seed = params$seed,
                                             n_repeats = params$n_repeats,
                                             n_cores = params$n_cores)
