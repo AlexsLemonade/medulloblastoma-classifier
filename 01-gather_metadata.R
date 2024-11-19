@@ -219,6 +219,11 @@ GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filen
 # GSE155446
 ################################################################################
 
+# Two sample names are mismatched between metadata and data files
+# Metadata sample 966-recurrence likely matches data file 966-2.tsv
+# Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
+# We remove them here to be conservative.
+
 GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                                       col_types = "c") |>
   dplyr::select(sample_accession = geo_sample_id,
@@ -230,6 +235,8 @@ GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                 platform = "Pseudo-bulk",
                 is_PDX = FALSE,
                 subtype = NA) |>
+  dplyr::filter(sample_accession != "966-recurrence",
+                sample_accession != "934-repeat") |>
   clean_mb_subgroups()
 
 ################################################################################
