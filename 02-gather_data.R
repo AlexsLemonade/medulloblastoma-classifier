@@ -7,48 +7,60 @@
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
-pseudobulk_sce_output_dir <- file.path(processed_data_dir, "pseudobulk_sce")
+pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
+GSE119926_pseudobulk_dir <- here::here(pseudobulk_data_dir, "GSE119926")
+GSE119926_pseudobulk_sce_dir <- here::here(GSE119926_pseudobulk_dir, "pseudobulk_sce")
+GSE155446_pseudobulk_dir <- here::here(pseudobulk_data_dir, "GSE155446")
+GSE155446_pseudobulk_sce_dir <- here::here(GSE155446_pseudobulk_dir, "pseudobulk_sce")
 utils_dir <- here::here("utils")
 
-source(file.path(utils_dir, "convert_gene_names.R"))
-source(file.path(utils_dir, "single-cell.R"))
-source(file.path(utils_dir, "TPM_conversion.R"))
+source(here::here(utils_dir, "convert_gene_names.R"))
+source(here::here(utils_dir, "single-cell.R"))
+source(here::here(utils_dir, "TPM_conversion.R"))
+
+purrr::map(c(GSE119926_pseudobulk_sce_dir,
+             GSE155446_pseudobulk_sce_dir),
+           function(dir) dir.create(dir,
+                                    showWarnings = FALSE,
+                                    recursive = TRUE))
 
 ################################################################################
 # set input and output filepaths
 ################################################################################
 
 # metadata inputs
-bulk_metadata_input_filepath <- file.path(processed_data_dir,
-                                          "bulk_metadata.tsv")
-pseudobulk_metadata_input_filepath <- file.path(processed_data_dir,
-                                                "pseudobulk_metadata.tsv")
+bulk_metadata_input_filepath <- here::here(processed_data_dir,
+                                           "bulk_metadata.tsv")
+pseudobulk_metadata_input_filepath <- here::here(pseudobulk_data_dir,
+                                                 "pseudobulk_metadata.tsv")
 
 # bulk genex inputs
-GSE124184_experiment_accessions_input_filepath <- file.path(data_dir,
-                                                            "GSE124814_experiment_accessions.tsv")
-GSE164677_genex_input_filepath <- file.path(data_dir, "GSE164677",
-                                            "GSE164677_Asian_MB_RNA-seq.txt.gz")
-OpenPBTA_polya_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
-                                                 "pbta-gene-expression-rsem-tpm.polya.rds")
-OpenPBTA_stranded_genex_input_filepath <- file.path(data_dir, "OpenPBTA",
-                                                    "pbta-gene-expression-rsem-tpm.stranded.rds")
+GSE124184_experiment_accessions_input_filepath <- here::here(data_dir,
+                                                             "GSE124814_experiment_accessions.tsv")
+GSE164677_genex_input_filepath <- here::here(data_dir, "GSE164677",
+                                             "GSE164677_norm_counts_TPM_GRCh38.p13_NCBI.tsv.gz")
+OpenPBTA_polya_genex_input_filepath <- here::here(data_dir, "OpenPBTA",
+                                                  "pbta-gene-expression-rsem-tpm.polya.rds")
+OpenPBTA_stranded_genex_input_filepath <- here::here(data_dir, "OpenPBTA",
+                                                     "pbta-gene-expression-rsem-tpm.stranded.rds")
 
 # gene map input
-gene_map_input_filepath <- file.path(processed_data_dir,
-                                     "gene_map.tsv")
+gene_map_input_filepath <- here::here(processed_data_dir,
+                                      "gene_map.tsv")
 
 # GENCODE annotations for St. Jude RNA-seq counts to TPM conversion
-gencode_annotation_gtf_filepath <- file.path(data_dir, "GENCODE",
-                                             "gencode.v31.annotation.gtf.gz")
-GENCODE_gene_lengths_filepath <- file.path(data_dir, "GENCODE",
-                                           "GENCODE_gene_lengths.tsv")
+gencode_annotation_gtf_filepath <- here::here(data_dir, "GENCODE",
+                                              "gencode.v31.annotation.gtf.gz")
+GENCODE_gene_lengths_filepath <- here::here(data_dir, "GENCODE",
+                                            "GENCODE_gene_lengths.tsv")
 
 # genex outputs
-bulk_genex_df_output_filepath <- file.path(processed_data_dir,
-                                           "bulk_genex.tsv")
-pseudobulk_genex_df_output_filepath <- file.path(processed_data_dir,
-                                                 "pseudobulk_genex.tsv")
+bulk_genex_df_output_filepath <- here::here(processed_data_dir,
+                                            "bulk_genex.tsv")
+GSE119926_pseudobulk_genex_df_output_filepath <- here::here(GSE119926_pseudobulk_dir,
+                                                            "GSE119926_pseudobulk_genex.tsv")
+GSE155446_pseudobulk_genex_df_output_filepath <- here::here(GSE155446_pseudobulk_dir,
+                                                            "GSE155446_pseudobulk_genex.tsv")
 
 ################################################################################
 # functions
@@ -111,21 +123,22 @@ GSE124184_experiment_accession_ids <- readr::read_tsv(GSE124184_experiment_acces
 
 
 genex_data_list <- purrr::map(GSE124184_experiment_accession_ids$experiment_accession,
-                              function(x) get_genex_data(file.path(data_dir, x, x, stringr::str_c(x, ".tsv", sep = "")),
+                              function(x) get_genex_data(here::here(data_dir, x, x, stringr::str_c(x, ".tsv", sep = "")),
                                                          bulk_metadata$sample_accession))
 
 names(genex_data_list) <- GSE124184_experiment_accession_ids$experiment_accession
 
 ### GSE164677
-
+# sanity check: column sums are all close to but less than 1e6, as expected if
+# TPM conversion was done, then followed by some additional gene filtering steps
 genex_data_list[["GSE164677"]] <- readr::read_tsv(GSE164677_genex_input_filepath,
                                                   col_names = TRUE,
-                                                  show_col_types = FALSE,
-                                                  skip = 1) |>
-  dplyr::filter(!duplicated(gene)) |>
-  convert_gene_names(gene_column_before = "gene",
+                                                  show_col_types = FALSE) |>
+  dplyr::mutate(GeneID = as.character(GeneID)) |>
+  dplyr::filter(!duplicated(GeneID)) |>
+  convert_gene_names(gene_column_before = "GeneID",
                      gene_column_after = "gene",
-                     map_from = "SYMBOL",
+                     map_from = "ENTREZID",
                      map_to = "ENSEMBL") |>
   tibble::column_to_rownames(var = "gene")
 
@@ -148,8 +161,8 @@ GENCODE_gene_lengths_df <- get_GENCODE_gene_lengths(gtf_filepath = gencode_annot
 genex_data_list[["St. Jude"]] <- bulk_metadata |>
   dplyr::filter(study == "St. Jude") |>
   dplyr::pull(sample_accession) |>
-  purrr::map(function(x) readr::read_tsv(file.path(data_dir, "stjudecloud",
-                                                   stringr::str_c(x, ".RNA-Seq.feature-counts.txt")),
+  purrr::map(function(x) readr::read_tsv(here::here(data_dir, "stjudecloud",
+                                                    stringr::str_c(x, ".RNA-Seq.feature-counts.txt")),
                                          col_names = c("SYMBOL", x), show_col_types = FALSE) |>
                tibble::column_to_rownames("SYMBOL")) |>
   dplyr::bind_cols() |>
@@ -186,20 +199,27 @@ lapply(genex_data_list,
 pseudobulk_metadata <- readr::read_tsv(pseudobulk_metadata_input_filepath,
                                        show_col_types = FALSE)
 
+# GSE119926, which has separate files for each sample
+
+GSE119926_pseudobulk_metadata <- pseudobulk_metadata |>
+  dplyr::filter(study == "GSE119926")
+
 # grab the names of the individual expression files
-sample_accession_ids <- pseudobulk_metadata$sample_accession
-sample_titles <- pseudobulk_metadata$title
+GSE119926_sample_accession_ids <- GSE119926_pseudobulk_metadata$sample_accession
+GSE119926_sample_titles <- GSE119926_pseudobulk_metadata$title
 
-pseudobulk_df <- NULL
+GSE119926_pseudobulk_df <- NULL
 
-for (sample_iter in 1:length(sample_accession_ids)) {
+for (sample_iter in seq_along(GSE119926_sample_accession_ids)) {
 
-  sample_acc <- sample_accession_ids[sample_iter]
-  sample_title <- sample_titles[sample_iter]
+  print(sample_iter)
 
-  pseudobulk_expression_filepath <- file.path(data_dir,
-                                              "GSE119926",
-                                              stringr::str_c(sample_acc, "_", sample_title, ".txt.gz"))
+  sample_acc <- GSE119926_sample_accession_ids[sample_iter]
+  sample_title <- GSE119926_sample_titles[sample_iter]
+
+  pseudobulk_expression_filepath <- here::here(data_dir,
+                                               "GSE119926",
+                                               stringr::str_c(sample_acc, "_", sample_title, ".txt.gz"))
 
   scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
                                     skip = 1,
@@ -225,21 +245,21 @@ for (sample_iter in 1:length(sample_accession_ids)) {
   # if pseudobulk_df does not contain data yet (i.e. if sample_iter is 1),
   # then create a gene column and sample column for the first sample,
   # otherwise, add a column for each additional sample
-  if (is.null(pseudobulk_df)) {
+  if (is.null(GSE119926_pseudobulk_df)) {
 
-    pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
+    GSE119926_pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
                                     "{sample_title}" := average_tpm_vector)
 
   } else {
 
-    pseudobulk_df <- pseudobulk_df |>
+    GSE119926_pseudobulk_df <- GSE119926_pseudobulk_df |>
       tibble::add_column("{sample_title}" := average_tpm_vector)
 
   }
 
   # define output file names for SCE objects
-  sce_output_filepath = file.path(pseudobulk_sce_output_dir,
-                                  stringr::str_c(sample_title, "_sce.rds"))
+  sce_output_filepath = here::here(GSE119926_pseudobulk_sce_dir,
+                                   stringr::str_c(sample_title, "_sce.rds"))
 
   # convert TPM matrix to SingleCellExperiment objects
   SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
@@ -252,6 +272,83 @@ for (sample_iter in 1:length(sample_accession_ids)) {
 
 }
 
-# save pseudobulk df object
-readr::write_tsv(pseudobulk_df,
-                 pseudobulk_genex_df_output_filepath)
+# save GSE119926 pseudobulk df object
+readr::write_tsv(GSE119926_pseudobulk_df,
+                 GSE119926_pseudobulk_genex_df_output_filepath)
+
+# GSE155446, samples have already been split by accession
+# Two sample names are mismatched between metadata and data files
+# Metadata sample 966-recurrence likely matches data file 966-2.tsv
+# Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
+# We remove them here to be conservative.
+
+GSE155446_pseudobulk_metadata <- pseudobulk_metadata |>
+  dplyr::filter(study == "GSE155446")
+
+# grab the names of the individual expression files
+GSE155446_sample_accession_ids <- GSE155446_pseudobulk_metadata$sample_accession
+GSE155446_sample_titles <- GSE155446_pseudobulk_metadata$title
+
+GSE155446_pseudobulk_df <- NULL
+
+for (sample_iter in seq_along(GSE155446_sample_accession_ids)) {
+
+  print(sample_iter)
+
+  sample_acc <- GSE155446_sample_accession_ids[sample_iter]
+  sample_title <- GSE155446_sample_titles[sample_iter]
+
+  pseudobulk_expression_filepath <- here::here(data_dir,
+                                               "GSE155446", "split",
+                                               stringr::str_c(sample_acc, ".tsv"))
+
+  scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
+                                    show_col_types = FALSE) |>
+    dplyr::filter(!duplicated(gene)) |>
+    convert_gene_names(gene_column_before = "gene",
+                       gene_column_after = "gene",
+                       map_from = "SYMBOL",
+                       map_to = "ENSEMBL") |>
+    tibble::column_to_rownames(var = "gene")
+
+  # separate step to convert counts to TPM but could also be piped
+  tpm_genex_df <- convert_gene_counts_to_TPM(genex_df = scrna_genex_df,
+                                             gene_lengths_df = GENCODE_gene_lengths_df)
+
+  # average the TPM values across cells
+  average_tpm_vector <- rowMeans(tpm_genex_df)
+
+  # combine the list of TPM values into a single matrix
+  # if pseudobulk_df does not contain data yet (i.e. if sample_iter is 1),
+  # then create a gene column and sample column for the first sample,
+  # otherwise, add a column for each additional sample
+  if (is.null(GSE155446_pseudobulk_df)) {
+
+    GSE155446_pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
+                                    "{sample_title}" := average_tpm_vector)
+
+  } else {
+
+    GSE155446_pseudobulk_df <- GSE155446_pseudobulk_df |>
+      tibble::add_column("{sample_title}" := average_tpm_vector)
+
+  }
+
+  # define output file names for SCE objects
+  sce_output_filepath = here::here(GSE155446_pseudobulk_sce_dir,
+                                   stringr::str_c(sample_title, "_sce.rds"))
+
+  # convert TPM matrix to SingleCellExperiment objects
+  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
+    # calculate UMAP results
+    add_sce_umap() |>
+    # perform clustering
+    perform_graph_clustering() |>
+    # write to file
+    readr::write_rds(file = sce_output_filepath)
+
+}
+
+# save GSE155446 pseudobulk df object
+readr::write_tsv(GSE155446_pseudobulk_df,
+                 GSE155446_pseudobulk_genex_df_output_filepath)
