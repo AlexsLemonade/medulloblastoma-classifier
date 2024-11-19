@@ -280,21 +280,14 @@ readr::write_tsv(GSE119926_pseudobulk_df,
 # Two sample names are mismatched between metadata and data files
 # Metadata sample 966-recurrence likely matches data file 966-2.tsv
 # Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
-# Including those samples at this stage does not impact downstream analysis.
-# They can be removed later but it would be nice to settle the issue here.
+# We remove them here to be conservative.
 
 GSE155446_pseudobulk_metadata <- pseudobulk_metadata |>
-  dplyr::filter(study == "GSE155446") |>
-  #dplyr::filter(sample_accession != "966-recurrence") |> # can be un/commented
-  #dplyr::filter(sample_accession != "943") |> # can be un/commented
-  dplyr::mutate(data_file_prefix = dplyr::case_when(sample_accession == "966-recurrence" ~ "966-2", # can be un/commented
-                                                    sample_accession == "934-repeat" ~ "943", # can be un/commented
-                                                    .default = sample_accession))
+  dplyr::filter(study == "GSE155446")
 
 # grab the names of the individual expression files
 GSE155446_sample_accession_ids <- GSE155446_pseudobulk_metadata$sample_accession
 GSE155446_sample_titles <- GSE155446_pseudobulk_metadata$title
-GSE155446_data_file_prefixes <- GSE155446_pseudobulk_metadata$data_file_prefix
 
 GSE155446_pseudobulk_df <- NULL
 
@@ -304,11 +297,10 @@ for (sample_iter in seq_along(GSE155446_sample_accession_ids)) {
 
   sample_acc <- GSE155446_sample_accession_ids[sample_iter]
   sample_title <- GSE155446_sample_titles[sample_iter]
-  data_file_prefix <- GSE155446_data_file_prefixes[sample_iter]
 
   pseudobulk_expression_filepath <- here::here(data_dir,
                                                "GSE155446", "split",
-                                               stringr::str_c(data_file_prefix, ".tsv"))
+                                               stringr::str_c(sample_acc, ".tsv"))
 
   scrna_genex_df <- readr::read_tsv(pseudobulk_expression_filepath,
                                     show_col_types = FALSE) |>
