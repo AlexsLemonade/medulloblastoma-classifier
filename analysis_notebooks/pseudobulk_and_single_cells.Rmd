@@ -34,8 +34,8 @@ single_cell_plot_data_filepath <- here::here(plots_data_dir, "single_cell_test_p
 pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
 
 # Output plots
-pseudobulk_barplot_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_score_proportion.pdf")
-pseudobulk_points_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_scores.pdf")
+pseudobulk_barplot_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_score_barplot.pdf")
+pseudobulk_points_plot_filepath <- here::here(plots_dir, "single_cell_pseudobulk_score_points.pdf")
 percentage_subgroups_plot_filepath <- here::here(plots_dir, "single_cell_percentage_subgroups.pdf")
 subgroup_umap_plot_filepath <- here::here(plots_dir, "single_cell_subgroup_umap.pdf")
 rf_prob_umap_plot_filepath <- here::here(plots_dir, "single_cell_rf_prob_umap.pdf")
@@ -60,27 +60,66 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 ```
 
+
 # Plot pseudobulk subgroup predictions
 
 ```{r}
+ktsp_pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type == "kTSP (w)") |>
+  dplyr::rowwise() |> 
+  dplyr::mutate(total_score = sum(G3, G4, SHH, WNT)) |>
+  dplyr::mutate_at(dplyr::vars(G3, G4, SHH, WNT), ~ (.x/total_score) * 100) |>
+  dplyr::select(-total_score) |>
+  dplyr::ungroup() |>
+  tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                      names_to = "predicted_subgroup")
+  
 
-pseudobulk_barplot_object <- pseudobulk_plot_df |>
+rf_pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type == "RF (w)") |>
+  tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                      names_to = "predicted_subgroup")
+```
+
+```{r}
+rf_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
                                fill = predicted_subgroup)) +
-  ggplot2::geom_col(position = "fill") +
+  ggplot2::geom_col() +
   ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
-  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
-                      cols = ggplot2::vars(model_type),
-                      space = "free_y",
-                      scales = "free_y") +
   ggplot2::scale_fill_manual(values = subgroup_colors) +
-  ggplot2::labs(x = "Pseudobulk Score Proportion",
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Probability",
                 y = NULL,
-                fill = "Predicted Subgroup") +
+                fill = "Predicted Subgroup",
+                title = "Random Forest (Weighted)") +
   ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12))
+
+ktsp_barplot_object <- ktsp_pseudobulk_plot_df |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               fill = predicted_subgroup)) +
+  ggplot2::geom_col() +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Percentage of Total Score",
+                y = NULL,
+                fill = "Predicted Subgroup",
+                title = "k Top Scoring Pairs (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12))
+
+pseudobulk_barplot_object <- ktsp_barplot_object + rf_barplot_object + 
+  plot_layout(guides = "collect")
 
 ggplot2::ggsave(filename = pseudobulk_barplot_plot_filepath,
                 plot = pseudobulk_barplot_object,
@@ -88,32 +127,53 @@ ggplot2::ggsave(filename = pseudobulk_barplot_plot_filepath,
                 height = 6)
 
 pseudobulk_barplot_object
-
 ```
 
 Plot individual scores, rather than proportions.
 Scores for RF models are probabilities.
 
 ```{r}
-pseudobulk_points_object <- pseudobulk_plot_df |> 
+rf_points_object <- rf_pseudobulk_plot_df |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
                                color = predicted_subgroup,
                                shape = predicted_subgroup)) +
   ggplot2::geom_point(alpha = 0.75) +
-  ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
   ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
-                      cols = ggplot2::vars(model_type),
-                      space = "free_y",
-                      scales = "free_y") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal") +
-  ggplot2::labs(x = "Subgroup Score",
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Probability",
                 y = NULL,
-                color = "Predicted Subgroup",
-                shape = "Predicted Subgroup")
+                fill = "Predicted Subgroup",
+                title = "Random Forest (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12))
+
+ktsp_points_object <- ktsp_pseudobulk_plot_df |>
+ ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               color = predicted_subgroup,
+                               shape = predicted_subgroup)) +
+  ggplot2::geom_point(alpha = 0.75) +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Percentage of Total Score",
+                y = NULL,
+                fill = "Predicted Subgroup",
+                title = "k Top Scoring Pairs (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12))
+
+pseudobulk_points_object <- ktsp_points_object + rf_points_object + 
+  plot_layout(guides = "collect")
+
 
 ggplot2::ggsave(filename = pseudobulk_points_plot_filepath,
                 plot = pseudobulk_points_object,
@@ -129,19 +189,16 @@ pseudobulk_points_object
 ```{r}
 
 pseudobulk_plot_df |>
-  tidyr::pivot_wider(id_cols = c(sample_accession, subgroup),
-                     names_from = c(model_type, predicted_subgroup),
-                     values_from = value) |>
   dplyr::rowwise() |>
-  dplyr::mutate(kTSP_pred = c("G3", "G4", "SHH", "WNT")[which.max(c(`kTSP (w)_G3`, `kTSP (w)_G4`, `kTSP (w)_SHH`, `kTSP (w)_WNT`))],
-                RF_pred = c("G3", "G4", "SHH", "WNT")[which.max(c(`RF (w)_G3`, `RF (w)_G4`, `RF (w)_SHH`, `RF (w)_WNT`))]) |>
+  dplyr::mutate(predicted_subgroup = 
+                  c("G3", "G4", "SHH", "WNT")[which.max(c(G3, G4, SHH, WNT))]) |>
   dplyr::ungroup() |>
-  dplyr::filter(subgroup != kTSP_pred | subgroup != RF_pred) |>
+  dplyr::filter(subgroup != predicted_subgroup) |>
   dplyr::select(Sample = sample_accession,
                 `Actual subgroup` = subgroup,
-                `kTSP prediction` = kTSP_pred,
-                `RF prediction` = RF_pred) |>
-  knitr::kable()
+                `Predicted subgroup` = predicted_subgroup,
+                `Model` = model_type) |>
+   knitr::kable()
 
 ```
 
