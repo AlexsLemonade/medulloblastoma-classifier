@@ -268,7 +268,7 @@ rf_prob_umap_object <- single_cell_plot_df |>
                 y = "UMAP 2",
                 color = "Probability",
                 title = "Random Forest (Weighted)") +
-  ggplot2::theme(plot.title = ggplot2::element_text(hjust =))
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
 
 ggplot2::ggsave(filename = rf_prob_umap_plot_filepath,
                 plot = rf_prob_umap_object,
