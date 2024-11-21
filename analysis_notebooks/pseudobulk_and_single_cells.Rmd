@@ -41,9 +41,7 @@ subgroup_umap_plot_filepath <- here::here(plots_dir, "single_cell_subgroup_umap.
 rf_prob_umap_plot_filepath <- here::here(plots_dir, "single_cell_rf_prob_umap.pdf")
 confidence_plot_filepath <- here::here(plots_dir, "single_cell_confidence.pdf")
 cluster_umap_plot_filepath <- here::here(plots_dir, "single_cell_cluster_umap.pdf")
-
-combined_percentage_plot_filepath <- here::here(plots_dir, "single_cell_combined_percentage.pdf")
-combined_umap_plot_filepath <- here::here(plots_dir, "single_cell_combined_umap.pdf")
+cell_prob_plot_filepath <- here::here(plots_dir, "single_cell_rf_prob_barplot.pdf")
 
 # Read in data
 pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
@@ -471,6 +469,7 @@ confidence_plot_object
 ### Individual cell probabilities for RF model
 
 ```{r}
+# Subset to data needed to plot individual cell probabilities for RF model
 individual_cells_prob_df <- single_cell_plot_df |>
   dplyr::filter(sample_accession %in% mixed_samples,
                 model_type == "RF (w)") |>
@@ -485,6 +484,10 @@ individual_cells_prob_df <- single_cell_plot_df |>
   tidyr::pivot_longer(cols = all_of(mb_subgroups),
                       names_to = "predicted_subgroup")
 
+# Use the sample with subgroup column for display
+sample_plot_titles <- unique(individual_cells_prob_df$sample_with_subgroup)
+
+# Make a stacked barplot of probabilities for each sample
 cells_prob_plots_list <- purrr::map(mixed_samples,
                                     \(sample_id) individual_cells_prob_df |> 
                                       dplyr::filter(sample_accession == sample_id,
@@ -501,7 +504,7 @@ cells_prob_plots_list <- purrr::map(mixed_samples,
                                                           space = "free_y") +
                                       ggplot2::labs(fill = "Predicted Subgroup",
                                                     x = "Probability",
-                                                    title = sample_id) +
+                                                    title = sample_plot_titles[stringr::str_detect(sample_plot_titles, sample_id)]) +
                                       ggplot2::theme_bw() +
                                       ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                                                         size = 12),
@@ -510,9 +513,16 @@ cells_prob_plots_list <- purrr::map(mixed_samples,
                                                      axis.ticks.y = ggplot2::element_blank())
 )
 
-wrap_plots(cells_prob_plots_list, ncol = 3)  + 
+# Create a 3 column plot with a single legend to the right of the panels
+cell_prob_object <- wrap_plots(cells_prob_plots_list, ncol = 3)  + 
   plot_layout(guides = "collect")
 
+ggplot2::ggsave(filename = cell_prob_plot_filepath,
+                plot = cell_prob_object,
+                width = 7.5,
+                height = 6)
+
+cell_prob_object
 ```
 
 ### G3 and G4 prediction confidence exists on a G3-G4 spectrum
