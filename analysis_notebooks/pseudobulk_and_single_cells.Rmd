@@ -63,7 +63,11 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Plot pseudobulk subgroup predictions
 
+Prepare the data for plotting.
+
 ```{r}
+# Calculate the % of total score for each subgroup for the kTSP model
+# This will allow us to use 0-100 for the x-axis
 ktsp_pseudobulk_plot_df <- pseudobulk_plot_df |>
   dplyr::filter(model_type == "kTSP (w)") |>
   dplyr::rowwise() |> 
@@ -71,17 +75,22 @@ ktsp_pseudobulk_plot_df <- pseudobulk_plot_df |>
   dplyr::mutate_at(dplyr::vars(G3, G4, SHH, WNT), ~ (.x/total_score) * 100) |>
   dplyr::select(-total_score) |>
   dplyr::ungroup() |>
+  # Long format for plotting
   tidyr::pivot_longer(cols = all_of(mb_subgroups),
                       names_to = "predicted_subgroup")
   
-
+# The "scores" for RF models are probabilities, given the way we train RF 
+# models, so we only need to get this into long format for plotting
 rf_pseudobulk_plot_df <- pseudobulk_plot_df |>
   dplyr::filter(model_type == "RF (w)") |>
   tidyr::pivot_longer(cols = all_of(mb_subgroups),
                       names_to = "predicted_subgroup")
 ```
 
+Create a stacked barplot figure.
+
 ```{r}
+# Create stacked barplot for RF model
 rf_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
@@ -100,6 +109,7 @@ rf_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12))
 
+# Stacked barplot for kTSP model
 ktsp_barplot_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
@@ -118,6 +128,7 @@ ktsp_barplot_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12))
 
+# Plot side-by-side with a single legend on the right
 pseudobulk_barplot_object <- ktsp_barplot_object + rf_barplot_object + 
   plot_layout(guides = "collect")
 
@@ -129,10 +140,10 @@ ggplot2::ggsave(filename = pseudobulk_barplot_plot_filepath,
 pseudobulk_barplot_object
 ```
 
-Plot individual scores, rather than proportions.
-Scores for RF models are probabilities.
+Plot using points, rather than a stacked bar plot.
 
 ```{r}
+# Points plot for RF model
 rf_points_object <- rf_pseudobulk_plot_df |>
   ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
@@ -152,6 +163,7 @@ rf_points_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12))
 
+# Points plot for kTSP model
 ktsp_points_object <- ktsp_pseudobulk_plot_df |>
  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
                                x = value,
@@ -171,6 +183,7 @@ ktsp_points_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12))
 
+# Plot side-by-side using a single legend to the right
 pseudobulk_points_object <- ktsp_points_object + rf_points_object + 
   plot_layout(guides = "collect")
 
@@ -186,12 +199,18 @@ pseudobulk_points_object
 
 ### Mislabeled samples
 
+Pull out the mislabeled pseudobulk samples.
+
 ```{r}
 
 pseudobulk_plot_df |>
   dplyr::rowwise() |>
-  dplyr::mutate(predicted_subgroup = 
-                  c("G3", "G4", "SHH", "WNT")[which.max(c(G3, G4, SHH, WNT))]) |>
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
   dplyr::ungroup() |>
   dplyr::filter(subgroup != predicted_subgroup) |>
   dplyr::select(Sample = sample_accession,
@@ -205,7 +224,6 @@ pseudobulk_plot_df |>
 ### Comparison of pseudobulk kTSP vs. RF
 
 - RF models tend to assign some likelihood to every subgroup (median of 4) while kTSP predictions are more frugal (median of 2)
-- kTSP predicted only WNT in 3/5 WNT cases
 - kTSP narrowly mixed up two G3/G4 cases (BCH825, SJ625) while RF missed only one (SJ625)
 
 # Plot single cell subgroup predictions
@@ -450,6 +468,52 @@ confidence_plot_object
 - The relative confidence levels of each cell's prediction show that predictions in samples with one dominant subgroup are more confident than in samples with mixed subgroup predictions (BCH825, Med2312FH, SJ625).
 - While some cells from mixed subgroup samples show high confidence as G3 or G4, most show that cells receive signals from both G3 and G4 rules, meaning they have an intermediate phenotype, rather than being a mixture of true G3 and true G4 cells.
 
+### Individual cell probabilities for RF model
+
+```{r}
+individual_cells_prob_df <- single_cell_plot_df |>
+  dplyr::filter(sample_accession %in% mixed_samples,
+                model_type == "RF (w)") |>
+  dplyr::left_join(mixed_samples_with_subgroup,
+                   by = "sample_accession") |>
+  dplyr::select(sample_accession,
+                sample_with_subgroup,
+                cell_index,
+                predicted_labels,
+                all_of(mb_subgroups)) |>
+  dplyr::mutate(cell_index = as.character(cell_index)) |>
+  tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                      names_to = "predicted_subgroup")
+
+cells_prob_plots_list <- purrr::map(mixed_samples,
+                                    \(sample_id) individual_cells_prob_df |> 
+                                      dplyr::filter(sample_accession == sample_id,
+                                                    predicted_labels %in% c("G3", "G4")) |>
+                                      ggplot2::ggplot(
+                                        ggplot2::aes(y = cell_index,
+                                                     x = value,
+                                                     fill = predicted_subgroup)) +
+                                      ggplot2::geom_col(position = ggplot2::position_fill()) +
+                                      ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+                                      ggplot2::scale_fill_manual(values = subgroup_colors) +
+                                      ggplot2::facet_grid(rows = ggplot2::vars(predicted_labels),
+                                                          scales = "free_y",
+                                                          space = "free_y") +
+                                      ggplot2::labs(fill = "Predicted Subgroup",
+                                                    x = "Probability",
+                                                    title = sample_id) +
+                                      ggplot2::theme_bw() +
+                                      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                                                        size = 12),
+                                                     axis.title.y = ggplot2::element_blank(),
+                                                     axis.text.y = ggplot2::element_blank(),
+                                                     axis.ticks.y = ggplot2::element_blank())
+)
+
+wrap_plots(cells_prob_plots_list, ncol = 3)  + 
+  plot_layout(guides = "collect")
+
+```
 
 ### G3 and G4 prediction confidence exists on a G3-G4 spectrum
 
