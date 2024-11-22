@@ -68,11 +68,11 @@ pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list, # list of test objects a
                                     as.data.frame() |>
                                     tibble::rownames_to_column(var = "sample_accession") |>
                                     tibble::as_tibble() |>
-                                    tidyr::pivot_longer(cols = all_of(mb_subgroups),
-                                                        names_to = "predicted_subgroup") |>
                                     dplyr::select(sample_accession,
-                                                  predicted_subgroup,
-                                                  value) |>
+                                                  G3,
+                                                  G4,
+                                                  SHH,
+                                                  WNT) |>
                                     dplyr::mutate(model_type = model_type)) |>
   dplyr::bind_rows() |>
   dplyr::left_join(pseudobulk_metadata_df |>
