@@ -335,7 +335,7 @@ rf_prob_umap_object <- single_cell_plot_df |>
                       alpha = 0.8) +
   ggplot2::facet_grid(rows = ggplot2::vars(sample_with_subgroup),
                       cols = ggplot2::vars(predicted_subgroup)) +
-  ggplot2::scale_color_viridis_c() +
+  ggplot2::scale_color_viridis_c(limits = c(0, 1)) +
   ggplot2::theme_bw() +
   ggplot2::labs(x = "UMAP 1",
                 y = "UMAP 2",
