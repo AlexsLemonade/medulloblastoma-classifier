@@ -12,3 +12,6 @@ processed_data
 
 # Local precommit file for style, etc.
 .pre-commit-local.yaml
+
+# Logs
+analysis_notebooks/log

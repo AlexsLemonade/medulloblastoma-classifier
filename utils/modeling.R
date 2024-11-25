@@ -3,7 +3,15 @@ suppressMessages(library(foreach))
 run_many_models <- function(genex_df,
                             metadata_df,
                             labels,
-                            model_types = c("ktsp", "rf", "mm2s", "lasso"),
+                            model_types = c(
+                              "ktsp",
+                              "rf",
+                              "mm2s",
+                              "lasso",
+                              "medullopackage"
+                            ),
+                            array_studies_for_training = NULL,
+                            rnaseq_studies_for_training = NULL,
                             initial_seed = 44,
                             n_repeats = 1,
                             n_cores = 1,
@@ -18,7 +26,7 @@ run_many_models <- function(genex_df,
                             rf_rules_altogether = 50,
                             rf_rules_one_vs_rest = 50,
                             rf_weighted = TRUE,
-                            mm2s_ah_date = "2022-10-30") {
+                            ah_date = "2022-10-30") {
 
   # Wrapper function to run many modeling jobs in parallel. New train/test sets
   # are created for each repeat. The same train/test data is used for each model.
@@ -28,6 +36,8 @@ run_many_models <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  model_types: vector of model types (must be one or more of 'ktsp', 'rf', 'mm2s', or 'lasso') (default: all of them)
+  #  array_studies_for_training: vector of array studies to always include in training set
+  #  rnaseq_studies_for_training: vector of RNA-seq studies to always include in training set
   #  initial_seed: seed used to set train/test seeds and modeling seeds (default: 44)
   #  n_repeats: how many times to repeat each modeling type (default: 1)
   #  n_cores: number of cores to use (default: 1)
@@ -47,8 +57,8 @@ run_many_models <- function(genex_df,
   #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
-  #  MM2S parameters:
-  #    mm2s_ah_date: AnnotationHub snapshot date (default: 2022-10-30)
+  #  MM2S & medulloPackage parameters:
+  #    ah_date: AnnotationHub snapshot date (default: 2022-10-30)
   #
   # Output
   #  Model list with levels for repeat number and model type
@@ -57,11 +67,11 @@ run_many_models <- function(genex_df,
   check_input_files(genex_df = genex_df,
                     metadata_df = metadata_df)
 
-  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso"
+  # model types should be a list with elements limited to "ktsp", "rf", "mm2s", "lasso", "medullopackage"
   if (!is.vector(model_types) |
-      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso"))) {
+      !all(model_types %in% c("ktsp", "rf", "mm2s", "lasso", "medullopackage"))) {
 
-    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso'.")
+    stop("model_types in run_models() should be a vector limited to 'ktsp', 'rf', 'mm2s', 'lasso', or 'medullopackage'")
 
   }
 
@@ -133,7 +143,8 @@ run_many_models <- function(genex_df,
                             "test_rf",
                             "test_mm2s",
                             "train_lasso",
-                            "test_lasso"))
+                            "test_lasso",
+                            "test_medullo"))
 
   # these namespaces must be loaded for test_MM2S() and test_lasso() functions to work
   # done globally before splitting into parallel processes for consistency
@@ -147,7 +158,9 @@ run_many_models <- function(genex_df,
     train_test_samples_list <- get_train_test_samples(genex_df = genex_df,
                                                       metadata_df = metadata_df,
                                                       train_test_seed = train_test_seeds[n],
-                                                      proportion_of_studies_train = 0.5)
+                                                      proportion_of_studies_train = 0.5,
+                                                      always_train_array = array_studies_for_training,
+                                                      always_train_rnaseq = rnaseq_studies_for_training)
 
     # split genex and metadata by train/test status
     genex_df_train <- genex_df |>
@@ -179,7 +192,7 @@ run_many_models <- function(genex_df,
                                                         rf_rules_altogether = rf_rules_altogether,
                                                         rf_rules_one_vs_rest = rf_rules_one_vs_rest,
                                                         rf_weighted = rf_weighted,
-                                                        mm2s_ah_date = mm2s_ah_date)) |>
+                                                        ah_date = ah_date)) |>
       purrr::set_names(model_types) # set names of each list element corresponding to model type
 
     # add metadata about this repeat (seeds used, train/test metadata)
@@ -202,7 +215,9 @@ run_many_models <- function(genex_df,
 get_train_test_samples <- function(genex_df,
                                    metadata_df,
                                    train_test_seed,
-                                   proportion_of_studies_train = 0.5) {
+                                   proportion_of_studies_train = 0.5,
+                                   always_train_array = NULL,
+                                   always_train_rnaseq = NULL) {
 
   # Split data into training and test sets. Data gets split at project level.
   # Some proportion of projects become "training", remainder becomes "test".
@@ -213,6 +228,8 @@ get_train_test_samples <- function(genex_df,
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  train_test_seed: seed used for reproducibility given same input data
   #  proportion_of_studies_train: proportion of studies used as training data
+  #  always_train_array: vector of array studies to always include in training set
+  #  always_train_rnaseq: vector of RNA-seq studies to always include in training set
   #
   # Outputs
   #  List of samples used for "train" and "test" sets
@@ -238,8 +255,6 @@ get_train_test_samples <- function(genex_df,
     stop("proportion_of_studies_train must be numeric and in the range [0,1]")
   }
 
-  set.seed(train_test_seed)
-
   # Vector of array studies
   array_studies <- metadata_df |>
     dplyr::filter(sample_accession %in% names(genex_df),
@@ -263,9 +278,52 @@ get_train_test_samples <- function(genex_df,
   n_array_studies_train <- ceiling(n_array_studies*proportion_of_studies_train)
   n_rnaseq_studies_train <- ceiling(n_rnaseq_studies*proportion_of_studies_train)
 
+  # check that studies listed in always_train_array or always_train_rnaseq are
+  # actually in metadata
+  always_train_array_error_message <- NULL
+  if (!all(always_train_array %in% array_studies)) {
+
+    missing_array <- always_train_array[which(!(always_train_array %in% array_studies))]
+
+    always_train_array_error_message <- stringr::str_c(
+      "Array studies ",
+      stringr::str_c(missing_array, collapse = ", "),
+      " are required to be in training data but are not found in metadata.\n")
+
+  }
+
+  always_train_rnaseq_error_message <- NULL
+  if (!all(always_train_rnaseq %in% rnaseq_studies)) {
+
+    missing_rnaseq <- always_train_rnaseq[which(!(always_train_rnaseq %in% rnaseq_studies))]
+
+    always_train_rnaseq_error_message <- stringr::str_c(
+      "RNA-seq studies ",
+      stringr::str_c(missing_rnaseq, collapse = ", "),
+      " are required to be in training data but are not found in metadata.\n")
+
+  }
+
+  if (!is.null(always_train_array_error_message) | !is.null(always_train_rnaseq_error_message)) {
+
+    stop(stringr::str_c(c(always_train_array_error_message,
+                          always_train_rnaseq_error_message),
+                        collapse = " "))
+
+  }
+
   # Randomly sample studies for training set
-  array_studies_train <- sample(array_studies, size = n_array_studies_train)
-  rnaseq_studies_train <- sample(rnaseq_studies, size = n_rnaseq_studies_train)
+  set.seed(train_test_seed)
+
+  array_studies_to_choose_from_for_training <- array_studies[! array_studies %in% always_train_array]
+  rnaseq_studies_to_choose_from_for_training <- rnaseq_studies[! rnaseq_studies %in% always_train_rnaseq]
+
+  array_studies_train <- c(always_train_array,
+                           sample(array_studies_to_choose_from_for_training,
+                                  size = n_array_studies_train - length(always_train_array)))
+  rnaseq_studies_train <- c(always_train_rnaseq,
+                            sample(rnaseq_studies_to_choose_from_for_training,
+                                   size = n_rnaseq_studies_train - length(always_train_rnaseq)))
 
   # Force other studies to be used as test set
   array_studies_test <- setdiff(array_studies, array_studies_train)
@@ -308,7 +366,7 @@ run_one_model <- function(type,
                           rf_rules_altogether = 50,
                           rf_rules_one_vs_rest = 50,
                           rf_weighted = TRUE,
-                          mm2s_ah_date = "2022-10-30") {
+                          ah_date = "2022-10-30") {
 
   # Run a single model specified by the model type, input data, and parameters
   #
@@ -336,8 +394,8 @@ run_one_model <- function(type,
   #    rf_rules_one_vs_rest: number of top rules used when comparing each class against rest of classes (default: 50)
   #    rf_weighted: logical, if TRUE (default) use one-vs-rest and platform-wise comparisons to add weight to smaller subgroups and platforms
   #
-  #  MM2S parameters:
-  #    mm2s_ah_date: AnnotationHub snapshot date (default: 2022-10-30)
+  #  MM2S & medulloPackage parameters:
+  #    ah_date: AnnotationHub snapshot date (default: 2022-10-30)
 
 
   # Outputs
@@ -396,7 +454,7 @@ run_one_model <- function(type,
     mm2s_results <- test_mm2s(genex_df_test = genex_df_test,
                               metadata_df_test = metadata_df_test,
                               model_seed = model_seed,
-                              ah_date = mm2s_ah_date)
+                              ah_date = ah_date)
 
     mm2s_cm <- calculate_confusion_matrix(predicted_labels = mm2s_results$predicted_labels_df$predicted_labels,
                                           true_labels = metadata_df_test$subgroup,
@@ -424,9 +482,23 @@ run_one_model <- function(type,
                   test_results = lasso_results,
                   cm = lasso_cm)
 
+  } else if (type == "medullopackage") {
+
+    medullo_results <- test_medullo(genex_df_test = genex_df_test,
+                                    metadata_df_test = metadata_df_test,
+                                    ah_date = ah_date)
+
+    # Label normalization happens within the test_medullo() function
+    medullo_cm <- calculate_confusion_matrix(predicted_labels = medullo_results$predicted_labels_df$predicted_labels,
+                                             true_labels = metadata_df_test$subgroup,
+                                             labels = labels)
+
+    model <- list(test_results = medullo_results,
+                  cm = medullo_cm)
+
   } else {
 
-    stop("Type of model must be 'ktsp', 'rf', 'mm2s', or 'lasso'.")
+    stop("Type of model must be 'ktsp', 'rf', 'mm2s', 'lasso', or 'medullopackage'.")
 
   }
 
@@ -961,6 +1033,78 @@ test_lasso <- function(genex_df_test,
                             model_output = test_results)
 
   return(test_results_list)
+
+}
+
+test_medullo <- function(genex_df_test,
+                         metadata_df_test,
+                         ah_date = "2022-10-30") {
+
+  # Test medulloPackage method
+  #
+  # Inputs
+  #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
+  #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  ah_date: AnnotationHub snapshot date for gene identifier conversion (default: 2022-10-30)
+  #
+  # Outputs
+  #  List containing "predicted_labels" and "model_output" elements
+  #    "predicted_labels" contains a data frame with one row for each sample and its predicted label
+  #    "model_output" is the object returned by medulloPackage::classify()
+
+  # ensure input files are properly formatted and sample orders match
+  check_input_files(genex_df = genex_df_test,
+                    metadata_df = metadata_df_test)
+
+  # required for loading of dataset
+  library(medulloPackage)
+
+  # identify the RNA-seq samples by accession identifier
+  rnaseq_samples <- metadata_df_test |>
+    dplyr::filter(platform == "RNA-seq") |>
+    dplyr::pull(sample_accession)
+
+  # log2 transform the RNA-seq samples, which is a requirement for
+  # medulloPackage -- all data should be an abundance measure such as TPM
+  genex_df_test <- genex_df_test |>
+    dplyr::mutate_at(c(rnaseq_samples), ~ log2(.x + 1))
+
+  # convert genex_df gene names to from ENSEMBL to gene symbol as required
+  # by medulloPackage
+  genex_df_test_SYMBOL <- genex_df_test |>
+    tibble::rownames_to_column(var = "ENSEMBL") |>
+    convert_gene_names(gene_column_before = "ENSEMBL",
+                       gene_column_after = "gene",
+                       map_from = "ENSEMBL",
+                       map_to = "SYMBOL",
+                       ah_date = ah_date) |>
+    tibble::column_to_rownames(var = "gene")
+
+  # Running separately for individual samples and rbind() results as shown in
+  # example for running individual samples: https://github.com/d3b-center/medullo-classifier-package/blob/9acc2096f1de6d80b054daabcb959e9ffd4d926c/README.md#example
+  test_results <- data.frame()
+  for (sample_iter in seq_along(genex_df_test_SYMBOL)) {
+    exprs <- genex_df_test_SYMBOL[, sample_iter, drop = FALSE]
+    predicted_class <- medulloPackage::classify(exprs)
+    test_results <- rbind(test_results, predicted_class)
+  }
+
+  # Mutate subgroup labels to match what we have elsewhere
+  test_results <- test_results |>
+    dplyr::mutate(best.fit = dplyr::case_when(
+      best.fit == "Group4" ~ "G4",
+      best.fit == "Group3" ~ "G3",
+      .default = best.fit
+    ))
+
+  # Extract the subgroup labels from the test results object -- available as
+  # best.fit https://github.com/d3b-center/medullo-classifier-package/blob/9acc2096f1de6d80b054daabcb959e9ffd4d926c/README.md#run
+  predicted_labels_df <- dplyr::tibble(sample_accession = test_results$sample,
+                                       predicted_labels = test_results$best.fit)
+
+  # create output list with predicted labels and the modeling object
+  test_results_list <- list(predicted_labels_df = predicted_labels_df,
+                            model_output = test_results)
 
 }
 

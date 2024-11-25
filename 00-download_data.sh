@@ -77,7 +77,7 @@ while read accession download_source url; do
   elif [[ ${download_source} == url ]]; then
 
     mkdir -p ${data}/${accession}
-    url_basename=$(basename ${url})
+    url_basename=$(basename ${url} | rev | cut -f1 -d'=' | rev)
     file_name=${data}/${accession}/${url_basename}
 
     if [[ -f ${file_name} ]]; then
@@ -92,11 +92,17 @@ while read accession download_source url; do
 
       sleep 1
 
-    fi
+      if [[ "${file_name##*.}" == tar ]]; then
 
-    if [[ "${file_name##*.}" == tar ]]; then
+    	  tar -xf ${file_name} -C ${data}/${accession}
 
-    	tar -xf ${file_name} -C ${data}/${accession}
+      fi
+
+      if [[ "$(basename ${file_name})" == "GSE155446_human_raw_counts.csv.gz" ]]; then
+
+        bash data/split_scRNA.sh ${file_name} ${data}/${accession}/split
+
+      fi
 
     fi
 
