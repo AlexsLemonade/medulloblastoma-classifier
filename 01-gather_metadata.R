@@ -223,6 +223,8 @@ GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filen
 # Metadata sample 966-recurrence likely matches data file 966-2.tsv
 # Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
 # We remove them here to be conservative.
+# We also remove any samples that have NA for a subgroup, as we can not
+# test models without a subgroup label.
 
 GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                                       col_types = "c") |>
@@ -237,7 +239,8 @@ GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                 subtype = NA) |>
   dplyr::filter(sample_accession != "966-recurrence",
                 sample_accession != "934-repeat") |>
-  clean_mb_subgroups()
+  clean_mb_subgroups() |>
+  dplyr::filter(!is.na(subgroup))
 
 ################################################################################
 # combine bulk metadata and write to file
