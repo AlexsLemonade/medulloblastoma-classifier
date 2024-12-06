@@ -16,12 +16,18 @@ models_dir <- here::here("models")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
 processed_data_dir <- here::here("processed_data")
-pseudobulk_sce_dir <- here::here(processed_data_dir, "pseudobulk_sce")
+pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
+smartseq_data_dir <- here::here(pseudobulk_data_dir, "GSE119926")
+tenx_data_dir <- here::here(pseudobulk_data_dir, "GSE155446")
 
 # Input files
 # pseudobulk data for each sample was generated in 02-gather_data.R
-pseudobulk_genex_filepath <- here::here(processed_data_dir, "pseudobulk_genex.tsv")
-pseudobulk_metadata_filepath <- here::here(processed_data_dir, "pseudobulk_metadata.tsv")
+singlecell_metadata_filepath <- here::here(pseudobulk_data_dir,
+                                           "pseudobulk_metadata.tsv")
+smartseq_genex_filepath <- here::here(smartseq_data_dir,
+                                      "GSE119926_pseudobulk_genex.tsv")
+tenx_genex_filepath <- here::here(tenx_data_dir,
+                                  "GSE155446_pseudobulk_genex.tsv")
 
 # baseline models are generated prior to this in the notebook analysis_notebooks/baseline_models.Rmd
 # there is one baseline model designated as the official model that is used to test single cells here
@@ -34,13 +40,21 @@ pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_pre
 
 # Read in data
 
-pseudobulk_genex_df <- readr::read_tsv(pseudobulk_genex_filepath,
+smartseq_genex_df <- readr::read_tsv(smartseq_genex_filepath,
                                        show_col_types = FALSE) |>
   tibble::column_to_rownames(var = "gene")
+tenx_genex_df <- readr::read_tsv(tenx_genex_filepath,
+                                 show_col_types = FALSE) |>
+  tibble::column_to_rownames(var = "gene")
 
-pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
+singlecell_metadata_df <- readr::read_tsv(singlecell_metadata_filepath,
                                           show_col_types = FALSE) |>
   dplyr::mutate(sample_accession = title)
+
+smartseq_metadata_df <- singlecell_metadata_df |>
+  dplyr::filter(study == "GSE119926")
+tenx_metadata_df <- singlecell_metadata_df |>
+  dplyr::filter(study == "GSE155446")
 
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
@@ -52,13 +66,22 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Predict the subgroup of pseudobulk samples
 
-pseudobulk_test_list <- list("ktsp" = test_ktsp(genex_df_test = pseudobulk_genex_df,
-                                                metadata_df_test = pseudobulk_metadata_df,
+pseudobulk_test_list <- list(
+  "smartseq" = list("ktsp" = test_ktsp(genex_df_test = smartseq_genex_df,
+                                                metadata_df_test = smartseq_metadata_df,
                                                 classifier = classifier_list[["ktsp"]],
                                                 labels = mb_subgroups),
-                             "rf" = test_rf(genex_df_test = pseudobulk_genex_df,
-                                            metadata_df_test = pseudobulk_metadata_df,
-                                            classifier = classifier_list[["rf"]]))
+                             "rf" = test_rf(genex_df_test = smartseq_genex_df,
+                                            metadata_df_test = smartseq_metadata_df,
+                                            classifier = classifier_list[["rf"]])),
+  "tenx" = list("ktsp" = test_ktsp(genex_df_test = tenx_genex_df,
+                                   metadata_df_test = tenx_metadata_df,
+                                   classifier = classifier_list[["ktsp"]],
+                                   labels = mb_subgroups),
+                "rf" = test_rf(genex_df_test = tenx_genex_df,
+                               metadata_df_test = tenx_metadata_df,
+                               classifier = classifier_list[["rf"]]))
+)
 
 # Prep pseudobulk plot data
 
