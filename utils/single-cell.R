@@ -118,7 +118,7 @@ test_single_cells <- function(sample_acc,
                               gene_map_df,
                               labels,
                               classifier,
-                              study = "GSE119926",
+                              model_type,
                               platform = "scRNA-seq") {
   # Applies prediction model to gene expression matrix
   #
@@ -127,24 +127,28 @@ test_single_cells <- function(sample_acc,
   #  sce_filepath: file path to a single cell experiment object RDS file
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
-  #  classifier: classifier model (model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest)
-  #  study: study ID for this sample (default: GSE119926)
+  #  classifier: classifier model
+  #  model_type: classifier model type; must be "rf", "ktsp", or "medullopackage"
   #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
 
-  if ( class(classifier) == "OnevsrestScheme_TSP" ) {
+  # Check model type is one of the allowable types
+  if ( !(model_type %in% c("rf", "ktsp", "medullopackage")) ) {
 
-    model_type <- "ktsp"
+    stop("model_type must be one of: rf, ktsp, or medullopackage")
 
-  } else if ( class(classifier) == "rule_based_RandomForest" ) {
+  }
 
-    model_type <- "rf"
+  # Error handling if model type doesn't match the class of the classifier
+  if (model_type == "rf") {
 
-  } else {
+    stopifnot( class(classifier) == "rule_based_RandomForest" )
 
-    stop("classifier model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest")
+  } else if (model_type == "ktsp") {
+
+    stopifnot( class(classifier) == "OnevsrestScheme_TSP" )
 
   }
 
@@ -167,6 +171,11 @@ test_single_cells <- function(sample_acc,
     dplyr::filter(sample_accession == sample_acc) |>
     dplyr::pull(subgroup)
 
+  # get the study of a given sample
+  sample_study <- metadata_df |>
+    dplyr::filter(sample_accession == sample_acc) |>
+    dplyr::pull(study)
+
   # If the sample_subgroup vector is longer than 1, more than one row has this
   # sample accession, meaning that sample accession is not a unique identifier
   # in this metadata (and this should be addressed by the user)
@@ -182,7 +191,7 @@ test_single_cells <- function(sample_acc,
                                             sample_accession = stringr::str_c(sample_acc,
                                                                               1:n_cells,
                                                                               sep = "_"),
-                                            study = study,
+                                            study = sample_study,
                                             subgroup = sample_subgroup,
                                             platform = platform)
 
@@ -205,6 +214,11 @@ test_single_cells <- function(sample_acc,
     test_object <- test_rf(genex_df_test = genex_df_this_sample,
                            metadata_df_test = metadata_df_this_sample,
                            classifier = classifier)
+
+  } else if (model_type == "medullopackage") {
+
+    test_object <- test_medullo(genex_df_test = genex_df_this_sample,
+                               metadata_df_test = metadata_df_this_sample)
 
   }
 
