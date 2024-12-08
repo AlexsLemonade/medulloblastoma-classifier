@@ -10,6 +10,7 @@ set.seed(8222)
 # Load libraries
 source(here::here("utils/modeling.R"))
 source(here::here("utils/single-cell.R"))
+source(here::here("utils/convert_gene_names.R"))
 
 # Directories
 models_dir <- here::here("models")
@@ -76,7 +77,8 @@ tenx_metadata_df <- singlecell_metadata_df |>
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
-                        rf = baseline_models[[official_model]]$rf_weighted$classifier)
+                        rf = baseline_models[[official_model]]$rf_weighted$classifier,
+                        medullopackage = NULL)
 
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
@@ -89,14 +91,18 @@ pseudobulk_test_list <- list(
                                         labels = mb_subgroups),
                      "rf" = test_rf(genex_df_test = smartseq_genex_df,
                                     metadata_df_test = smartseq_metadata_df,
-                                    classifier = classifier_list[["rf"]])),
+                                    classifier = classifier_list[["rf"]]),
+                     "medullopackage" = test_medullo(genex_df_test = smartseq_genex_df,
+                                                     metadata_df_test = smartseq_metadata_df)),
   "GSE155446" = list("ktsp" = test_ktsp(genex_df_test = tenx_genex_df,
                                         metadata_df_test = tenx_metadata_df,
                                         classifier = classifier_list[["ktsp"]],
                                         labels = mb_subgroups),
                      "rf" = test_rf(genex_df_test = tenx_genex_df,
                                     metadata_df_test = tenx_metadata_df,
-                                    classifier = classifier_list[["rf"]]))
+                                    classifier = classifier_list[["rf"]]),
+                     "medullopackage" = test_medullo(genex_df_test = tenx_genex_df,
+                                                     metadata_df_test = tenx_metadata_df))
 )
 
 # Prep pseudobulk plot data
@@ -110,11 +116,14 @@ pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list,  # each dataset
                                                 as.data.frame() |>
                                                 tibble::rownames_to_column(var = "sample_accession") |>
                                                 tibble::as_tibble() |>
-                                                dplyr::select(sample_accession,
-                                                              G3,
-                                                              G4,
-                                                              SHH,
-                                                              WNT) |>
+                                                dplyr::select(dplyr::any_of(c(
+                                                  "sample_accession",
+                                                  "G3",
+                                                  "G4",
+                                                  "SHH",
+                                                  "WNT",
+                                                  "best.fit"))
+                                                ) |>
                                                 dplyr::mutate(model_type = model_type,
                                                               study = study))) |>
   purrr::flatten_df() |>
@@ -125,7 +134,8 @@ pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list,  # each dataset
                    by = "sample_accession") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                "ktsp" ~ "kTSP (w)",
-                                               "rf" ~ "RF (w)"))
+                                               "rf" ~ "RF (w)",
+                                               "medullopackage" ~ "medulloPackage"))
 
 readr::write_tsv(x = pseudobulk_plot_df,
                  file = pseudobulk_plot_data_filepath)
