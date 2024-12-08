@@ -38,27 +38,43 @@ baseline_models_filepath <- here::here(models_dir, "baseline.rds")
 single_cell_plot_data_filepath <- here::here(plots_data_dir, "single_cell_test_predictions.tsv")
 pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
 
-# Read in data
+# Get file paths of individual SingleCellExperiment RDS objects
+sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds"),
+               fs::dir_ls(path = fs::path(tenx_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds")
+)
+# Name the vector using the sample title
+names(sce_files) <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+  stringr::str_remove_all("\\_sce.rds")
 
+# Read in data
+# Smart-Seq2 pseudobulk data
 smartseq_genex_df <- readr::read_tsv(smartseq_genex_filepath,
                                        show_col_types = FALSE) |>
   tibble::column_to_rownames(var = "gene")
+
+# 10x pseudobulk data
 tenx_genex_df <- readr::read_tsv(tenx_genex_filepath,
                                  show_col_types = FALSE) |>
   tibble::column_to_rownames(var = "gene")
 
+# Metadata
 singlecell_metadata_df <- readr::read_tsv(singlecell_metadata_filepath,
                                           show_col_types = FALSE) |>
   dplyr::mutate(sample_accession = title)
 
+# Split up by study to pass to test_*()
 smartseq_metadata_df <- singlecell_metadata_df |>
   dplyr::filter(study == "GSE119926")
 tenx_metadata_df <- singlecell_metadata_df |>
   dplyr::filter(study == "GSE155446")
 
+# Read in and prepare models
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
-
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
                         rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
@@ -67,38 +83,43 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 # Predict the subgroup of pseudobulk samples
 
 pseudobulk_test_list <- list(
-  "smartseq" = list("ktsp" = test_ktsp(genex_df_test = smartseq_genex_df,
-                                                metadata_df_test = smartseq_metadata_df,
-                                                classifier = classifier_list[["ktsp"]],
-                                                labels = mb_subgroups),
-                             "rf" = test_rf(genex_df_test = smartseq_genex_df,
-                                            metadata_df_test = smartseq_metadata_df,
-                                            classifier = classifier_list[["rf"]])),
-  "tenx" = list("ktsp" = test_ktsp(genex_df_test = tenx_genex_df,
-                                   metadata_df_test = tenx_metadata_df,
-                                   classifier = classifier_list[["ktsp"]],
-                                   labels = mb_subgroups),
-                "rf" = test_rf(genex_df_test = tenx_genex_df,
-                               metadata_df_test = tenx_metadata_df,
-                               classifier = classifier_list[["rf"]]))
+  "GSE119926" = list("ktsp" = test_ktsp(genex_df_test = smartseq_genex_df,
+                                        metadata_df_test = smartseq_metadata_df,
+                                        classifier = classifier_list[["ktsp"]],
+                                        labels = mb_subgroups),
+                     "rf" = test_rf(genex_df_test = smartseq_genex_df,
+                                    metadata_df_test = smartseq_metadata_df,
+                                    classifier = classifier_list[["rf"]])),
+  "GSE155446" = list("ktsp" = test_ktsp(genex_df_test = tenx_genex_df,
+                                        metadata_df_test = tenx_metadata_df,
+                                        classifier = classifier_list[["ktsp"]],
+                                        labels = mb_subgroups),
+                     "rf" = test_rf(genex_df_test = tenx_genex_df,
+                                    metadata_df_test = tenx_metadata_df,
+                                    classifier = classifier_list[["rf"]]))
 )
 
 # Prep pseudobulk plot data
 
-pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list, # list of test objects and
-                                  names(pseudobulk_test_list), # their classifier model types
-                                  \(pseudobulk_test, model_type) pseudobulk_test$model_output |>
-                                    as.data.frame() |>
-                                    tibble::rownames_to_column(var = "sample_accession") |>
-                                    tibble::as_tibble() |>
-                                    dplyr::select(sample_accession,
-                                                  G3,
-                                                  G4,
-                                                  SHH,
-                                                  WNT) |>
-                                    dplyr::mutate(model_type = model_type)) |>
+pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list,  # each dataset
+                                  names(pseudobulk_test_list),  # and series accession
+                                  \(singlecell_dataset, study)
+                                  purrr::map2(singlecell_dataset, # list of test objects and
+                                              names(singlecell_dataset), # their classifier model types
+                                              \(pseudobulk_test, model_type) pseudobulk_test$model_output |>
+                                                as.data.frame() |>
+                                                tibble::rownames_to_column(var = "sample_accession") |>
+                                                tibble::as_tibble() |>
+                                                dplyr::select(sample_accession,
+                                                              G3,
+                                                              G4,
+                                                              SHH,
+                                                              WNT) |>
+                                                dplyr::mutate(model_type = model_type,
+                                                              study = study))) |>
+  purrr::flatten_df() |>
   dplyr::bind_rows() |>
-  dplyr::left_join(pseudobulk_metadata_df |>
+  dplyr::left_join(singlecell_metadata_df |>
                      dplyr::select(sample_accession,
                                    subgroup),
                    by = "sample_accession") |>
@@ -112,24 +133,21 @@ readr::write_tsv(x = pseudobulk_plot_df,
 # Predict the subgroup of single cells
 
 model_test_list <- purrr::map(names(classifier_list), # classifier model types
-                              \(model_type) purrr::map(pseudobulk_metadata_df$title,
+                              \(model_type) purrr::map(singlecell_metadata_df$title,
                                                        \(x) test_single_cells(sample_acc = x,
-                                                                              sce_filepath = here::here(pseudobulk_sce_dir,
-                                                                                                        stringr::str_c(x, "_sce.rds")),
-                                                                              metadata_df = pseudobulk_metadata_df,
+                                                                              sce_filepath = sce_files[x],
+                                                                              metadata_df = singlecell_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
-                                                                              study = "GSE119926",
                                                                               platform = "scRNA-seq")) |>
-                                purrr::set_names(pseudobulk_metadata_df$title)) |>
+                                purrr::set_names(singlecell_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
 
 # Prep single cell plot data
 
 get_umap_coord_and_cluster <- function(sample_title) {
 
-  sce_filepath <- here::here(pseudobulk_sce_dir,
-                             stringr::str_c(sample_title, "_sce.rds"))
+  sce_filepath <- sce_files[sample_title]
 
   sce_object <- readr::read_rds(sce_filepath)
 
@@ -145,7 +163,7 @@ get_umap_coord_and_cluster <- function(sample_title) {
 
 }
 
-umap_list <- purrr::map(pseudobulk_metadata_df$title,
+umap_list <- purrr::map(singlecell_metadata_df$title,
                         \(sample_title) get_umap_coord_and_cluster(sample_title)) |>
   dplyr::bind_rows()
 
@@ -169,7 +187,7 @@ single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
   dplyr::ungroup() |>
   dplyr::left_join(umap_list,
                    by = c("sample_accession", "cell_index")) |>
-  dplyr::left_join(pseudobulk_metadata_df |>
+  dplyr::left_join(singlecell_metadata_df |>
                      dplyr::select(sample_accession,
                                    study,
                                    subgroup,
