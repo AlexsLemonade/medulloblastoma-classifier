@@ -149,6 +149,7 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
                                                                               metadata_df = singlecell_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
+                                                                              model_type = model_type,
                                                                               platform = "scRNA-seq")) |>
                                 purrr::set_names(singlecell_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
