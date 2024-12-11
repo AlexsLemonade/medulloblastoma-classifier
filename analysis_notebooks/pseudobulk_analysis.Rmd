@@ -1,0 +1,328 @@
+---
+title: "Pseudobulk analysis"
+author: "Steven Foltz and Jaclyn Taroni"
+date: '2024'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+This notebook uses a medulloblastoma subgroup prediction model trained on bulk data to predict the subgroup of pseudobulk samples.
+Pseudobulk samples were generated from single-cell experiments by averaging gene expression across all cells on a per gene level.
+k-Top Scoring Pairs (kTSP) and random forest (RF) models were trained using bulk gene expression data (bulk array and RNA-seq) in `analysis_notebooks/baseline_models.Rmd`.
+Here, we analyze the kTSP, RF, and medulloPackage ([Rathi, et al.](https://doi.org/10.1371/journal.pcbi.1008263)) predictions on pseudobulk samples generated in `predict/predict_pseudobulk_and_single_cells.R`.
+
+We are using scRNA-seq data associated with the following publications:
+
+- [Hovestadt, et. al](https://www.nature.com/articles/s41586-019-1434-6), which is Smart-seq2 dataset
+- [Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135), which is a 10X Genomics dataset
+
+# Setup
+
+```{r}
+
+set.seed(8222)
+
+# Load libraries 
+source(here::here("utils/color_schemes.R"))
+library(patchwork)
+
+# Directories
+processed_data_dir <- here::here("processed_data", "pseudobulk")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
+
+# Input files
+pseudobulk_metadata_filepath <- here::here(processed_data_dir, "pseudobulk_metadata.tsv")
+pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
+
+# Output files
+rule_based_plot_filepath <- here::here("plots/single_cell_pseudobulk_rule_based_models.pdf")
+confusion_matrix_plot_filepath <- here::here("plots/single_cell_pseudobulk_medullopackage_confusion_matrix.pdf")
+```
+
+## Read in data
+
+```{r}
+# Read in data
+pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
+                                          show_col_types = FALSE) |>
+  dplyr::mutate(sample_accession = title)
+
+pseudobulk_plot_df <- readr::read_tsv(pseudobulk_plot_data_filepath,
+                                      show_col_types = FALSE)
+
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+```
+
+# Plot pseudobulk predictions
+
+## Prepare data for individual models
+
+```{r}
+# We will plot the scores, which range from 0 to 1, as individual points for
+# the kTSP models
+ktsp_pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type == "kTSP (w)") |>
+  dplyr::select(-best.fit) |>
+  tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                      names_to = "predicted_subgroup")
+
+# The "scores" for RF models are probabilities, given the way we train RF 
+# models, so we only need to get this into long format for plotting
+rf_pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type == "RF (w)") |>
+  dplyr::select(-best.fit) |>
+  tidyr::pivot_longer(cols = all_of(mb_subgroups),
+                      names_to = "predicted_subgroup")
+
+# The medulloPackage method outputs a p-value associated with a best fit 
+# class label -- we will only consider the predicted labels themselves
+mp_pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type == "medulloPackage") |>
+  dplyr::select(sample_accession, 
+                model_type,
+                study,
+                subgroup,
+                predicted_subgroup = best.fit)
+```
+
+## Stacked barplots for RF models
+
+Random forest models output a probability for each subgroup -- these values sum to 1.
+So, we can use a stacked barplot to display the results for each dataset separately.
+
+```{r}
+rf_smartseq_barplot_object <- rf_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE119926") |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               fill = predicted_subgroup)) +
+  ggplot2::geom_col() +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Probability",
+                y = NULL,
+                fill = "Predicted Subgroup",
+                title = "GSE119926 (Smart-seq2)",
+                subtitle = "Random Forest (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+
+rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE155446") |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               fill = predicted_subgroup)) +
+  ggplot2::geom_col() +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Probability",
+                y = NULL,
+                fill = "Predicted Subgroup",
+                title = "GSE155446 (10x)",
+                subtitle = "Random Forest (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+  
+rf_smartseq_barplot_object + rf_10x_barplot_object + plot_layout(guides = "collect")
+```
+
+## Plot individual scores with points for kTSP models
+
+kTSP models assign a score -- bounded from zero to one -- to each subgroup.
+We will plot the scores for each subtype as an individual point.
+
+```{r}
+ktsp_smartseq_points_object <- ktsp_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE119926") |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               color = predicted_subgroup,
+                               shape = predicted_subgroup)) +
+  ggplot2::geom_point(alpha = 0.75) +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Subgroup Score",
+                y = NULL,
+                color = "Predicted Subgroup",
+                shape = "Predicted Subgroup",
+                title = "GSE119926 (Smart-seq2)",
+                subtitle = "k Top Scoring Pairs (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+
+ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE155446") |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = value,
+                               color = predicted_subgroup,
+                               shape = predicted_subgroup)) +
+  ggplot2::geom_point(alpha = 0.75) +
+  ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggplot2::scale_color_manual(values = subgroup_colors) +
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      scales= "free_y",
+                      space = "free_y") +
+  ggplot2::labs(x = "Subgroup Score",
+                y = NULL,
+                color = "Predicted Subgroup",
+                shape = "Predicted Subgroup",
+                fill = "Predicted Subgroup",
+                title = "GSE155446 (10x)",
+                subtitle = "k Top Scoring Pairs (Weighted)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+
+ktsp_smartseq_points_object + 
+  ktsp_10x_points_object + 
+  plot_layout(guides = "collect")
+```
+
+## Save a combined figure for the rule-based models
+
+```{r}
+combined_rule_based_plots <- 
+  (rf_smartseq_barplot_object + 
+     ktsp_smartseq_points_object + 
+     rf_10x_barplot_object + 
+     ktsp_10x_points_object) + 
+  plot_layout(guides = "collect")
+
+ggplot2::ggsave(file = rule_based_plot_filepath,
+                plot = combined_rule_based_plots,
+                height = 11,
+                width = 8.5,
+                units = "in")
+```
+
+## Plot confusion matrix for medulloPackage models
+
+### Calculate confusion matrices
+
+```{r}
+# We will calculate the confusion matrices separately for each study
+mp_smartseq_df <- mp_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE119926")
+mp_10x_df <- mp_pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE155446")
+
+# Make Smart-seq2 confusion matrix
+mp_smartseq_perf <- caret::confusionMatrix(
+  data = factor(mp_smartseq_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(mp_smartseq_df$subgroup,
+                     levels = mb_subgroups)
+)
+
+# Make 10x dataset confusion matrix
+mp_10x_perf <- caret::confusionMatrix(
+  data = factor(mp_10x_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(mp_10x_df$subgroup,
+                     levels = mb_subgroups)
+)
+```
+
+### Plotting tile plots
+
+Use a custom palette that goes from white to red.
+
+```{r}
+custom_continuous_pal <- grDevices::colorRampPalette(c("white", "red"))
+```
+
+Create tile plots for each dataset separately.
+
+```{r}
+# Tile plot (i.e., heatmap) for Smart-seq2 dataset
+mp_smartseq_cm_object <- mp_smartseq_perf$table |>
+  as.data.frame() |>
+  dplyr::mutate(Prediction = factor(Prediction,
+                                    levels = mb_subgroups[4:1]),
+                Reference = factor(Reference, 
+                                   levels = mb_subgroups[1:4])) |>
+  ggplot2::ggplot(ggplot2::aes(x = Reference,
+                               y = Prediction,
+                               fill = Freq)) +
+  ggplot2::geom_tile(color = "#000000") +
+  ggplot2::geom_text(ggplot2::aes(label = Freq),
+                     color = "#000000") +
+  ggplot2::labs(title = "GSE119926 (Smart-seq2)",
+                subtitle = "medulloPackage") +
+  ggplot2::scale_fill_gradientn(colours = custom_continuous_pal(100), 
+                                limits = c(0, max(mp_smartseq_perf$table))) +
+  ggplot2::theme_bw() + 
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5)) +
+  ggplot2::guides(fill = "none")  +
+  ggplot2::coord_fixed()
+
+# Tile plot (i.e., heatmap) for 10x dataset
+mp_10x_cm_object <- mp_10x_perf$table |>
+  as.data.frame() |>
+  dplyr::mutate(Prediction = factor(Prediction,
+                                    levels = mb_subgroups[4:1]),
+                Reference = factor(Reference, 
+                                   levels = mb_subgroups[1:4])) |>
+  ggplot2::ggplot(ggplot2::aes(x = Reference,
+                               y = Prediction,
+                               fill = Freq)) +
+  ggplot2::geom_tile(color = "#000000") +
+  ggplot2::geom_text(ggplot2::aes(label = Freq),
+                     color = "#000000") +
+  ggplot2::labs(title = "GSE155446 (10x)",
+                subtitle = "medulloPackage") +
+  ggplot2::scale_fill_gradientn(colours = custom_continuous_pal(100), 
+                                limits = c(0, max(mp_10x_perf$table))) +
+  ggplot2::theme_bw() + 
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
+                                                    size = 12),
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5)) +
+  ggplot2::guides(fill = "none") +
+  ggplot2::coord_fixed()
+```
+
+Combine the confusion matrix plots into one multipanel plot.
+
+```{r}
+confusion_matrix_plot <- (mp_smartseq_cm_object / mp_10x_cm_object)
+confusion_matrix_plot
+```
+
+Save to file.
+
+```{r}
+ggplot2::ggsave(file = confusion_matrix_plot_filepath,
+                plot = confusion_matrix_plot,
+                height = 11,
+                width = 8.5,
+                units = "in")
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+
