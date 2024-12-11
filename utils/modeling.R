@@ -1060,8 +1060,10 @@ test_medullo <- function(genex_df_test,
   library(medulloPackage)
 
   # identify the RNA-seq samples by accession identifier
+  # pseudobulk samples should also be log transformed
   rnaseq_samples <- metadata_df_test |>
-    dplyr::filter(platform == "RNA-seq") |>
+    dplyr::filter(platform %in% c("RNA-seq",
+                                  "Pseudo-bulk")) |>
     dplyr::pull(sample_accession)
 
   # log2 transform the RNA-seq samples, which is a requirement for
