@@ -320,6 +320,92 @@ ggplot2::ggsave(file = confusion_matrix_plot_filepath,
                 units = "in")
 ```
 
+# Metrics
+
+## Get the predicted label for the rule-based models
+
+```{r}
+
+```
+
+```{r}
+rf_smartseq_df <- pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE119926",
+                model_type == "RF (w)") |>
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
+  dplyr::ungroup()
+
+rf_10x_df <- pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE155446",
+                model_type == "RF (w)") |>
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
+  dplyr::ungroup()
+ktsp_smartseq_df <- pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE119926",
+                model_type == "kTSP (w)") |> 
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
+  dplyr::ungroup()
+
+ktsp_10x_df <- pseudobulk_plot_df |>
+  dplyr::filter(study == "GSE155446",
+                model_type == "kTSP (w)")|> 
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
+  dplyr::ungroup()
+
+rf_smartseq_perf <- caret::confusionMatrix(
+  data = factor(rf_smartseq_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(rf_smartseq_df$subgroup,
+                     levels = mb_subgroups)
+)
+
+rf_10x_perf <- caret::confusionMatrix(
+  data = factor(rf_10x_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(rf_10x_df$subgroup,
+                     levels = mb_subgroups)
+)
+
+ktsp_smartseq_perf <- caret::confusionMatrix(
+  data = factor(ktsp_smartseq_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(ktsp_smartseq_df$subgroup,
+                     levels = mb_subgroups)
+)
+
+ktsp_10x_perf <- caret::confusionMatrix(
+  data = factor(ktsp_10x_df$predicted_subgroup,
+                levels = mb_subgroups),
+  reference = factor(ktsp_10x_df$subgroup,
+                     levels = mb_subgroups)
+)
+```
+
+
 # Session Info
 
 ```{r}
