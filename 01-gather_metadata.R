@@ -36,7 +36,7 @@ clean_mb_subgroups <- function(df){
                                               subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                              subgroup %in% c("GP3/4") ~ NA,
+                                              subgroup %in% c("GP3/4") ~ "G3/G4",
                                               .default = subgroup))
 
   return(df)
