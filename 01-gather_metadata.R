@@ -239,8 +239,7 @@ GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                 subtype = NA) |>
   dplyr::filter(sample_accession != "966-recurrence",
                 sample_accession != "934-repeat") |>
-  clean_mb_subgroups() |>
-  dplyr::filter(!is.na(subgroup))
+  clean_mb_subgroups()
 
 ################################################################################
 # combine bulk metadata and write to file
