@@ -27,6 +27,7 @@ set.seed(8222)
 
 # Load libraries 
 source(here::here("utils/color_schemes.R"))
+source(here::here("utils/modeling.R"))
 library(patchwork)
 
 # Directories
@@ -227,19 +228,17 @@ mp_10x_df <- mp_pseudobulk_plot_df |>
   dplyr::filter(study == "GSE155446")
 
 # Make Smart-seq2 confusion matrix
-mp_smartseq_perf <- caret::confusionMatrix(
-  data = factor(mp_smartseq_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(mp_smartseq_df$subgroup,
-                     levels = mb_subgroups)
+mp_smartseq_perf <- calculate_confusion_matrix(
+  predicted_labels = mp_smartseq_df$predicted_subgroup,
+  true_labels = mp_smartseq_df$subgroup,
+  labels = mb_subgroups
 )
 
 # Make 10x dataset confusion matrix
-mp_10x_perf <- caret::confusionMatrix(
-  data = factor(mp_10x_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(mp_10x_df$subgroup,
-                     levels = mb_subgroups)
+mp_10x_perf <- calculate_confusion_matrix(
+  predicted_labels = mp_10x_df$predicted_subgroup,
+  true_labels = mp_10x_df$subgroup,
+  labels = mb_subgroups
 )
 ```
 
@@ -325,84 +324,71 @@ ggplot2::ggsave(file = confusion_matrix_plot_filepath,
 ## Get the predicted label for the rule-based models
 
 ```{r}
+pseudobulk_plot_df <- pseudobulk_plot_df |>
+  dplyr::filter(model_type %in% c("RF (w)", 
+                                  "kTSP (w)")) |>
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    predicted_subgroup = c("G3", 
+                           "G4", 
+                           "SHH", 
+                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+  ) |>
+  dplyr::ungroup()
 
+rule_based_df_list <- list(
+  rf_smartseq = pseudobulk_plot_df |>
+    dplyr::filter(study == "GSE119926",
+                  model_type == "RF (w)"),
+  
+  rf_10x = pseudobulk_plot_df |>
+    dplyr::filter(study == "GSE155446",
+                  model_type == "RF (w)"),
+  
+  ktsp_smartseq = pseudobulk_plot_df |>
+    dplyr::filter(study == "GSE119926",
+                  model_type == "kTSP (w)"),
+  
+  ktsp_10x = pseudobulk_plot_df |>
+    dplyr::filter(study == "GSE155446",
+                  model_type == "kTSP (w)")
+)
+```
+
+## Confusion matrices for all model-dataset pairs
+
+```{r}
+cm_list <- rule_based_df_list |>
+  purrr::map(
+    \(model_experiment_pair) { calculate_confusion_matrix(
+        predicted_labels = model_experiment_pair$predicted_subgroup,
+        true_labels = model_experiment_pair$subgroup,
+        labels = mb_subgroups
+    ) }
+  )
+
+cm_list[["mp_smartseq"]] <- mp_smartseq_perf
+cm_list[["mp_10x"]] <- mp_10x_perf
 ```
 
 ```{r}
-rf_smartseq_df <- pseudobulk_plot_df |>
-  dplyr::filter(study == "GSE119926",
-                model_type == "RF (w)") |>
-  dplyr::rowwise() |> 
-  dplyr::mutate(
-    predicted_subgroup = c("G3", 
-                           "G4", 
-                           "SHH", 
-                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
+cm_list |> 
+  purrr::imap(
+    \(confusion_matrix, model_experiment_pair) data.frame(
+      "name" = model_experiment_pair,
+      "accuracy" = confusion_matrix$overall["Accuracy"],
+      "kappa" = confusion_matrix$overall["Kappa"]
+    )
   ) |>
-  dplyr::ungroup()
+  dplyr::bind_rows() |>
+  dplyr::mutate()
+```
 
-rf_10x_df <- pseudobulk_plot_df |>
-  dplyr::filter(study == "GSE155446",
-                model_type == "RF (w)") |>
-  dplyr::rowwise() |> 
-  dplyr::mutate(
-    predicted_subgroup = c("G3", 
-                           "G4", 
-                           "SHH", 
-                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
-  ) |>
-  dplyr::ungroup()
-ktsp_smartseq_df <- pseudobulk_plot_df |>
-  dplyr::filter(study == "GSE119926",
-                model_type == "kTSP (w)") |> 
-  dplyr::rowwise() |> 
-  dplyr::mutate(
-    predicted_subgroup = c("G3", 
-                           "G4", 
-                           "SHH", 
-                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
-  ) |>
-  dplyr::ungroup()
-
-ktsp_10x_df <- pseudobulk_plot_df |>
-  dplyr::filter(study == "GSE155446",
-                model_type == "kTSP (w)")|> 
-  dplyr::rowwise() |> 
-  dplyr::mutate(
-    predicted_subgroup = c("G3", 
-                           "G4", 
-                           "SHH", 
-                           "WNT")[which.max(c(G3, G4, SHH, WNT))]
-  ) |>
-  dplyr::ungroup()
-
-rf_smartseq_perf <- caret::confusionMatrix(
-  data = factor(rf_smartseq_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(rf_smartseq_df$subgroup,
-                     levels = mb_subgroups)
-)
-
-rf_10x_perf <- caret::confusionMatrix(
-  data = factor(rf_10x_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(rf_10x_df$subgroup,
-                     levels = mb_subgroups)
-)
-
-ktsp_smartseq_perf <- caret::confusionMatrix(
-  data = factor(ktsp_smartseq_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(ktsp_smartseq_df$subgroup,
-                     levels = mb_subgroups)
-)
-
-ktsp_10x_perf <- caret::confusionMatrix(
-  data = factor(ktsp_10x_df$predicted_subgroup,
-                levels = mb_subgroups),
-  reference = factor(ktsp_10x_df$subgroup,
-                     levels = mb_subgroups)
-)
+```{r}
+expand.grid(c("GSE119926", "GSE155446"), 
+            c("RF (w)", "kTSP (w)", "medulloPackage")) |>
+  dplyr::rename(study = Var1,
+                model_type = Var2)
 ```
 
 
