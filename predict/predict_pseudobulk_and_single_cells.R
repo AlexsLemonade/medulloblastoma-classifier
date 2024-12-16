@@ -1,6 +1,7 @@
 # Use existing prediction models trained on bulk data to predict subgroups
 # of pseudobulk and single cells using scRNA-seq data from Hovestadt, et. al
 # https://www.nature.com/articles/s41586-019-1434-6
+# and Riemondy, et al. https://doi.org/10.1093/neuonc/noab135
 #
 # Steven Foltz
 # 2023
