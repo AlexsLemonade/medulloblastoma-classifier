@@ -36,7 +36,7 @@ clean_mb_subgroups <- function(df){
                                               subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                              subgroup %in% c("GP3/4") ~ NA,
+                                              subgroup %in% c("GP3/4") ~ "G3/G4",
                                               .default = subgroup))
 
   return(df)
@@ -239,8 +239,7 @@ GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                 subtype = NA) |>
   dplyr::filter(sample_accession != "966-recurrence",
                 sample_accession != "934-repeat") |>
-  clean_mb_subgroups() |>
-  dplyr::filter(!is.na(subgroup))
+  clean_mb_subgroups()
 
 ################################################################################
 # combine bulk metadata and write to file

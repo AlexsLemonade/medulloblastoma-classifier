@@ -98,6 +98,7 @@ We use an S3 bucket (`s3://data-lab-mb-ssp`) with versioning enabled to manage t
 - `data`
 - `models`
 - `processed_data`
+- `plots/data`
 
 Which are all present in the `.gitignore` file.
 
