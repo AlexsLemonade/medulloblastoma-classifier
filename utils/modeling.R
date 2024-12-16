@@ -1038,7 +1038,8 @@ test_lasso <- function(genex_df_test,
 
 test_medullo <- function(genex_df_test,
                          metadata_df_test,
-                         ah_date = "2022-10-30") {
+                         ah_date = "2022-10-30",
+                         log_transform = TRUE) {
 
   # Test medulloPackage method
   #
@@ -1046,6 +1047,7 @@ test_medullo <- function(genex_df_test,
   #  genex_df_test: gene expression matrix (genes as row names and one column per sample)
   #  metadata_df_test: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  ah_date: AnnotationHub snapshot date for gene identifier conversion (default: 2022-10-30)
+  #  log_transform: Logical indicating whether or not abundance measures should be log transformed (default: TRUE)
   #
   # Outputs
   #  List containing "predicted_labels" and "model_output" elements
@@ -1059,15 +1061,22 @@ test_medullo <- function(genex_df_test,
   # required for loading of dataset
   library(medulloPackage)
 
-  # identify the RNA-seq samples by accession identifier
-  rnaseq_samples <- metadata_df_test |>
-    dplyr::filter(platform == "RNA-seq") |>
-    dplyr::pull(sample_accession)
+  # If abundance measures should be log-transformed, samples with the platform
+  # RNA-seq or pseudobulk (single-cell RNA-seq) will be transformed
+  if (log_transform) {
+    # identify the RNA-seq samples by accession identifier
+    # pseudobulk samples should also be log transformed
+    rnaseq_samples <- metadata_df_test |>
+      dplyr::filter(platform %in% c("RNA-seq",
+                                    "Pseudo-bulk")) |>
+      dplyr::pull(sample_accession)
 
-  # log2 transform the RNA-seq samples, which is a requirement for
-  # medulloPackage -- all data should be an abundance measure such as TPM
-  genex_df_test <- genex_df_test |>
-    dplyr::mutate_at(c(rnaseq_samples), ~ log2(.x + 1))
+    # log2 transform the RNA-seq samples, which is a requirement for
+    # medulloPackage -- all data should be an abundance measure such as TPM
+    genex_df_test <- genex_df_test |>
+      dplyr::mutate_at(c(rnaseq_samples), ~ log2(.x + 1))
+
+  }
 
   # convert genex_df gene names to from ENSEMBL to gene symbol as required
   # by medulloPackage
