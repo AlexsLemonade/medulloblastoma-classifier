@@ -47,9 +47,21 @@ sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
                                           "pseudobulk_sce"),
                           glob = "*_sce.rds")
 )
-# Name the vector using the sample title
-names(sce_files) <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
   stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
 
 # Read in data
 # Smart-Seq2 pseudobulk data
