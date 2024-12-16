@@ -1,6 +1,7 @@
 # Use existing prediction models trained on bulk data to predict subgroups
 # of pseudobulk and single cells using scRNA-seq data from Hovestadt, et. al
 # https://www.nature.com/articles/s41586-019-1434-6
+# and Riemondy, et al. https://doi.org/10.1093/neuonc/noab135
 #
 # Steven Foltz
 # 2023
@@ -47,9 +48,21 @@ sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
                                           "pseudobulk_sce"),
                           glob = "*_sce.rds")
 )
-# Name the vector using the sample title
-names(sce_files) <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
   stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
 
 # Read in data
 # Smart-Seq2 pseudobulk data
@@ -77,8 +90,7 @@ tenx_metadata_df <- singlecell_metadata_df |>
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
-                        rf = baseline_models[[official_model]]$rf_weighted$classifier,
-                        medullopackage = NULL)
+                        rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
@@ -149,7 +161,6 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
                                                                               metadata_df = singlecell_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
-                                                                              model_type = model_type,
                                                                               platform = "scRNA-seq")) |>
                                 purrr::set_names(singlecell_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
