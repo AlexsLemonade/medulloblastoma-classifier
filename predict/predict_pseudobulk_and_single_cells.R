@@ -90,8 +90,7 @@ tenx_metadata_df <- singlecell_metadata_df |>
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
-                        rf = baseline_models[[official_model]]$rf_weighted$classifier,
-                        medullopackage = NULL)
+                        rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
@@ -162,7 +161,6 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
                                                                               metadata_df = singlecell_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
-                                                                              model_type = model_type,
                                                                               platform = "scRNA-seq")) |>
                                 purrr::set_names(singlecell_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
