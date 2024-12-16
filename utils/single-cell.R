@@ -118,7 +118,6 @@ test_single_cells <- function(sample_acc,
                               gene_map_df,
                               labels,
                               classifier,
-                              model_type,
                               platform = "scRNA-seq") {
   # Applies prediction model to gene expression matrix
   #
@@ -127,28 +126,23 @@ test_single_cells <- function(sample_acc,
   #  sce_filepath: file path to a single cell experiment object RDS file
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
-  #  classifier: classifier model
-  #  model_type: classifier model type; must be "rf", "ktsp", or "medullopackage"
+  #  classifier: classifier model (model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest)
   #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
   #  Returns a test object
 
-  # Check model type is one of the allowable types
-  if ( !(model_type %in% c("rf", "ktsp", "medullopackage")) ) {
+  if ( class(classifier) == "OnevsrestScheme_TSP" ) {
 
-    stop("model_type must be one of: rf, ktsp, or medullopackage")
+    model_type <- "ktsp"
 
-  }
+  } else if ( class(classifier) == "rule_based_RandomForest" ) {
 
-  # Error handling if model type doesn't match the class of the classifier
-  if (model_type == "rf") {
+    model_type <- "rf"
 
-    stopifnot( class(classifier) == "rule_based_RandomForest" )
+  } else {
 
-  } else if (model_type == "ktsp") {
-
-    stopifnot( class(classifier) == "OnevsrestScheme_TSP" )
+    stop("classifier model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest")
 
   }
 
@@ -214,11 +208,6 @@ test_single_cells <- function(sample_acc,
     test_object <- test_rf(genex_df_test = genex_df_this_sample,
                            metadata_df_test = metadata_df_this_sample,
                            classifier = classifier)
-
-  } else if (model_type == "medullopackage") {
-
-    test_object <- test_medullo(genex_df_test = genex_df_this_sample,
-                               metadata_df_test = metadata_df_this_sample)
 
   }
 
