@@ -8,6 +8,15 @@ repos:
       - name: General file size limit
         id: check-added-large-files
         args: ["--maxkb=300"]
+        exclude: |
+          (?x)(
+              \.html$|
+              conda-lock\.yml$|
+              \.png$
+          )
+      - name: Large file size limit
+        id: check-added-large-files
+        args: ["--maxkb=5000"]
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.20.1
     hooks:
