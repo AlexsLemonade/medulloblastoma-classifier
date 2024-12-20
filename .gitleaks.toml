@@ -1,0 +1,12 @@
+title = "gitleaks config for medulloblastoma-classifier"
+[extend]
+useDefault = true
+
+[allowlist]
+regexTarget = "line"
+regexes = [
+    # skip base64 encoded images, which might have substrings that look like tokens
+    '''(?i)<img src="data:image\/.+;base64,.+?".+\/>''',
+    # skip jQuery definition function
+    '''^!function\(.+?jQuery'''
+]
