@@ -3,9 +3,10 @@ title: "Pseudobulk analysis"
 author: "Steven Foltz and Jaclyn Taroni"
 date: '2024'
 output:
-  html_notebook:
+  html_document:
     toc: TRUE
     toc_float: TRUE
+    df_print: paged
 ---
 
 This notebook uses a medulloblastoma subgroup prediction model trained on bulk data to predict the subgroup of pseudobulk samples.
