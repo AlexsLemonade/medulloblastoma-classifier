@@ -3,10 +3,9 @@ title: "Pseudobulk analysis"
 author: "Steven Foltz and Jaclyn Taroni"
 date: '2024'
 output:
-  html_document:
+  html_notebook:
     toc: TRUE
     toc_float: TRUE
-    df_print: paged
 ---
 
 This notebook uses a medulloblastoma subgroup prediction model trained on bulk data to predict the subgroup of pseudobulk samples.
@@ -22,14 +21,21 @@ We are using scRNA-seq data associated with the following publications:
 # Setup
 
 ```{r}
-
 set.seed(8222)
+```
 
+## Libraries
+
+```{r}
 # Load libraries 
 source(here::here("utils/color_schemes.R"))
 source(here::here("utils/modeling.R"))
 library(patchwork)
+```
 
+## Directories and files
+
+```{r}
 # Directories
 processed_data_dir <- here::here("processed_data", "pseudobulk")
 plots_dir <- here::here("plots")
@@ -44,6 +50,42 @@ rule_based_plot_filepath <- here::here("plots/single_cell_pseudobulk_rule_based_
 confusion_matrix_plot_filepath <- here::here("plots/single_cell_pseudobulk_medullopackage_confusion_matrix.pdf")
 ```
 
+## Custom function
+
+A custom function for returning a one-row data frame with classifier metrics.
+This is not intended to be used outside the context of this notebook.
+
+```{r}
+calculate_metrics <- function(df, subgroup_labels) {
+  
+  # Calculate the Kappa, Total Accuracy, and Balanced Accuracy per class metrics 
+  # from a set of predictions
+  #
+  # Inputs
+  #  df: data frame with "predicted_labels", true "subgroup" labels,
+  #      a "study" column, and a "model_type" column
+  #  subgroup_labels: vector of possible sample labels 
+  #                   (e.g., c("G3","G4","SHH","WNT"))
+  #
+  # Outputs
+  #  Data frame of model metrics
+  
+  cm <- calculate_confusion_matrix(predicted_labels = df$predicted_labels,
+                                   true_labels = df$subgroup,
+                                   labels = mb_subgroups)
+  perf_df <- data.frame(
+    study = unique(df$study),
+    model_type = unique(df$model_type),
+    kappa = cm$overall[["Kappa"]],
+    total_accuracy = cm$overall[["Accuracy"]],
+    t(cm$byClass[, "Balanced Accuracy"])
+  )
+  
+  return(perf_df)
+  
+}
+```
+
 ## Read in data
 
 ```{r}
@@ -55,6 +97,7 @@ pseudobulk_metadata_df <- readr::read_tsv(pseudobulk_metadata_filepath,
 pseudobulk_plot_df <- readr::read_tsv(pseudobulk_plot_data_filepath,
                                       show_col_types = FALSE)
 
+# The labels we will use throughout
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 ```
 
@@ -138,7 +181,9 @@ rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
                                                     size = 12),
                  plot.subtitle = ggplot2::element_text(hjust = 0.5))
   
-rf_smartseq_barplot_object + rf_10x_barplot_object + plot_layout(guides = "collect")
+rf_smartseq_barplot_object + 
+  rf_10x_barplot_object + 
+  plot_layout(guides = "collect")
 ```
 
 ## Plot individual scores with points for kTSP models
@@ -321,10 +366,12 @@ ggplot2::ggsave(file = confusion_matrix_plot_filepath,
 
 # Metrics
 
-## Get the predicted labels for the rule-based models
+## Get the predicted labels for metrics calculation
 
 ```{r}
 df_for_metrics <- pseudobulk_plot_df |>
+  # For both rule-based models, the subgroup with the highest score or
+  # or probability will be the label that gets assigned
   dplyr::filter(model_type %in% c("RF (w)", 
                                   "kTSP (w)")) |>
   dplyr::rowwise() |> 
@@ -335,11 +382,14 @@ df_for_metrics <- pseudobulk_plot_df |>
                          "WNT")[which.max(c(G3, G4, SHH, WNT))]
   ) |>
   dplyr::ungroup() |>
+  # Remove everything except the sample, study, classifier, and both sets of
+  # labels (predicted and true)
   dplyr::select(-G3,
                 -G4,
                 -SHH,
                 -WNT,
                 -best.fit) |>
+  # Add back the medulloPackage rows
   dplyr::bind_rows(mp_smartseq_df,
                    mp_10x_df)
 
@@ -348,59 +398,56 @@ df_for_metrics <- pseudobulk_plot_df |>
 ## Create a table of metrics for all model-experiment pairs
 
 ```{r}
-model_experiment_pair_df <- expand.grid(c("GSE119926", 
-                                          "GSE155446"), 
-                                        c("RF (w)", 
-                                          "kTSP (w)", 
-                                          "medulloPackage")) |>
+# Create a data.frame that contains all pairs of study and model to be used
+# to calculate metrics separate
+model_experiment_pairs_df <- expand.grid(
+  c("GSE119926", "GSE155446"),
+  c("kTSP (w)", "RF (w)", "medulloPackage") 
+) |>
   dplyr::rename(dataset = Var1,
                 classifier = Var2)
 ```
 
-We want to calculate Kappa, total accuracy, and balanced accuracy for each subgroup for each model-experiment pair.
-
 ```{r}
-calculate_metrics <- function(df) {
-  
-  cm <- calculate_confusion_matrix(predicted_labels = df$predicted_labels,
-                                   true_labels = df$subgroup,
-                                   labels = mb_subgroups)
-  perf_df <- data.frame(
-    study = unique(df$study),
-    model_type = unique(df$model_type),
-    kappa = cm$overall[["Kappa"]],
-    total_accuracy = cm$overall[["Accuracy"]],
-    t(cm$byClass[, "Balanced Accuracy"])
-  )
-  
-  return(perf_df)
-  
-}
-
-model_metrics_df <- model_experiment_pair_df |> 
+model_experiment_pairs_df |>
+  # For each model type-experiment pair, calculate performance metrics and
+  # then combine into a single data frame
   purrr::pmap(\(dataset, classifier) 
-              calculate_metrics(
-                df_for_metrics |>
-                  dplyr::filter(study == dataset,
-                                model_type == classifier))) |>
+                calculate_metrics(
+                  df_for_metrics |>
+                    dplyr::filter(study == dataset,
+                                  model_type == classifier),
+                  subgroup_labels = mb_subgroups
+                )
+              ) |>
   purrr::list_rbind() |>
-  dplyr::arrange(study) |>
+  # Rename the balanced accuracy columns to be something a bit nicer!
   dplyr::rename(
     G3_balanced_accuracy = `Class..G3`,
     G4_balanced_accuracy = `Class..G4`,
     SHH_balanced_accuracy = `Class..SHH`,
     WNT_balanced_accuracy = `Class..WNT`
   )
-
-knitr::kable(model_metrics_df)
 ```
+The models perform pretty similarly across experiments, with the exception of WNT balanced accuracy of the `medulloPackage` model in the 10X dataset.
 
-## Misclassified samples
+# Misclassified samples
 
+Let's look at (the few) misclassified samples and see if they are the same across classifiers.
+
+```{r}
+df_for_metrics |>
+  dplyr::filter(predicted_labels != subgroup) |>
+  dplyr::arrange(study, sample_accession)
+```
+For the pair-based classifiers, the misses are all between G3 and G4.
+If we review the plots earlier in the notebook, we see that these are generally samples with a "mix" of G3 and G4 scores.
+It is worth following up on these samples by examining the individual cell label predictions, which we are able to do using these models.
+
+It is interesting that `medulloPackage` misclassifies a G3 sample as SHH in the Smart-seq2 dataset and a WNT sample as G3 in the 10X dataset, which we also saw earlier when plotting the confusion matrices.
 
 # Session Info
 
 ```{r}
 sessionInfo()
 ```
-
