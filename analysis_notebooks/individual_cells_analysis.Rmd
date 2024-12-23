@@ -9,6 +9,103 @@ output:
     df_print: paged
 ---
 
+This notebook uses pair-based medulloblastoma subgroup prediction models trained on bulk data to predict the subgroup of individual cells in scRNA-seq samples.
+k-Top Scoring Pairs (kTSP) and random forest (RF) models were trained using bulk gene expression data (bulk array and RNA-seq) in `analysis_notebooks/baseline_models.Rmd`.
+Here, we analyze the kTSP and RF predictions on individual cells generated in `predict/predict_pseudobulk_and_single_cells.R`.
+
+We are using scRNA-seq data associated with the following publications:
+
+- [Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6), which is Smart-seq2 dataset
+- [Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135), which is a 10X Genomics dataset
+
+# Setup
+
+Set seed.
+
+```{r setup}
+set.seed(8222)
+```
+
+Set MB subgroups.
+
+```{r}
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+```
+
+## Libraries and functions
+
+```{r}
+# Load libraries 
+source(here::here("utils/color_schemes.R"))
+library(patchwork)
+```
+
+## Directories and files
+
+```{r}
+processed_data_dir <- here::here("processed_data")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
+
+# Individual cell predictions plot data
+plot_data_filepath <- here::here(plots_data_dir, 
+                                 "single_cell_test_predictions.tsv")
+```
+
+## Read in data
+
+```{r}
+single_cell_plot_df <- readr::read_tsv(plot_data_filepath,
+                                       show_col_types = FALSE)
+```
+
+
+```{r}
+smartseq_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE119926") |>
+  dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = n,
+                               fill = predicted_labels)) +
+  ggplot2::geom_col(position = ggplot2::position_fill()) +
+  ggplot2::scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      cols = ggplot2::vars(model_type),
+                      space = "free_y",
+                      scales = "free_y") +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::labs(y = NULL,
+                x = "Single-cell Percentage",
+                fill = "Predicted Subgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
+                                                     vjust = 1,
+                                                     hjust = 1))
+
+tenx_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE155446") |>
+  dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
+  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+                               x = n,
+                               fill = predicted_labels)) +
+  ggplot2::geom_col(position = ggplot2::position_fill()) +
+  ggplot2::scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
+                      cols = ggplot2::vars(model_type),
+                      space = "free_y",
+                      scales = "free_y") +
+  ggplot2::scale_fill_manual(values = subgroup_colors) +
+  ggplot2::labs(y = NULL,
+                x = "Single-cell Percentage",
+                fill = "Predicted Subgroup") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
+                                                     vjust = 1,
+                                                     hjust = 1))
+
+smartseq_object + tenx_object + plot_layout(guides = "collect")
+```
+
 # Session Info
 
 ```{r}
