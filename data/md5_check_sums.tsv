@@ -180,7 +180,7 @@ d93113b0f20fa45de9dbd4df891be142  data/GSE60862/GSE60862/metadata_GSE60862.tsv
 6bd1964894e016ca41d66051e6a28566  data/GSE60862/GSE60862/GSE60862.tsv
 9ed2fa92d31d51f17fc048b98158a5e1  data/GSE60862/README.md
 b62634d9eccbb548499ce384605fe47a  data/GSE60862/LICENSE.TXT
-0d4e1457253a8cb519116e742db486c8  data/data_sources.tsv
+dc4d0333d80a473fcaa454af6b9e471c  data/data_sources.tsv
 1f3c8bfa55ba38db2edde1a206f90bf1  data/OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds
 f207a129a5442f4ed3c3b63a46ec9fde  data/OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds
 d75303b0b255b76eb63de076957bdefc  data/OpenPBTA/pbta-histologies.tsv
