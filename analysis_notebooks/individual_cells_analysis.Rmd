@@ -61,6 +61,22 @@ single_cell_plot_df <- readr::read_tsv(plot_data_filepath,
 
 
 ```{r}
+# To find the second highest score, we need the number of subgroups (columns)
+# minus 1
+second_highest_index <- length(mb_subgroups) - 1
+single_cell_plot_df <- single_cell_plot_df |>
+  # For each row
+  dplyr::rowwise() |>
+  # Add a column that is the difference between the max score and the second
+  # highest score
+  # https://stackoverflow.com/questions/2453326/fastest-way-to-find-second-third-highest-lowest-value-in-vector-or-column
+  dplyr::mutate(
+    max_score_diff = max - sort(c(G3, G4, SHH, WNT), partial = second_highest_index)[second_highest_index]
+  ) |>
+  dplyr::ungroup()
+```
+
+```{r}
 smartseq_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE119926") |>
   dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
@@ -76,11 +92,13 @@ smartseq_object <- single_cell_plot_df |>
   ggplot2::scale_fill_manual(values = subgroup_colors) +
   ggplot2::labs(y = NULL,
                 x = "Single-cell Percentage",
-                fill = "Predicted Subgroup") +
+                fill = "Predicted Subgroup",
+                title = "GSE119926 (Smart-seq2)") +
   ggplot2::theme_bw() +
   ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
                                                      vjust = 1,
-                                                     hjust = 1))
+                                                     hjust = 1),
+                 plot.title = ggplot2::element_text(hjust = 0.5))
 
 tenx_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE155446") |>
@@ -97,13 +115,63 @@ tenx_object <- single_cell_plot_df |>
   ggplot2::scale_fill_manual(values = subgroup_colors) +
   ggplot2::labs(y = NULL,
                 x = "Single-cell Percentage",
-                fill = "Predicted Subgroup") +
+                fill = "Predicted Subgroup",
+                title = "GSE155446 (10x)") +
   ggplot2::theme_bw() +
   ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
                                                      vjust = 1,
-                                                     hjust = 1))
+                                                     hjust = 1),
+                 plot.title = ggplot2::element_text(hjust = 0.5))
 
 smartseq_object + tenx_object + plot_layout(guides = "collect")
+```
+
+```{r}
+smartseq_max_diff_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE119926") |>
+  ggplot2::ggplot(
+    ggplot2::aes(x = predicted_labels,
+                 y = max_score_diff,
+                 group = predicted_labels,
+                 color = predicted_labels)
+  ) +
+  ggplot2::geom_violin() +
+  ggplot2::scale_color_manual(values = subgroup_colors, guide = "none") +
+  ggplot2::stat_summary(fun = "median", geom = "point") +
+  ggplot2::labs(x = "Cell Predicted Subgroup",
+                y = "Max Score - Second Highest Score",
+                title = "GSE119926 (Smart-seq2)") +
+  ggplot2::facet_grid(rows = ggplot2::vars(model_type),
+                      cols = ggplot2::vars(subgroup)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+                 axis.text.x = ggplot2::element_text(angle = 45, 
+                                                     vjust = 1,
+                                                     hjust = 1))
+
+tenx_max_diff_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE155446") |>
+  ggplot2::ggplot(
+    ggplot2::aes(x = predicted_labels,
+                 y = max_score_diff,
+                 group = predicted_labels,
+                 color = predicted_labels)
+  ) +
+  ggplot2::geom_violin() +
+  ggplot2::scale_color_manual(values = subgroup_colors, guide = "none") +
+  ggplot2::stat_summary(fun = "median", geom = "point") +
+  ggplot2::labs(x = "Cell Predicted Subgroup",
+                y = "Max Score - Second Highest Score",
+                title = "GSE155446 (10x)") +
+  ggplot2::facet_grid(rows = ggplot2::vars(model_type),
+                      cols = ggplot2::vars(subgroup)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+                 axis.text.x = ggplot2::element_text(angle = 45, 
+                                                     vjust = 1,
+                                                     hjust = 1))
+
+smartseq_max_diff_object + tenx_max_diff_object
 ```
 
 # Session Info
