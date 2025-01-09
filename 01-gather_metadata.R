@@ -36,7 +36,7 @@ clean_mb_subgroups <- function(df){
                                               subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                              subgroup %in% c("GP3/4") ~ NA,
+                                              subgroup %in% c("GP3/4") ~ "G3/G4",
                                               .default = subgroup))
 
   return(df)
@@ -223,6 +223,8 @@ GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filen
 # Metadata sample 966-recurrence likely matches data file 966-2.tsv
 # Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
 # We remove them here to be conservative.
+# We also remove any samples that have NA for a subgroup, as we can not
+# test models without a subgroup label.
 
 GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                                       col_types = "c") |>
