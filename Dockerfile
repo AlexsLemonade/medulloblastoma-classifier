@@ -61,5 +61,4 @@ RUN Rscript -e 'renv::restore()' \
 # Activate conda environment on bash launch
 RUN echo "conda activate ${ENV_NAME}" >> ~/.bashrc
 
-ENV RENV_DISABLED=TRUE
 WORKDIR /home/rstudio
