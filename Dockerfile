@@ -25,18 +25,20 @@ RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh \
 RUN conda install --channel=conda-forge --name=base conda-lock \
   && conda clean --all --yes
 
-# Install renv
-RUN Rscript -e "install.packages('renv')"
-
-# Disable the renv cache to install packages directly into the R library
-ENV RENV_CONFIG_CACHE_ENABLED=FALSE
-
 # Copy conda lock file to image
 COPY conda-lock.yml conda-lock.yml
 
 # restore from conda-lock.yml file and clean up to reduce image size
 RUN conda-lock install -n ${ENV_NAME} conda-lock.yml \
   && conda clean --all --yes
+
+# Activate conda environment on bash launch
+RUN echo "conda activate ${ENV_NAME}" >> ~/.bashrc
+
+# Use renv for R packages
+WORKDIR /usr/local/renv
+ENV RENV_CONFIG_CACHE_ENABLED=FALSE
+RUN Rscript -e "install.packages('renv')"
 
 # Threading issue with preprocessCore::normalize.quantiles
 # https://support.bioconductor.org/p/122925/#124701
@@ -58,8 +60,4 @@ RUN Rscript -e 'renv::restore()' \
   && rm -rf /tmp/downloaded_packages \
   && rm -rf /tmp/Rtmp*
 
-# Activate conda environment on bash launch
-RUN echo "conda activate ${ENV_NAME}" >> ~/.bashrc
-
-ENV RENV_DISABLED=TRUE
 WORKDIR /home/rstudio

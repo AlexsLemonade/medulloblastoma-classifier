@@ -118,7 +118,6 @@ test_single_cells <- function(sample_acc,
                               gene_map_df,
                               labels,
                               classifier,
-                              study = "GSE119926",
                               platform = "scRNA-seq") {
   # Applies prediction model to gene expression matrix
   #
@@ -128,7 +127,6 @@ test_single_cells <- function(sample_acc,
   #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
   #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
   #  classifier: classifier model (model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest)
-  #  study: study ID for this sample (default: GSE119926)
   #  platform: gene expression platform for this sample (default: scRNA-seq)
   #
   # Outputs:
@@ -167,6 +165,11 @@ test_single_cells <- function(sample_acc,
     dplyr::filter(sample_accession == sample_acc) |>
     dplyr::pull(subgroup)
 
+  # get the study of a given sample
+  sample_study <- metadata_df |>
+    dplyr::filter(sample_accession == sample_acc) |>
+    dplyr::pull(study)
+
   # If the sample_subgroup vector is longer than 1, more than one row has this
   # sample accession, meaning that sample accession is not a unique identifier
   # in this metadata (and this should be addressed by the user)
@@ -182,7 +185,7 @@ test_single_cells <- function(sample_acc,
                                             sample_accession = stringr::str_c(sample_acc,
                                                                               1:n_cells,
                                                                               sep = "_"),
-                                            study = study,
+                                            study = sample_study,
                                             subgroup = sample_subgroup,
                                             platform = platform)
 
