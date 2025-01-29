@@ -3,6 +3,9 @@ FROM bioconductor/bioconductor_docker:3.16
 # set a name for the conda environment
 ARG ENV_NAME=medulloblastoma-classifier
 
+# Set an environment variable to allow checking if we are in the container
+ENV RENV_DOCKER=TRUE
+
 # set environment variables to install conda
 ENV PATH="/opt/conda/bin:${PATH}"
 
