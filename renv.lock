@@ -3035,36 +3035,8 @@
     },
     "recipes": {
       "Package": "recipes",
-      "Version": "1.0.6",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "cli",
-        "clock",
-        "dplyr",
-        "ellipsis",
-        "generics",
-        "glue",
-        "gower",
-        "hardhat",
-        "ipred",
-        "lifecycle",
-        "lubridate",
-        "magrittr",
-        "purrr",
-        "rlang",
-        "stats",
-        "tibble",
-        "tidyr",
-        "tidyselect",
-        "timeDate",
-        "utils",
-        "vctrs",
-        "withr"
-      ],
-      "Hash": "eb53ffc9674dc9a52c3a7e22d96d3f56"
+      "Version": "1.0.5",
+      "Source": "Repository"
     },
     "rematch": {
       "Package": "rematch",
