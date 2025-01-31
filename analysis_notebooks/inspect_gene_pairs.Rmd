@@ -1,0 +1,111 @@
+---
+title: "Inspecting genes included in baseline models"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+## Set up
+
+### Directories
+
+```{r}
+root_dir <- rprojroot::find_root(rprojroot::has_dir(".git"))
+models_dir <- file.path(root_dir, "models")
+results_dir <- file.path(root_dir, "results")
+dir.create(results_dir, showWarnings = FALSE)
+```
+
+### Input
+
+```{r}
+baseline_models_filepath <- file.path(models_dir, "baseline.rds")
+```
+
+### Output
+
+```{r}
+genes_list_filepath <- file.path(results_dir, 
+                                 "genes_in_weighted_official_models.tsv")
+```
+
+## Get pair-based models
+
+We are going to look at the weighted version of the kTSP and RF models in the "official" repeat (i.e., the repeat selected by maximizing Kappa).
+
+```{r}
+baseline_models <- readr::read_rds(baseline_models_filepath)
+official_model <- which(purrr::map_lgl(baseline_models, 
+                                           \(x) x[["official_model"]]))
+ktsp_model <- baseline_models[[official_model]]$ktsp_weighted$classifier
+rf_model <- baseline_models[[official_model]]$rf_weighted$classifier
+```
+
+## Extract genes used in models
+
+### kTSP
+
+kTSP models report the gene pairs used in the rules for each class (subgroup).
+We'll want to keep track of the subgroup, but get this in a longer format.
+
+```{r}
+tsp_df <- ktsp_model$classifiers |>
+  purrr::map(\(x)
+             data.frame(x$TSP)) |>
+  dplyr::bind_rows(.id = "subgroup") |>
+  tidyr::pivot_longer(cols = dplyr::starts_with("gene"),
+                      names_to = "gene_in_pair",
+                      values_to = "gene") |>
+  dplyr::mutate(model = "kTSP")
+```
+
+### RF
+
+The RF model just reports the genes that are included.
+
+```{r}
+rf_df <- data.frame(gene = rf_model$RF_scheme$genes) |>
+  dplyr::mutate(model = "RF")
+```
+
+### Bind and save
+
+```{r}
+tsp_df |>
+  dplyr::bind_rows(rf_df) |>
+  readr::write_tsv(genes_list_filepath)
+```
+
+### What genes are overlapping between the two models?
+
+Create a list to be passed to the UpSetR functions.
+
+```{r}
+genesets_list <- unique(tsp_df$subgroup) |>
+  purrr::set_names(~ paste0("kTSP_", .)) |>
+  purrr::map(
+    \(x) tsp_df |>
+      dplyr::filter(subgroup == x) |>
+      dplyr::pull(gene)
+    )
+genesets_list$RF <- rf_df$gene
+```
+
+#### UpSet Plot
+
+```{r}
+UpSetR::upset(UpSetR::fromList(genesets_list))
+```
+
+For each subgroup's rules included in the kTSP model, some of those genes overlap with the RF model genes.
+However, most of the genes included in the RF model aren't represented in the kTSP rules.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
