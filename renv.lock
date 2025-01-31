@@ -1005,6 +1005,11 @@
       ],
       "Hash": "ae913ff30bce222686e66e45448fcfb6"
     },
+    "UpSetR": {
+      "Package": "UpSetR",
+      "Version": "1.4.0",
+      "Source": "Repository"
+    },
     "XML": {
       "Package": "XML",
       "Version": "3.99-0.14",

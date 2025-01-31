@@ -10,6 +10,7 @@
 data
 models
 processed_data
+results
 
 # Local precommit file for style, etc.
 .pre-commit-local.yaml
