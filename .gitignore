@@ -2,16 +2,23 @@
 .DS_Store
 .Rproj.user
 
-# R history
+# R and bash history
+.bash_history
 .Rhistory
 
 # Directories with large files
 data
 models
 processed_data
+results
 
 # Local precommit file for style, etc.
 .pre-commit-local.yaml
 
 # Logs
 analysis_notebooks/log
+
+# Hidden folders -- relevant when working with RStudio within Docker
+.cache
+.local
+.config
