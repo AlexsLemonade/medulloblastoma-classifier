@@ -1,0 +1,192 @@
+---
+title: "scRNA-seq: Expression of genes included in models"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+```{r}
+results_dir <- here::here("results")
+processed_data_dir <- here::here("processed_data")
+pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
+smartseq_data_dir <- here::here(pseudobulk_data_dir, "GSE119926")
+tenx_data_dir <- here::here(pseudobulk_data_dir, "GSE155446")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
+
+# Single-cell metadata
+singlecell_metadata_filepath <- here::here(pseudobulk_data_dir,
+                                           "pseudobulk_metadata.tsv")
+
+# Get file paths of individual SingleCellExperiment RDS objects
+sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds"),
+               fs::dir_ls(path = fs::path(tenx_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds")
+)
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+  stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
+
+genes_filepath <- file.path(results_dir, 
+                            "genes_in_weighted_official_models.tsv")
+singlecell_plots_data_filepath <- file.path(plots_data_dir,
+                                            "single_cell_test_predictions.tsv")
+```
+
+```{r}
+genes_df <- readr::read_tsv(genes_filepath)
+
+# Grab a vector of unique Ensembl gene identifiers
+genes_vector <- genes_df |>
+  dplyr::pull(gene) |>
+  unique()
+```
+```{r}
+singlecell_labels_df <- readr::read_tsv(singlecell_plots_data_filepath)
+```
+
+
+```{r}
+sce_expression_list <- sce_files |>
+  purrr::imap(
+    \(x, sample_name) {
+      # Read in SingleCellExperiment object
+      sce <- readr::read_rds(x)
+      # Append sample name to cell index -- cell index is used in the
+      # data frame that has individual cell subgroup labels in it
+      colnames(sce) <- stringr::str_c(sample_name,
+                                      "_",
+                                      1:ncol(sce))
+      
+      # Min-max scale per sample
+      minmax_tpm <- apply(counts(sce), 
+                          2, 
+                          \(y) (y - min(y)) / (max(y) - min(y))) |>
+        as.data.frame()
+      
+      # Total number of genes detected 
+      num_genes_detected <- apply(counts(sce), 2, \(y) sum(y > 0))
+      
+      # Extract the TPM, which are in the counts slot, for the genes included
+      # in at least one model and put the Ensembl gene identifier in a column
+      # called gene
+      list(tpm_df = counts(sce)[which(rownames(sce) %in% genes_vector), ] |> 
+             tibble::rownames_to_column("gene"),
+           minmax_tpm_df = minmax_tpm[which(rownames(minmax_tpm) %in% genes_vector), ] |>
+             tibble::rownames_to_column("gene"),
+           num_genes_detected = num_genes_detected)
+    }
+  )
+
+```
+
+```{r}
+num_genes_detected_df <- sce_expression_list |>
+  purrr::map(\(x) data.frame(num_genes_detected = x[["num_genes_detected"]])) |>
+  dplyr::bind_rows() |>
+  tibble::rownames_to_column("cell_identifier") |>
+  tidyr::separate(cell_identifier, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    singlecell_labels_df |>
+      dplyr::select(sample_accession,
+                    cell_index,
+                    study,
+                    predicted_labels,
+                    subgroup,
+                    model_type),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  dplyr::mutate(correct_classification = (predicted_labels == subgroup))
+```
+
+```{r}
+num_genes_detected_df |>
+  ggplot2::ggplot(ggplot2::aes(x = num_genes_detected,
+                               fill = correct_classification,
+                               group = correct_classification)) +
+  ggplot2::geom_density(alpha = 0.2) +
+  ggplot2::facet_grid(model_type ~ study) +
+  ggplot2::labs(x = "Total Number of Genes Detected",
+                fill = "Cell Correctly Classified?") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, vjust = 0.5))
+```
+
+
+```{r}
+percent_cells_correct_df <- singlecell_labels_df |>
+  dplyr::group_by(sample_accession) |>
+  dplyr::summarize(percent_cells_correct = sum(predicted_labels == subgroup) / dplyr::n())
+```
+
+
+
+```{r}
+# Create a long version of expression data frame with columns that include
+# sample identifiers and cell indexes for joining with labels
+expression_df <- sce_expression_df |>
+  tidyr::pivot_longer(cols = -1,
+                      names_to = "cell",
+                      values_to = "TPM") |>
+  tidyr::separate(cell, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    dplyr::select(singlecell_labels_df,
+                  sample_accession,
+                  cell_index,
+                  predicted_labels,
+                  model_type,
+                  study
+    ),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  dplyr::left_join(
+    genes_df,
+    by = "gene"
+  )
+```
+
+```{r}
+rf_df <- expression_df |> 
+  dplyr::filter(model_type == "RF (w)", model == "RF") |>
+  dplyr::select(-subgroup, -gene_in_pair)
+
+ktsp_df <- expression_df |> 
+  dplyr::filter(model_type == "kTSP (w)", model == "kTSP")
+```
+
+```{r}
+rf_df |> 
+  ggplot2::ggplot(ggplot2::aes(x = gene, y = cell_index))
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
