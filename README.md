@@ -99,6 +99,7 @@ We use an S3 bucket (`s3://data-lab-mb-ssp`) with versioning enabled to manage t
 - `models`
 - `processed_data`
 - `plots/data`
+- `results`
 
 Which are all present in the `.gitignore` file.
 
@@ -108,7 +109,7 @@ To push files to S3, use the following command from the root of the repository:
 aws s3 sync {directory} s3://data-lab-mb-ssp/{directory}
 ```
 
-Where `{directory}` should be one of: `data`, `models`, `processed_data`.
+Where `{directory}` should be one of: `data`, `models`, `processed_data`, `plots/data`, or `results`.
 
 To pull files locally, use the following command from the root of the repository:
 
