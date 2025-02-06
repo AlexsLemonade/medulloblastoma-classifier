@@ -35,143 +35,364 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 ## Libraries and functions
 
 ```{r}
-# Load libraries 
+# Source color scheme
 source(here::here("utils/color_schemes.R"))
+
+# Load libraries 
+library(ggplot2)
 library(patchwork)
+library(SingleCellExperiment)
 ```
 
 ## Directories and files
 
+### Input
+
 ```{r}
+results_dir <- here::here("results")
 processed_data_dir <- here::here("processed_data")
+pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
+smartseq_data_dir <- here::here(pseudobulk_data_dir, "GSE119926")
+tenx_data_dir <- here::here(pseudobulk_data_dir, "GSE155446")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
+
+# Get file paths of individual SingleCellExperiment RDS objects
+sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds"),
+               fs::dir_ls(path = fs::path(tenx_data_dir,
+                                          "pseudobulk_sce"),
+                          glob = "*_sce.rds")
+)
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+  stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
+
+# Genes in official weighted models
+genes_filepath <- file.path(results_dir, 
+                            "genes_in_weighted_official_models.tsv")
 
 # Individual cell predictions plot data
 plot_data_filepath <- here::here(plots_data_dir, 
                                  "single_cell_test_predictions.tsv")
+
 ```
 
+### Output
+
 ## Read in data
+
+### Predicted labels
+
+Starting with the individual cells predicted labels plot data 
 
 ```{r}
 single_cell_plot_df <- readr::read_tsv(plot_data_filepath,
                                        show_col_types = FALSE)
 ```
 
+### Genes in models
+
+Get the genes included in models
 
 ```{r}
-# To find the second highest score, we need the number of subgroups (columns)
-# minus 1
-second_highest_index <- length(mb_subgroups) - 1
-single_cell_plot_df <- single_cell_plot_df |>
-  # For each row
-  dplyr::rowwise() |>
-  # Add a column that is the difference between the max score and the second
-  # highest score
-  # https://stackoverflow.com/questions/2453326/fastest-way-to-find-second-third-highest-lowest-value-in-vector-or-column
-  dplyr::mutate(
-    max_score_diff = max - sort(c(G3, G4, SHH, WNT), partial = second_highest_index)[second_highest_index]
-  ) |>
-  dplyr::ungroup()
+genes_df <- readr::read_tsv(genes_filepath)
+
+# Grab a vector of unique Ensembl gene identifiers
+genes_vector <- genes_df |>
+  dplyr::pull(gene) |>
+  unique()
 ```
+
+### SCE Expression
+
+```{r}
+sce_expression_list <- sce_files |>
+  purrr::imap(
+    \(x, sample_name) {
+      
+      # Read in SingleCellExperiment object
+      sce <- readr::read_rds(x)
+      
+      # Append sample name to cell index -- cell index is used in the
+      # data frame that has individual cell subgroup labels in it
+      colnames(sce) <- stringr::str_c(sample_name,
+                                      "_",
+                                      1:ncol(sce))
+      
+      # Total number of genes detected 
+      num_genes_detected <- apply(counts(sce), 2, \(y) sum(y > 0))
+      
+      # Extract the TPM, which are in the counts slot, for the genes included
+      # in at least one model
+      tpm_df <- counts(sce)[which(rownames(sce) %in% genes_vector), ]
+      
+      # Count the number of genes in the models that aren't in the SCE object
+      num_missing_genes <- length(base::setdiff(genes_vector, 
+                                                rownames(sce)))
+      
+      # Return a list of:
+      #   TPM for genes in at least one model
+      #   Number of genes that are detected in each cell
+      list(tpm_df = tpm_df |> 
+             tibble::rownames_to_column("gene"),
+           num_genes_detected = num_genes_detected)
+    }
+  )
+
+# Create a long version of expression data frame with columns that include
+# sample identifiers and cell indexes for joining with labels
+expression_df <- sce_expression_list |>
+  purrr::map(\(x) x[["tpm_df"]]) |>
+  purrr::reduce(dplyr::inner_join, by = "gene") |>
+  tidyr::pivot_longer(cols = -1,
+                      names_to = "cell",
+                      values_to = "TPM") |>
+  tidyr::separate(cell, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    dplyr::select(single_cell_plot_df,
+                  sample_accession,
+                  cell_index,
+                  predicted_labels,
+                  model_type,
+                  study
+    ),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  dplyr::right_join(
+    genes_df,
+    by = "gene"
+  )
+
+# Get number of genes detected per cell and join with labels, other metadata
+num_genes_detected_df <- sce_expression_list |>
+  purrr::map(\(x) data.frame(
+    num_genes_detected = x[["num_genes_detected"]]
+  )) |>
+  dplyr::bind_rows() |>
+  tibble::rownames_to_column("cell_identifier") |>
+  tidyr::separate(cell_identifier, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    single_cell_plot_df |>
+      dplyr::select(sample_accession,
+                    cell_index,
+                    study,
+                    predicted_labels,
+                    subgroup,
+                    model_type),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  dplyr::mutate(correct_classification = (predicted_labels == subgroup))
+```
+
+## Plotting
+
+### Individual cell predicted labels
+
+Plot what proportion of individual cells are predicted to be each subgroup, keeping studies separate
 
 ```{r}
 smartseq_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE119926") |>
   dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
-  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+  ggplot(aes(y = sample_accession,
                                x = n,
                                fill = predicted_labels)) +
-  ggplot2::geom_col(position = ggplot2::position_fill()) +
-  ggplot2::scale_x_continuous(labels = scales::percent) + # percentage makes sense here
-  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
-                      cols = ggplot2::vars(model_type),
+  geom_col(position = position_fill()) +
+  scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  facet_grid(rows = vars(subgroup),
+                      cols = vars(model_type),
                       space = "free_y",
                       scales = "free_y") +
-  ggplot2::scale_fill_manual(values = subgroup_colors) +
-  ggplot2::labs(y = NULL,
+  scale_fill_manual(values = subgroup_colors) +
+  labs(y = NULL,
                 x = "Single-cell Percentage",
                 fill = "Predicted Subgroup",
                 title = "GSE119926 (Smart-seq2)") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, 
                                                      vjust = 1,
                                                      hjust = 1),
-                 plot.title = ggplot2::element_text(hjust = 0.5))
+                 plot.title = element_text(hjust = 0.5))
 
 tenx_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE155446") |>
   dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
-  ggplot2::ggplot(ggplot2::aes(y = sample_accession,
+  ggplot(aes(y = sample_accession,
                                x = n,
                                fill = predicted_labels)) +
-  ggplot2::geom_col(position = ggplot2::position_fill()) +
-  ggplot2::scale_x_continuous(labels = scales::percent) + # percentage makes sense here
-  ggplot2::facet_grid(rows = ggplot2::vars(subgroup),
-                      cols = ggplot2::vars(model_type),
+  geom_col(position = position_fill()) +
+  scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  facet_grid(rows = vars(subgroup),
+                      cols = vars(model_type),
                       space = "free_y",
                       scales = "free_y") +
-  ggplot2::scale_fill_manual(values = subgroup_colors) +
-  ggplot2::labs(y = NULL,
+  scale_fill_manual(values = subgroup_colors) +
+  labs(y = NULL,
                 x = "Single-cell Percentage",
                 fill = "Predicted Subgroup",
                 title = "GSE155446 (10x)") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, 
                                                      vjust = 1,
                                                      hjust = 1),
-                 plot.title = ggplot2::element_text(hjust = 0.5))
+                 plot.title = element_text(hjust = 0.5))
 
 smartseq_object + tenx_object + plot_layout(guides = "collect")
 ```
 
+We can see that cells in the 10X experiment tend to be classified as G3 even when the sample's subgroup label is not G3, and this is particularly pronounced in the RF model.
+Let's take a look at why that might be.
+
+### Diagnostic plots
+
+#### Number of genes detected
+
 ```{r}
-smartseq_max_diff_object <- single_cell_plot_df |>
-  dplyr::filter(study == "GSE119926") |>
-  ggplot2::ggplot(
-    ggplot2::aes(x = predicted_labels,
-                 y = max_score_diff,
-                 group = predicted_labels,
-                 color = predicted_labels)
-  ) +
-  ggplot2::geom_violin() +
-  ggplot2::scale_color_manual(values = subgroup_colors, guide = "none") +
-  ggplot2::stat_summary(fun = "median", geom = "point") +
-  ggplot2::labs(x = "Cell Predicted Subgroup",
-                y = "Max Score - Second Highest Score",
-                title = "GSE119926 (Smart-seq2)") +
-  ggplot2::facet_grid(rows = ggplot2::vars(model_type),
-                      cols = ggplot2::vars(subgroup)) +
-  ggplot2::theme_bw() +
-  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
-                 axis.text.x = ggplot2::element_text(angle = 45, 
-                                                     vjust = 1,
-                                                     hjust = 1))
+num_genes_detected_df |>
+  # Remove sample where it's impossible for predicted labels and the subgroup
+  # to match, as the model cannot predict "G3/G4"
+  dplyr::filter(subgroup != "G3/G4") |>
+  ggplot(aes(x = num_genes_detected,
+             fill = correct_classification,
+             group = correct_classification)) +
+  geom_density(alpha = 0.2) +
+  facet_grid(rows = vars(model_type), cols = vars(study)) +
+  labs(x = "Total Number of Genes Detected",
+       fill = "Cell Correctly Classified?",
+       title = "Genes Detected") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5),
+        plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
 
-tenx_max_diff_object <- single_cell_plot_df |>
-  dplyr::filter(study == "GSE155446") |>
-  ggplot2::ggplot(
-    ggplot2::aes(x = predicted_labels,
-                 y = max_score_diff,
-                 group = predicted_labels,
-                 color = predicted_labels)
-  ) +
-  ggplot2::geom_violin() +
-  ggplot2::scale_color_manual(values = subgroup_colors, guide = "none") +
-  ggplot2::stat_summary(fun = "median", geom = "point") +
-  ggplot2::labs(x = "Cell Predicted Subgroup",
-                y = "Max Score - Second Highest Score",
-                title = "GSE155446 (10x)") +
-  ggplot2::facet_grid(rows = ggplot2::vars(model_type),
-                      cols = ggplot2::vars(subgroup)) +
-  ggplot2::theme_bw() +
-  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
-                 axis.text.x = ggplot2::element_text(angle = 45, 
-                                                     vjust = 1,
-                                                     hjust = 1))
+Cells that have predicted labels that are different from the sample's true subgroup labels appear to tend to have fewer total genes detected.
 
-smartseq_max_diff_object + tenx_max_diff_object
+### Number of genes in model that are not detected
+
+What about genes that are explicitly included in the model? 
+How many of those are zero?
+Let's consider each model separately.
+
+#### Random Forest
+
+```{r}
+# Grab only the rows relevant to RF model
+rf_df <- expression_df |> 
+  dplyr::filter(model_type == "RF (w)", model == "RF") |>
+  dplyr::select(-gene_subgroup, -gene_in_pair)
+
+# Count the number of genes in the model that are zero
+rf_informative_genes_df <- rf_df |> 
+  dplyr::group_by(sample_accession,
+                  cell_index) |>
+  dplyr::summarize(num_zeros = sum(TPM == 0)) |>
+  dplyr::inner_join(
+    num_genes_detected_df |>
+      dplyr::filter(model_type != "kTSP (w)") |>
+      dplyr::select(sample_accession, 
+                    cell_index,
+                    predicted_labels,
+                    study, 
+                    correct_classification),
+    by = c("sample_accession", "cell_index")
+  )
+```
+
+Look at the number of zeros between correctly and incorrectly classified cells.
+
+```{r}
+rf_informative_genes_df |>
+  ggplot(aes(x = num_zeros,
+             fill = correct_classification,
+             group = correct_classification)) +
+  geom_density(alpha = 0.2) +
+  facet_grid(cols = vars(study)) +
+  labs(x = "Number Genes in Model with TPM = 0",
+       fill = "Cell Correctly Classified?",
+       title = "Random Forest") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+Let's also look based on the predicted label.
+
+```{r}
+rf_informative_genes_df |>
+  ggplot(aes(x = predicted_labels,
+             y = num_zeros,
+             color = correct_classification)) +
+  geom_violin(position = "dodge") +
+  facet_grid(cols = vars(study)) +
+  theme_bw() +
+  labs(x = "Predicted Cell Label",
+       y = "Number Genes in Model with TPM = 0",
+       color = "Cell Correctly Classified?",
+       title = "Random Forest") +
+  stat_summary(fun = median,
+               geom = "point",
+               position = position_dodge(width = 0.9))  +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+This suggests that the cells getting incorrectly labeled as G3 tend to have TPM = 0 for many of the genes in the RF model in the 10X dataset.
+
+#### k-Top Scoring Pairs
+
+```{r}
+# Grab only the rows relevant to kTSP model
+ktsp_df <- expression_df |> 
+  dplyr::filter(model_type == "kTSP (w)", model == "kTSP") |>
+  dplyr::select(-gene_in_pair)
+
+# Get the percentage of genes involved in each subgroup's rules that are 
+# zero
+ktsp_informative_genes_df <- ktsp_df |> 
+  dplyr::group_by(sample_accession,
+                  cell_index,
+                  gene_subgroup) |>
+  dplyr::summarize(percent_zeros = sum(TPM == 0) / dplyr::n()) |>
+  dplyr::inner_join(
+    num_genes_detected_df |>
+      dplyr::filter(model_type != "RF (w)") |>
+      dplyr::select(sample_accession, 
+                    cell_index,
+                    study,
+                    predicted_labels,
+                    subgroup,
+                    correct_classification),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  # Only keep the rows with the gene subgroup relevant to the prediction 
+  # Or if incorrectly classified, the true subgroup
+  dplyr::filter(gene_subgroup == predicted_labels | gene_subgroup == subgroup)
+```
+
+```{r}
+ktsp_informative_genes_df |>
+  ggplot(aes(x = percent_zeros,
+             fill = correct_classification,
+             group = correct_classification)) +
+  geom_density(alpha = 0.2) +
+  facet_grid(rows = vars(gene_subgroup), cols = vars(study)) +
+  theme_bw()
 ```
 
 # Session Info
@@ -179,4 +400,3 @@ smartseq_max_diff_object + tenx_max_diff_object
 ```{r}
 sessionInfo()
 ```
-
