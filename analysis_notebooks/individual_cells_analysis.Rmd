@@ -1,5 +1,5 @@
 ---
-title: "scRNA-seq: Individual cells analysis"
+title: "scRNA-seq: Individual cell labeling"
 author: "Steven Foltz and Jaclyn Taroni"
 date: "2024"
 output:
