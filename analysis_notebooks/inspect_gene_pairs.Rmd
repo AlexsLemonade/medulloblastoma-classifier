@@ -60,7 +60,8 @@ tsp_df <- ktsp_model$classifiers |>
   tidyr::pivot_longer(cols = dplyr::starts_with("gene"),
                       names_to = "gene_in_pair",
                       values_to = "gene") |>
-  dplyr::mutate(model = "kTSP")
+  dplyr::mutate(model = "kTSP") |>
+  dplyr::rename(gene_subgroup = subgroup)
 ```
 
 ### RF
@@ -85,11 +86,11 @@ tsp_df |>
 Create a list to be passed to the UpSetR functions.
 
 ```{r}
-genesets_list <- unique(tsp_df$subgroup) |>
+genesets_list <- unique(tsp_df$gene_subgroup) |>
   purrr::set_names(~ paste0("kTSP_", .)) |>
   purrr::map(
     \(x) tsp_df |>
-      dplyr::filter(subgroup == x) |>
+      dplyr::filter(gene_subgroup == x) |>
       dplyr::pull(gene)
     )
 genesets_list$RF <- rf_df$gene
