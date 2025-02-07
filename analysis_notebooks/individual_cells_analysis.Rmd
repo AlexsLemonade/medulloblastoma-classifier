@@ -91,8 +91,6 @@ plot_data_filepath <- here::here(plots_data_dir,
 
 ```
 
-### Output
-
 ## Read in data
 
 ### Predicted labels
@@ -140,10 +138,6 @@ sce_expression_list <- sce_files |>
       # in at least one model
       tpm_df <- counts(sce)[which(rownames(sce) %in% genes_vector), ]
       
-      # Count the number of genes in the models that aren't in the SCE object
-      num_missing_genes <- length(base::setdiff(genes_vector, 
-                                                rownames(sce)))
-      
       # Return a list of:
       #   TPM for genes in at least one model
       #   Number of genes that are detected in each cell
@@ -154,7 +148,9 @@ sce_expression_list <- sce_files |>
   )
 
 # Create a long version of expression data frame with columns that include
-# sample identifiers and cell indexes for joining with labels
+# sample identifiers and cell indexes for joining with the plot data that
+# contains predicted labels for each model and the study. We will also add the
+# information about genes used in the models.
 expression_df <- sce_expression_list |>
   purrr::map(\(x) x[["tpm_df"]]) |>
   purrr::reduce(dplyr::inner_join, by = "gene") |>
@@ -201,6 +197,8 @@ num_genes_detected_df <- sce_expression_list |>
                     model_type),
     by = c("sample_accession", "cell_index")
   ) |>
+  # A cell will be correctly classified when the predicted label matches the
+  # true subgroup
   dplyr::mutate(correct_classification = (predicted_labels == subgroup))
 ```
 
@@ -208,54 +206,54 @@ num_genes_detected_df <- sce_expression_list |>
 
 ### Individual cell predicted labels
 
-Plot what proportion of individual cells are predicted to be each subgroup, keeping studies separate
+Plot what proportion of individual cells are predicted to be each subgroup, keeping studies separate.
 
 ```{r}
 smartseq_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE119926") |>
   dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
   ggplot(aes(y = sample_accession,
-                               x = n,
-                               fill = predicted_labels)) +
+             x = n,
+             fill = predicted_labels)) +
   geom_col(position = position_fill()) +
   scale_x_continuous(labels = scales::percent) + # percentage makes sense here
   facet_grid(rows = vars(subgroup),
-                      cols = vars(model_type),
-                      space = "free_y",
-                      scales = "free_y") +
+             cols = vars(model_type),
+             space = "free_y",
+             scales = "free_y") +
   scale_fill_manual(values = subgroup_colors) +
   labs(y = NULL,
-                x = "Single-cell Percentage",
-                fill = "Predicted Subgroup",
-                title = "GSE119926 (Smart-seq2)") +
+       x = "Single-cell Percentage",
+       fill = "Predicted Subgroup",
+       title = "GSE119926 (Smart-seq2)") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, 
-                                                     vjust = 1,
-                                                     hjust = 1),
-                 plot.title = element_text(hjust = 0.5))
+                                   vjust = 1,
+                                   hjust = 1),
+        plot.title = element_text(hjust = 0.5))
 
 tenx_object <- single_cell_plot_df |>
   dplyr::filter(study == "GSE155446") |>
   dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
   ggplot(aes(y = sample_accession,
-                               x = n,
-                               fill = predicted_labels)) +
+             x = n,
+             fill = predicted_labels)) +
   geom_col(position = position_fill()) +
   scale_x_continuous(labels = scales::percent) + # percentage makes sense here
   facet_grid(rows = vars(subgroup),
-                      cols = vars(model_type),
-                      space = "free_y",
-                      scales = "free_y") +
+             cols = vars(model_type),
+             space = "free_y",
+             scales = "free_y") +
   scale_fill_manual(values = subgroup_colors) +
   labs(y = NULL,
-                x = "Single-cell Percentage",
-                fill = "Predicted Subgroup",
-                title = "GSE155446 (10x)") +
+       x = "Single-cell Percentage",
+       fill = "Predicted Subgroup",
+       title = "GSE155446 (10x)") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, 
-                                                     vjust = 1,
-                                                     hjust = 1),
-                 plot.title = element_text(hjust = 0.5))
+                                   vjust = 1,
+                                   hjust = 1),
+        plot.title = element_text(hjust = 0.5))
 
 smartseq_object + tenx_object + plot_layout(guides = "collect")
 ```
@@ -299,6 +297,7 @@ Let's consider each model separately.
 # Grab only the rows relevant to RF model
 rf_df <- expression_df |> 
   dplyr::filter(model_type == "RF (w)", model == "RF") |>
+  # These columns are only relevant to the kTSP models
   dplyr::select(-gene_subgroup, -gene_in_pair)
 
 # Count the number of genes in the model that are zero
@@ -333,6 +332,7 @@ rf_informative_genes_df |>
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
 ```
+
 Let's also look based on the predicted label.
 
 ```{r}
@@ -352,23 +352,36 @@ rf_informative_genes_df |>
                position = position_dodge(width = 0.9))  +
   theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
 ```
+
 This suggests that the cells getting incorrectly labeled as G3 tend to have TPM = 0 for many of the genes in the RF model in the 10X dataset.
 
 #### k-Top Scoring Pairs
+
+Let's now look at the kTSP models.
+For kTSP models, we can identify which subgroup's rules a gene is included in.
+Different subgroups will have differing numbers of rules and, therefore, different numbers of informative genes.
+Thus, it's more helpful to look at the percentage of genes with TPM = 0 on a per subgroup basis.
 
 ```{r}
 # Grab only the rows relevant to kTSP model
 ktsp_df <- expression_df |> 
   dplyr::filter(model_type == "kTSP (w)", model == "kTSP") |>
+  # Drop the column that contains information about whether a gene is gene 1
+  # or gene 2 in the rule
   dplyr::select(-gene_in_pair)
 
 # Get the percentage of genes involved in each subgroup's rules that are 
 # zero
-ktsp_informative_genes_df <- ktsp_df |> 
+ktsp_informative_genes_df <- ktsp_df |>
+  # Need the cell (sample_accession + cell_index) and which subgroup a gene
+  # is informative about
   dplyr::group_by(sample_accession,
                   cell_index,
                   gene_subgroup) |>
+  # Number genes TPM == 0 / number of genes
   dplyr::summarize(percent_zeros = sum(TPM == 0) / dplyr::n()) |>
+  # Add information about the study, predicted labels, sample subgroup, and
+  # whether or not a cell was correctly classified
   dplyr::inner_join(
     num_genes_detected_df |>
       dplyr::filter(model_type != "RF (w)") |>
@@ -380,20 +393,34 @@ ktsp_informative_genes_df <- ktsp_df |>
                     correct_classification),
     by = c("sample_accession", "cell_index")
   ) |>
-  # Only keep the rows with the gene subgroup relevant to the prediction 
-  # Or if incorrectly classified, the true subgroup
-  dplyr::filter(gene_subgroup == predicted_labels | gene_subgroup == subgroup)
+  # Only keep the rows with the gene subgroup relevant to the true subgroup
+  dplyr::filter(gene_subgroup == subgroup)
 ```
+
+For each true subgroup label, compare the % of genes in the subgroup rules that are zero between correctly and incorrectly classified cells.
 
 ```{r}
 ktsp_informative_genes_df |>
-  ggplot(aes(x = percent_zeros,
-             fill = correct_classification,
-             group = correct_classification)) +
-  geom_density(alpha = 0.2) +
-  facet_grid(rows = vars(gene_subgroup), cols = vars(study)) +
-  theme_bw()
+  # Remove genes that couldn't be classified correctly because the sample is
+  # "G3/G4" which the model does not predict but make it more general
+  dplyr::filter(subgroup %in% mb_subgroups) |>
+  ggplot(aes(x = correct_classification,
+             y = percent_zeros,
+             color = correct_classification)) +
+  ggforce::geom_sina(alpha = 0.5) +
+  facet_grid(rows = vars(subgroup), cols = vars(study)) +
+  guides(color = "none") +
+  labs(x = "Cell Correctly Classified?",
+       y = "% Genes in Rules with TPM = 0",
+       title = "k-Top Scoring Pairs") +
+  stat_summary(fun = median,
+               geom = "point",
+               color = "black")  +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
 ```
+
+As we might expect, when a cell gets labeled as another subgroup, the genes in the true subgroup's rules tend to have more zeros.
 
 # Session Info
 
