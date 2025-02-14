@@ -2808,7 +2808,8 @@ longer format.</p>
   tidyr::pivot_longer(cols = dplyr::starts_with(&quot;gene&quot;),
                       names_to = &quot;gene_in_pair&quot;,
                       values_to = &quot;gene&quot;) |&gt;
-  dplyr::mutate(model = &quot;kTSP&quot;)</code></pre>
+  dplyr::mutate(model = &quot;kTSP&quot;) |&gt;
+  dplyr::rename(gene_subgroup = subgroup)</code></pre>
 </div>
 <div id="rf" class="section level3">
 <h3>RF</h3>
@@ -2825,11 +2826,11 @@ longer format.</p>
 <div id="what-genes-are-overlapping-between-the-two-models" class="section level3">
 <h3>What genes are overlapping between the two models?</h3>
 <p>Create a list to be passed to the UpSetR functions.</p>
-<pre class="r"><code>genesets_list &lt;- unique(tsp_df$subgroup) |&gt;
+<pre class="r"><code>genesets_list &lt;- unique(tsp_df$gene_subgroup) |&gt;
   purrr::set_names(~ paste0(&quot;kTSP_&quot;, .)) |&gt;
   purrr::map(
     \(x) tsp_df |&gt;
-      dplyr::filter(subgroup == x) |&gt;
+      dplyr::filter(gene_subgroup == x) |&gt;
       dplyr::pull(gene)
     )
 genesets_list$RF &lt;- rf_df$gene</code></pre>
