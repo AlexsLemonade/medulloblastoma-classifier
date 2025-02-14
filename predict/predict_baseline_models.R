@@ -6,7 +6,7 @@ create_models <- TRUE # train new models (if FALSE, reads existing models from f
 overwrite <- TRUE # if create_models is also TRUE, overwrite existing models file
 seed <- 44 # set initial seed for run_many_models() and before stochastic plots
 n_repeats <- 10 # set number of times to repeat in run_many_models()
-n_cores <- 10 # set number of cores to use in run_many_models()
+n_cores <- 3 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
 
 # Rationale ----
@@ -95,6 +95,7 @@ model_types <- c("ktsp_weighted", "ktsp_unweighted",
 if (create_models) {
 
   # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
+  message("kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults) ", Sys.time())
   weighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                   metadata_df = bulk_metadata_df,
                                                   labels = mb_subgroups,
@@ -123,6 +124,7 @@ if (create_models) {
                                                "rf" ~ "rf_weighted")))
 
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
+  message("kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE ", Sys.time())
   unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                     metadata_df = bulk_metadata_df,
                                                     labels = mb_subgroups,
@@ -156,6 +158,7 @@ if (create_models) {
                                      c)
 
   # MM2S, LASSO, and medulloPackage models
+  message("MM2S, LASSO, and medulloPackage models ", Sys.time())
   mm2s_lasso_medullopackage_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                            metadata_df = bulk_metadata_df,
                                                            labels = mb_subgroups,
@@ -196,11 +199,13 @@ if (create_models) {
   }
 
   # write models to file
+  message("write models to file ", Sys.time())
   readr::write_rds(x = baseline_list,
                    file = baseline_filepath)
 
 } else { # if create_models = FALSE and models already exist
 
+  message("reading models inexplicably ", Sys.time())
   baseline_list <- readr::read_rds(baseline_filepath)
 
 }
