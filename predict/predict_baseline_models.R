@@ -172,6 +172,13 @@ if (create_models) {
 
   # merge kTSP, RF, MM2S, and LASSO model lists
   message("combining all models ", Sys.time())
+
+  readr::write_rds(x = kTSP_RF_models_list,
+                   file = here::here(models_dir, "kTSP_RF_models.rds"))
+
+  readr::write_rds(x = mm2s_lasso_medulloPackage_models_list,
+                   file = here::here(models_dir, "MM2S_lasso_medulloPackage_models.rds"))
+
   baseline_list <- purrr::map2(kTSP_RF_models_list,
                                mm2s_lasso_medulloPackage_models_list,
                                c) |>
