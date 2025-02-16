@@ -5,7 +5,7 @@
 create_models <- TRUE # train new models (if FALSE, reads existing models from file)
 overwrite <- TRUE # if create_models is also TRUE, overwrite existing models file
 seed <- 44 # set initial seed for run_many_models() and before stochastic plots
-n_repeats <- 10 # set number of times to repeat in run_many_models()
+n_repeats <- 2 # set number of times to repeat in run_many_models()
 n_cores <- 3 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
 
@@ -158,22 +158,13 @@ if (create_models) {
                                      c)
 
   # MM2S, LASSO, and medulloPackage models
-  message("MM2S and LASSO models ", Sys.time())
-  mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
+  message("MM2S, LASSO, and medulloPackage models ", Sys.time())
+  mm2s_lasso_medulloPackage_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                            metadata_df = bulk_metadata_df,
                                                            labels = mb_subgroups,
                                                            model_types = c("mm2s",
-                                                                           "lasso"),
-                                                           array_studies_for_training = "GSE37418",
-                                                           initial_seed = seed,
-                                                           n_repeats = n_repeats,
-                                                           n_cores = n_cores)
-
-  message("medulloPackage models ", Sys.time())
-  medullopackage_models_list <- run_many_models(genex_df = bulk_genex_df,
-                                                           metadata_df = bulk_metadata_df,
-                                                           labels = mb_subgroups,
-                                                           model_types = c("medullopackage"),
+                                                                           "lasso",
+                                                                           "medullopackage"),
                                                            array_studies_for_training = "GSE37418",
                                                            initial_seed = seed,
                                                            n_repeats = n_repeats,
@@ -182,8 +173,7 @@ if (create_models) {
   # merge kTSP, RF, MM2S, and LASSO model lists
   message("combining all models ", Sys.time())
   baseline_list <- purrr::map2(kTSP_RF_models_list,
-                               mm2s_lasso_models_list,
-                               medullopackage_models_list,
+                               mm2s_lasso_medulloPackage_models_list,
                                c) |>
     purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
 
