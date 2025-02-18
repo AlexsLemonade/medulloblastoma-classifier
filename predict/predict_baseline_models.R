@@ -5,7 +5,7 @@
 create_models <- TRUE # train new models (if FALSE, reads existing models from file)
 overwrite <- TRUE # if create_models is also TRUE, overwrite existing models file
 seed <- 44 # set initial seed for run_many_models() and before stochastic plots
-n_repeats <- 2 # set number of times to repeat in run_many_models()
+n_repeats <- 10 # set number of times to repeat in run_many_models()
 n_cores <- 3 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
 
@@ -90,7 +90,7 @@ check_input_files(genex_df = bulk_genex_df,
 
 model_types <- c("ktsp_weighted", "ktsp_unweighted",
                  "rf_weighted", "rf_unweighted",
-                 "lasso", "mm2s") #, "medullopackage")
+                 "lasso", "mm2s", "medullopackage")
 
 if (create_models) {
 
@@ -165,8 +165,8 @@ if (create_models) {
                                                            metadata_df = bulk_metadata_df,
                                                            labels = mb_subgroups,
                                                            model_types = c("mm2s",
-                                                                           "lasso"), #,
-                                                                           #"medullopackage"),
+                                                                           "lasso",
+                                                                           "medullopackage"),
                                                            array_studies_for_training = "GSE37418",
                                                            initial_seed = seed,
                                                            n_repeats = n_repeats,
