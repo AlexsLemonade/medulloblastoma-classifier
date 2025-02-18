@@ -121,7 +121,8 @@ if (create_models) {
     purrr::map(\(x) setNames(x,
                              dplyr::case_match(names(x),
                                                "ktsp" ~ "ktsp_weighted",
-                                               "rf" ~ "rf_weighted")))
+                                               "rf" ~ "rf_weighted",
+                                               .default = names(x))))
 
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
   message("kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE ", Sys.time())
@@ -150,7 +151,8 @@ if (create_models) {
     purrr::map(\(x) setNames(x,
                              dplyr::case_match(names(x),
                                                "ktsp" ~ "ktsp_unweighted",
-                                               "rf" ~ "rf_unweighted")))
+                                               "rf" ~ "rf_unweighted",
+                                               .default = names(x))))
 
   # merge weighted and unweighted kTSP and RF model lists
   kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
@@ -163,8 +165,8 @@ if (create_models) {
                                                            metadata_df = bulk_metadata_df,
                                                            labels = mb_subgroups,
                                                            model_types = c("mm2s",
-                                                                           "lasso",
-                                                                           "medullopackage"),
+                                                                           "lasso"), #,
+                                                                           #"medullopackage"),
                                                            array_studies_for_training = "GSE37418",
                                                            initial_seed = seed,
                                                            n_repeats = n_repeats,
