@@ -90,7 +90,7 @@ check_input_files(genex_df = bulk_genex_df,
 
 model_types <- c("ktsp_weighted", "ktsp_unweighted",
                  "rf_weighted", "rf_unweighted",
-                 "lasso", "mm2s", "medullopackage")
+                 "lasso", "mm2s") #, "medullopackage")
 
 if (create_models) {
 
