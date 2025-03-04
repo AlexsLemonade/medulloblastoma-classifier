@@ -56,6 +56,7 @@ smartseq_data_dir <- here::here(pseudobulk_data_dir, "GSE119926")
 tenx_data_dir <- here::here(pseudobulk_data_dir, "GSE155446")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
+models_dir <- here::here("models")
 
 # Get file paths of individual SingleCellExperiment RDS objects
 sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
@@ -89,6 +90,9 @@ genes_filepath <- file.path(results_dir,
 plot_data_filepath <- here::here(plots_data_dir, 
                                  "single_cell_test_predictions.tsv")
 
+# We need the kTSP model for a later step
+baseline_models_filepath <- here::here(models_dir,
+                                      "baseline.rds")
 ```
 
 ## Read in data
@@ -100,6 +104,17 @@ Starting with the individual cells predicted labels plot data
 ```{r}
 single_cell_plot_df <- readr::read_tsv(plot_data_filepath,
                                        show_col_types = FALSE)
+```
+
+### kTSP model
+
+We need this -- and only this -- model for a later binary kTSP plot.
+
+```{r}
+baseline_models <- readr::read_rds(baseline_models_filepath)
+official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
+ktsp_model <- baseline_models[[official_model]]$ktsp_weighted$classifier
+rm(baseline_models, official_model)
 ```
 
 ### Genes in models
@@ -421,6 +436,90 @@ ktsp_informative_genes_df |>
 ```
 
 As we might expect, when a cell gets labeled as another subgroup, the genes in the true subgroup's rules tend to have more zeros.
+
+But there are some instances where cells are correctly classified without any genes in that group detected.
+What subgroups does this happen for?
+
+```{r}
+corrected_classified_with_all_zeros_df <- ktsp_informative_genes_df |>
+  dplyr::filter(correct_classification, percent_zeros == 1)
+
+corrected_classified_with_all_zeros_df |>
+  dplyr::group_by(predicted_labels) |>
+  dplyr::count()
+```
+
+A cell can be classified as G3 if all rules have a score of zero, which will sometimes happen to be correct:
+
+```{r}
+corrected_classified_with_all_zeros_df |>
+  dplyr::select(sample_accession, cell_index) |> 
+  dplyr::left_join(dplyr::filter(single_cell_plot_df,
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::filter(G3 == 0,
+                G4 == 0, 
+                SHH == 0,
+                WNT == 0) |>
+  dplyr::group_by(predicted_labels) |>
+  dplyr::count()
+```
+
+This explains **most cases** of correct cells with informative counts all = 0, most likely because G3 comes before all other subgroups alphabetically.
+
+But there are some instances of SHH cells being correctly classified without informative gene counts as well.
+Let's take a look at those:
+
+```{r}
+corrected_classified_with_all_zeros_df |>
+  dplyr::select(sample_accession, cell_index) |> 
+  dplyr::left_join(dplyr::filter(single_cell_plot_df,
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::filter(predicted_labels == "SHH") |>
+  dplyr::pull(SHH) |>
+  summary()
+```
+
+Because we set `weighted_votes = TRUE`, this is probably equivalent to one of the six SHH rules being true in every case.
+
+```{r}
+# Get wide version of TPM, only for relevant genes, i.e., in the kTSP models
+exprs_shh_zeros <- corrected_classified_with_all_zeros_df |>
+  dplyr::filter(predicted_labels == "SHH") |>
+  dplyr::select(sample_accession, cell_index) |>
+  dplyr::left_join(dplyr::filter(expression_df, 
+                                 model == "kTSP",
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::select(sample_accession, cell_index, gene, TPM) |>
+  tidyr::pivot_wider(names_from = c(sample_accession, cell_index), 
+                     values_from = TPM) |>
+  tibble::column_to_rownames("gene")
+
+# Prepare it for use with multiclassPairs
+shh_zeros_mcp_data <- multiclassPairs::ReadData(Data = exprs_shh_zeros,
+                                                Labels = rep("SHH", 
+                                                             ncol(exprs_shh_zeros)),
+                                                Platform = rep("scRNA-seq", 
+                                                               ncol(exprs_shh_zeros)),
+                                                verbose = FALSE)
+
+# Make the binary TSP plot
+multiclassPairs::plot_binary_TSP(Data = shh_zeros_mcp_data,
+                                 classifier = ktsp_model, 
+                                 classes = mb_subgroups,
+                                 show_rule_name = TRUE,
+                                 top_anno = "ref",
+                                 cluster_cols = FALSE,
+                                 cluster_rows = FALSE,
+                                 legend = FALSE,
+                                 anno_height = 0.05,
+                                 score_height = 0.05,
+                                 margin = c(0, 5, 0, 0.5))
+
+```
+This is not what I would expect based on the SHH scores, so further investigation is required.
 
 # Session Info
 
