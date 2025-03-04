@@ -269,7 +269,7 @@ Let's take a look at why that might be.
 num_genes_detected_df |>
   # Remove sample where it's impossible for predicted labels and the subgroup
   # to match, as the model cannot predict "G3/G4"
-  dplyr::filter(subgroup != "G3/G4") |>
+  dplyr::filter(subgroup %in% mb_subgroups) |>
   ggplot(aes(x = num_genes_detected,
              fill = correct_classification,
              group = correct_classification)) +
