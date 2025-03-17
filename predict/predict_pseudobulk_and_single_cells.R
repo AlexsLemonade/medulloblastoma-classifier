@@ -18,13 +18,13 @@ models_dir <- here::here("models")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
 processed_data_dir <- here::here("processed_data")
-pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
-smartseq_data_dir <- here::here(pseudobulk_data_dir, "GSE119926")
-tenx_data_dir <- here::here(pseudobulk_data_dir, "GSE155446")
+single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
+smartseq_data_dir <- here::here(single_cell_data_dir, "GSE119926")
+tenx_data_dir <- here::here(single_cell_data_dir, "GSE155446")
 
 # Input files
 # pseudobulk data for each sample was generated in 02-gather_data.R
-singlecell_metadata_filepath <- here::here(pseudobulk_data_dir,
+singlecell_metadata_filepath <- here::here(single_cell_data_dir,
                                            "pseudobulk_metadata.tsv")
 smartseq_genex_filepath <- here::here(smartseq_data_dir,
                                       "GSE119926_pseudobulk_genex.tsv")
@@ -42,10 +42,10 @@ pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_pre
 
 # Get file paths of individual SingleCellExperiment RDS objects
 sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
-                                          "pseudobulk_sce"),
+                                          "sce"),
                           glob = "*_sce.rds"),
                fs::dir_ls(path = fs::path(tenx_data_dir,
-                                          "pseudobulk_sce"),
+                                          "sce"),
                           glob = "*_sce.rds")
 )
 # Extract sample titles from the file names
