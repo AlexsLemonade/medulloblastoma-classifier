@@ -311,26 +311,22 @@ for (sample_iter in seq_along(GSE155446_sample_accession_ids)) {
                        map_to = "ENSEMBL") |>
     tibble::column_to_rownames(var = "gene")
 
-  # separate step to convert counts to TPM but could also be piped
-  tpm_genex_df <- convert_gene_counts_to_TPM(genex_df = scrna_genex_df,
-                                             gene_lengths_df = GENCODE_gene_lengths_df)
+  # Sum the count values across cells
+  summed_counts_vector <- rowSums(scrna_genex_df)
 
-  # average the TPM values across cells
-  average_tpm_vector <- rowMeans(tpm_genex_df)
-
-  # combine the list of TPM values into a single matrix
+  # combine the list of count values into a single matrix
   # if pseudobulk_df does not contain data yet (i.e. if sample_iter is 1),
   # then create a gene column and sample column for the first sample,
   # otherwise, add a column for each additional sample
   if (is.null(GSE155446_pseudobulk_df)) {
 
-    GSE155446_pseudobulk_df <- tibble::tibble(gene = rownames(tpm_genex_df),
-                                    "{sample_title}" := average_tpm_vector)
+    GSE155446_pseudobulk_df <- tibble::tibble(gene = rownames(scrna_genex_df),
+                                    "{sample_title}" := summed_counts_vector)
 
   } else {
 
     GSE155446_pseudobulk_df <- GSE155446_pseudobulk_df |>
-      tibble::add_column("{sample_title}" := average_tpm_vector)
+      tibble::add_column("{sample_title}" := summed_counts_vector)
 
   }
 
@@ -338,8 +334,8 @@ for (sample_iter in seq_along(GSE155446_sample_accession_ids)) {
   sce_output_filepath = here::here(GSE155446_pseudobulk_sce_dir,
                                    stringr::str_c(sample_title, "_sce.rds"))
 
-  # convert TPM matrix to SingleCellExperiment objects
-  SingleCellExperiment::SingleCellExperiment(assays = list(counts = tpm_genex_df)) |>
+  # convert counts matrix to SingleCellExperiment objects
+  SingleCellExperiment::SingleCellExperiment(assays = list(counts = scrna_genex_df)) |>
     # calculate UMAP results
     add_sce_umap() |>
     # perform clustering
