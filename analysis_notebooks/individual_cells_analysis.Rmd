@@ -149,14 +149,15 @@ sce_expression_list <- sce_files |>
       # Total number of genes detected 
       num_genes_detected <- apply(counts(sce), 2, \(y) sum(y > 0))
       
-      # Extract the TPM, which are in the counts slot, for the genes included
+      # Extract the expression values in the counts slot, for the genes included
       # in at least one model
-      tpm_df <- counts(sce)[which(rownames(sce) %in% genes_vector), ]
+      genex_df <- counts(sce)[which(rownames(sce) %in% genes_vector), ]
       
       # Return a list of:
-      #   TPM for genes in at least one model
+      #   Counts or TPM (depending on the experiment) for genes in at 
+      #     least one model
       #   Number of genes that are detected in each cell
-      list(tpm_df = tpm_df |> 
+      list(genex_df = genex_df |> 
              tibble::rownames_to_column("gene"),
            num_genes_detected = num_genes_detected)
     }
@@ -167,11 +168,11 @@ sce_expression_list <- sce_files |>
 # contains predicted labels for each model and the study. We will also add the
 # information about genes used in the models.
 expression_df <- sce_expression_list |>
-  purrr::map(\(x) x[["tpm_df"]]) |>
+  purrr::map(\(x) x[["genex_df"]]) |>
   purrr::reduce(dplyr::inner_join, by = "gene") |>
   tidyr::pivot_longer(cols = -1,
                       names_to = "cell",
-                      values_to = "TPM") |>
+                      values_to = "expression") |>
   tidyr::separate(cell, 
                   into = c("sample_accession", "cell_index"), 
                   sep = "_") |>
@@ -273,7 +274,7 @@ tenx_object <- single_cell_plot_df |>
 smartseq_object + tenx_object + plot_layout(guides = "collect")
 ```
 
-We can see that cells in the 10X experiment tend to be classified as G3 even when the sample's subgroup label is not G3, and this is particularly pronounced in the RF model.
+We can see that cells that originate from SHH samples in the 10X experiment tend to be classified as G4, and this is particularly pronounced in the RF model.
 Let's take a look at why that might be.
 
 ### Diagnostic plots
@@ -298,7 +299,7 @@ num_genes_detected_df |>
         plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
 ```
 
-Cells that have predicted labels that are different from the sample's true subgroup labels appear to tend to have fewer total genes detected.
+Cells that have predicted labels that are different from the sample's true subgroup label appear to tend to have fewer total genes detected, particularly in the 10X experiment.
 
 ### Number of genes in model that are not detected
 
@@ -319,7 +320,7 @@ rf_df <- expression_df |>
 rf_informative_genes_df <- rf_df |> 
   dplyr::group_by(sample_accession,
                   cell_index) |>
-  dplyr::summarize(num_zeros = sum(TPM == 0)) |>
+  dplyr::summarize(num_zeros = sum(expression == 0)) |>
   dplyr::inner_join(
     num_genes_detected_df |>
       dplyr::filter(model_type != "kTSP (w)") |>
@@ -341,7 +342,7 @@ rf_informative_genes_df |>
              group = correct_classification)) +
   geom_density(alpha = 0.2) +
   facet_grid(cols = vars(study)) +
-  labs(x = "Number Genes in Model with TPM = 0",
+  labs(x = "Number of Undetected Genes in Model",
        fill = "Cell Correctly Classified?",
        title = "Random Forest") +
   theme_bw() +
@@ -359,7 +360,7 @@ rf_informative_genes_df |>
   facet_grid(cols = vars(study)) +
   theme_bw() +
   labs(x = "Predicted Cell Label",
-       y = "Number Genes in Model with TPM = 0",
+       y = "Number of Undetected Genes in Model",
        color = "Cell Correctly Classified?",
        title = "Random Forest") +
   stat_summary(fun = median,
@@ -368,14 +369,14 @@ rf_informative_genes_df |>
   theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
 ```
 
-This suggests that the cells getting incorrectly labeled as G3 tend to have TPM = 0 for many of the genes in the RF model in the 10X dataset.
+This suggests that the cells getting incorrectly labeled as G4 tend to have 0s for many of the genes in the RF model in the 10X dataset.
 
 #### k-Top Scoring Pairs
 
 Let's now look at the kTSP models.
 For kTSP models, we can identify which subgroup's rules a gene is included in.
 Different subgroups will have differing numbers of rules and, therefore, different numbers of informative genes.
-Thus, it's more helpful to look at the percentage of genes with TPM = 0 on a per subgroup basis.
+Thus, it's more helpful to look at the percentage of genes with a 0 count or TPM value on a per subgroup basis.
 
 ```{r}
 # Grab only the rows relevant to kTSP model
@@ -393,8 +394,8 @@ ktsp_informative_genes_df <- ktsp_df |>
   dplyr::group_by(sample_accession,
                   cell_index,
                   gene_subgroup) |>
-  # Number genes TPM == 0 / number of genes
-  dplyr::summarize(percent_zeros = sum(TPM == 0) / dplyr::n()) |>
+  # Number genes expression == 0 / number of genes
+  dplyr::summarize(percent_zeros = sum(expression == 0) / dplyr::n()) |>
   # Add information about the study, predicted labels, sample subgroup, and
   # whether or not a cell was correctly classified
   dplyr::inner_join(
@@ -426,7 +427,7 @@ ktsp_informative_genes_df |>
   facet_grid(rows = vars(subgroup), cols = vars(study)) +
   guides(color = "none") +
   labs(x = "Cell Correctly Classified?",
-       y = "% Genes in Rules with TPM = 0",
+       y = "% Undetected Genes in Rules",
        title = "k-Top Scoring Pairs") +
   stat_summary(fun = median,
                geom = "point",
@@ -481,10 +482,10 @@ corrected_classified_with_all_zeros_df |>
   summary()
 ```
 
-Because we set `weighted_votes = TRUE`, this is probably equivalent to one of the six SHH rules being true in every case.
+Because we set `weighted_votes = TRUE`, this is probably equivalent to one of the 19 SHH rules being true in every case.
 
 ```{r}
-# Get wide version of TPM, only for relevant genes, i.e., in the kTSP models
+# Get wide version of expression, only for relevant genes, i.e., in the kTSP models
 exprs_shh_zeros <- corrected_classified_with_all_zeros_df |>
   dplyr::filter(predicted_labels == "SHH") |>
   dplyr::select(sample_accession, cell_index) |>
@@ -492,9 +493,9 @@ exprs_shh_zeros <- corrected_classified_with_all_zeros_df |>
                                  model == "kTSP",
                                  model_type == "kTSP (w)"),
                    by = c("sample_accession", "cell_index")) |>
-  dplyr::select(sample_accession, cell_index, gene, TPM) |>
+  dplyr::select(sample_accession, cell_index, gene, expression) |>
   tidyr::pivot_wider(names_from = c(sample_accession, cell_index), 
-                     values_from = TPM) |>
+                     values_from = expression) |>
   tibble::column_to_rownames("gene")
 
 # Prepare it for use with multiclassPairs
