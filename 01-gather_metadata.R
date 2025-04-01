@@ -5,10 +5,10 @@
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
-processed_pseudobulk_data_dir <- here::here(processed_data_dir, "pseudobulk")
+processed_single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
 
 dir.create(processed_data_dir, showWarnings = FALSE)
-dir.create(processed_pseudobulk_data_dir, showWarnings = FALSE)
+dir.create(processed_single_cell_data_dir, showWarnings = FALSE)
 
 # input file names
 GSE124814_metadata_input_filename <- here::here(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
@@ -21,7 +21,7 @@ GSE155446_metadata_input_filename <- here::here(data_dir, "GSE155446", "GSE15544
 # output file names
 bulk_metadata_output_filename <- here::here(processed_data_dir,
                                             "bulk_metadata.tsv")
-pseudobulk_metadata_output_filename <- here::here(processed_pseudobulk_data_dir,
+pseudobulk_metadata_output_filename <- here::here(processed_single_cell_data_dir,
                                                   "pseudobulk_metadata.tsv")
 
 ################################################################################
