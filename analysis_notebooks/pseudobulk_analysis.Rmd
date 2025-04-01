@@ -38,7 +38,7 @@ library(patchwork)
 
 ```{r}
 # Directories
-processed_data_dir <- here::here("processed_data", "pseudobulk")
+processed_data_dir <- here::here("processed_data", "single_cell")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
 
