@@ -1005,6 +1005,11 @@
       ],
       "Hash": "ae913ff30bce222686e66e45448fcfb6"
     },
+    "UpSetR": {
+      "Package": "UpSetR",
+      "Version": "1.4.0",
+      "Source": "Repository"
+    },
     "XML": {
       "Package": "XML",
       "Version": "3.99-0.14",
@@ -1851,6 +1856,11 @@
         "vipor"
       ],
       "Hash": "e2adea988a575e168ad44022e80cd44e"
+    },
+    "ggforce": {
+      "Package": "ggforce",
+      "Version": "0.4.1",
+      "Source": "Repository"
     },
     "ggplot2": {
       "Package": "ggplot2",
@@ -2818,6 +2828,11 @@
       ],
       "Hash": "bd54ba8a0a5faded999a7aab6e46b374"
     },
+    "polyclip": {
+      "Package": "polyclip",
+      "Version": "1.10-4",
+      "Source": "Repository"
+    },
     "preprocessCore": {
       "Package": "preprocessCore",
       "Version": "1.60.2",
@@ -3757,6 +3772,11 @@
         "xfun"
       ],
       "Hash": "e4e357f28c2edff493936b6cb30c3d65"
+    },
+    "tweenr": {
+      "Package": "tweenr",
+      "Version": "2.0.2",
+      "Source": "Repository"
     },
     "tzdb": {
       "Package": "tzdb",
