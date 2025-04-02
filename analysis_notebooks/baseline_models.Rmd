@@ -1,5 +1,5 @@
 ---
-title: "Train and test baseline models to predict MB subgroups"
+title: "Visualize results of MB subgroup prediction"
 author: "Steven Foltz"
 date: "2022 - 2023"
 output:
@@ -7,42 +7,19 @@ output:
     toc: TRUE
     toc_float: TRUE
     df_print: paged
-params:
-  create_models: FALSE # train new models (if FALSE, reads existing models from file)
-  overwrite: FALSE # if create_models is also TRUE, overwrite existing models file
-  seed: 44 # set initial seed for run_many_models() and before stochastic plots
-  n_repeats: 10 # set number of times to repeat in run_many_models()
-  n_cores: 3 # set number of cores to use in run_many_models()
 ---
-
-# Rationale
-
-We want to use single sample prediction models to predict tumor subgroup in medulloblastoma (MB) patient samples.
-Our gene expression data comes from multiple studies, and different studies were generated using different platforms (array and RNA-seq).
-
-Our goals are to train different prediction models (kTSP, RF, MM2S, and LASSO) and to assess model performance on a per-platform and per-subgroup basis.
-Ideally, models would perform well regardless of the platform or subgroup of the sample, but differences in sample size mean some groups may be underrepresented in the data available for training.
-Inverse-weighting may boost performance for smaller groups, and we can test this in kTSP and RF models using parameters for weighted (w) and unweighted (unw) analyses.
-
-To train and test our models, we use the `run_many_models()` function.
-This function allows us to specify what model types we want to analyze, various model parameters, and segregate samples into training/testing sets via a random seed.
-We train and test each model a number of times (e.g. 10 repeats) using different training/testing sets to understand the range of model performance as measured by Kappa and Balanced Accuracy.
-Training/testing sets segregate at the study level, rather than the sample level.
-
 
 # Setup
 
 ```{r setup}
-
-# get input parameters
-create_models <- params$create_models
-overwrite <- params$overwrite
 
 # Source code and libraries
 source(here::here("utils/color_schemes.R"))
 source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
 library(patchwork)
+
+seed <- 44
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
@@ -61,19 +38,18 @@ baseline_accuracy_plot_filepath <- file.path(plots_dir, "baseline_accuracy.pdf")
 baseline_binary_TSP_plot_filepath <- file.path(plots_dir, "baseline_binary_TSP.pdf")
 baseline_figure_filepath <- file.path(plots_dir, "baseline_figure.pdf")
 
-# check that existing baseline model file will not be overwritten if overwrite is FALSE
-if (create_models &
-    (file.exists(baseline_filepath)) &
-    !overwrite) {
+# check that baseline model exists and read in the file
+if (file.exists(baseline_filepath)) {
   
-  stop("Model output file already exists and overwrite is set to FALSE in analysis_notebooks/baseline.Rmd.")
+  baseline_list <- readr::read_rds(baseline_filepath)
   
-}
-
-# check that files exist if create_models is FALSE
-if (!create_models & !file.exists(baseline_filepath)) {
+  model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                   "rf_weighted", "rf_unweighted",
+                   "lasso", "mm2s", "medullopackage")
   
-  stop("Model output file does not exist and create_models is set to FALSE in analysis_notebooks/baseline.Rmd.")
+} else {
+  
+  stop(glue::glue("Baseline model file ", baseline_filepath, " does not exist."))
   
 }
 
@@ -95,138 +71,6 @@ bulk_genex_df <- bulk_genex_df |>
 
 check_input_files(genex_df = bulk_genex_df,
                   metadata_df = bulk_metadata_df)
-
-```
-
-# Train and test MB subgroup models
-
-### Create kTSP, RF, MM2S, and LASSO models
-
-The following code creates both weighted and unweighted kTSP and RF models.
-The MM2S and LASSO models use default settings.
-Out of all the repeats, we select one 'official' repeat for visualization.
-The 'official' repeat maximizes the median Kappa across all models within the repeat.
-Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
-We always include the array study GSE37418 in training because a comparison tool (medulloPackage) also trained on that study.
-
-```{r}
-
-model_types <- c("ktsp_weighted", "ktsp_unweighted",
-                 "rf_weighted", "rf_unweighted",
-                 "lasso", "mm2s", "medullopackage")
-
-if (create_models) {
-  
-  # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
-  weighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
-                                                  metadata_df = bulk_metadata_df,
-                                                  labels = mb_subgroups,
-                                                  model_types = c("ktsp", "rf"),
-                                                  array_studies_for_training = "GSE37418",
-                                                  initial_seed = params$seed,
-                                                  n_repeats = params$n_repeats,
-                                                  n_cores = params$n_cores,
-                                                  ktsp_featureNo = 1000,
-                                                  ktsp_n_rules_min = 5,
-                                                  ktsp_n_rules_max = 50,
-                                                  ktsp_weighted = TRUE,
-                                                  rf_num.trees = 500,
-                                                  rf_genes_altogether = 50,
-                                                  rf_genes_one_vs_rest = 50,
-                                                  rf_gene_repetition = 1,
-                                                  rf_rules_altogether = 50,
-                                                  rf_rules_one_vs_rest = 50,
-                                                  rf_weighted = TRUE)
-  
-  # Add _weighted to names of kTSP and RF list elements
-  weighted_kTSP_RF_models_list <- weighted_kTSP_RF_models_list |>
-    purrr::map(\(x) setNames(x,
-                             dplyr::case_match(names(x),
-                                               "ktsp" ~ "ktsp_weighted",
-                                               "rf" ~ "rf_weighted")))
-  
-  # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
-  unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
-                                                    metadata_df = bulk_metadata_df,
-                                                    labels = mb_subgroups,
-                                                    model_types = c("ktsp", "rf"),
-                                                    array_studies_for_training = "GSE37418",
-                                                    initial_seed = params$seed,
-                                                    n_repeats = params$n_repeats,
-                                                    n_cores = params$n_cores,
-                                                    ktsp_featureNo = 1000,
-                                                    ktsp_n_rules_min = 5,
-                                                    ktsp_n_rules_max = 50,
-                                                    ktsp_weighted = FALSE,
-                                                    rf_num.trees = 500,
-                                                    rf_genes_altogether = 50,
-                                                    rf_genes_one_vs_rest = 50,
-                                                    rf_gene_repetition = 1,
-                                                    rf_rules_altogether = 50,
-                                                    rf_rules_one_vs_rest = 50,
-                                                    rf_weighted = FALSE)
-  
-  # Add _unweighted to names of kTSP and RF list elements
-  unweighted_kTSP_RF_models_list <- unweighted_kTSP_RF_models_list |>
-    purrr::map(\(x) setNames(x,
-                             dplyr::case_match(names(x),
-                                               "ktsp" ~ "ktsp_unweighted",
-                                               "rf" ~ "rf_unweighted")))
-  
-  # merge weighted and unweighted kTSP and RF model lists
-  kTSP_RF_models_list <- purrr::map2(weighted_kTSP_RF_models_list,
-                                     unweighted_kTSP_RF_models_list,
-                                     c)
-  
-  # MM2S, LASSO, and medulloPackage models
-  mm2s_lasso_models_list <- run_many_models(genex_df = bulk_genex_df,
-                                            metadata_df = bulk_metadata_df,
-                                            labels = mb_subgroups,
-                                            model_types = c("mm2s", 
-                                                            "lasso",
-                                                            "medullopackage"),
-                                            array_studies_for_training = "GSE37418",
-                                            initial_seed = params$seed,
-                                            n_repeats = params$n_repeats,
-                                            n_cores = params$n_cores)
-  
-  # merge kTSP, RF, MM2S, and LASSO model lists
-  baseline_list <- purrr::map2(kTSP_RF_models_list,
-                               mm2s_lasso_models_list,
-                               c) |>
-    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
-  
-  # select "official" repeat with greatest median Kappa across models
-  official_model <- baseline_list |>
-    purrr::map_dbl(\(x) model_types |>
-                     purrr::map_dbl(
-                       \(mtype) x[[mtype]]$cm$overall[["Kappa"]]) |>
-                     median()) |>
-    which.max()
-  
-  for (model_index in 1:length(baseline_list)) {
-    
-    if (model_index == official_model) {
-      
-      baseline_list[[model_index]][["official_model"]] <- TRUE
-      
-    } else {
-      
-      baseline_list[[model_index]][["official_model"]] <- FALSE
-      
-    }
-    
-  }
-  
-  # write models to file
-  readr::write_rds(x = baseline_list,
-                   file = baseline_filepath)
-  
-} else { # if create_models = FALSE and models already exist
-  
-  baseline_list <- readr::read_rds(baseline_filepath)
-  
-}
 
 ```
 
@@ -297,7 +141,7 @@ plot_df |>
 
 ```{r}
 
-set.seed(params$seed)
+set.seed(seed)
 
 baseline_kappa_plot <- plot_df |>
   dplyr::filter(metric == "Kappa") |>
@@ -310,7 +154,7 @@ baseline_kappa_plot <- plot_df |>
   ggplot2::geom_point(shape = 16,
                       position = ggplot2::position_jitterdodge(jitter.width = 0.1,
                                                                jitter.height = 0)) +
-  ggplot2::coord_cartesian(xlim = c(0.7,1)) +
+  ggplot2::coord_cartesian(xlim = c(0.6,1)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
   ggplot2::labs(x = "Kappa",
@@ -337,7 +181,48 @@ Later we explore this [excluded data point](#excluded-data-point) in more detail
 
 plot_df |>
   dplyr::filter(metric == "Kappa",
-                value < 0.7)
+                value < 0.6)
+
+```
+
+### Excluded data points
+
+What's up with the MM2S model on RNA-seq data from repeats 4 and 6?
+Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
+
+```{r}
+
+mm2s_rnaseq_repeat_4_df <- baseline_list[[4]]$test_metadata |>
+  dplyr::filter(platform == "RNA-seq") |>
+  dplyr::left_join(baseline_list[[4]]$mm2s$test_results$model_output,
+                   by = c("sample_accession" = "SampleName"))
+
+mm2s_rnaseq_repeat_6_df <- baseline_list[[6]]$test_metadata |>
+  dplyr::filter(platform == "RNA-seq") |>
+  dplyr::left_join(baseline_list[[6]]$mm2s$test_results$model_output,
+                   by = c("sample_accession" = "SampleName"))
+
+```
+
+#### MM2S RNA-seq Repeat 4
+
+```{r}
+
+calculate_confusion_matrix(predicted_labels = mm2s_rnaseq_repeat_4_df$MM2S_Prediction,
+                           true_labels = mm2s_rnaseq_repeat_4_df$subgroup,
+                           labels = mb_subgroups)$table
+
+
+```
+
+#### MM2S RNA-seq Repeat 6
+
+```{r}
+
+calculate_confusion_matrix(predicted_labels = mm2s_rnaseq_repeat_6_df$MM2S_Prediction,
+                           true_labels = mm2s_rnaseq_repeat_6_df$subgroup,
+                           labels = mb_subgroups)$table
+
 
 ```
 
@@ -365,6 +250,7 @@ plot_df |>
   dplyr::group_by(model_type, subgroup) |>
   dplyr::summarize(median_accuracy = median(value),
                    .groups = "drop") |>
+  dplyr::mutate(median_accuracy = round(median_accuracy, 3)) |>
   tidyr::pivot_wider(names_from = subgroup,
                      values_from = median_accuracy) |>
 knitr::kable(caption = "Median Balanced Accuracy values")
@@ -381,6 +267,7 @@ plot_df |>
   dplyr::group_by(model_type, subgroup) |>
   dplyr::summarize(median_accuracy = median(value),
                    .groups = "drop") |>
+  dplyr::mutate(median_accuracy = round(median_accuracy, 3)) |>
   tidyr::pivot_wider(names_from = subgroup,
                      values_from = median_accuracy) |>
   knitr::kable(caption = "Median Balanced Accuracy values")
@@ -397,7 +284,7 @@ The following plot illustrates the differences observed between model types in G
 
 ```{r}
 
-set.seed(params$seed)
+set.seed(seed)
 
 baseline_accuracy_plot <- plot_df |>
   dplyr::filter(metric == "Balanced Accuracy",
@@ -413,7 +300,7 @@ baseline_accuracy_plot <- plot_df |>
                                                                jitter.height = 0)) +
   ggplot2::facet_wrap(~ subgroup,
                       ncol = 1) +
-  ggplot2::coord_cartesian(xlim = c(0.6,1)) +
+  #ggplot2::coord_cartesian(xlim = c(0.6,1)) +
   ggplot2::labs(x = "Balanced Accuracy",
                 y = NULL,
                 color = "Platform") +
@@ -431,38 +318,6 @@ baseline_accuracy_plot
 
 ```
 
-To aid in visualization, the following data points were excluded from the previous plot.
-Later we explore this [excluded data point](#excluded-data-point) in more detail.
-```{r}
-
-plot_df |>
-  dplyr::filter(metric == "Balanced Accuracy",
-                subgroup %in% c("G3"),
-                value < 0.6)
-
-```
-
-### Excluded data point
-
-What's up with the LASSO model on RNA-seq data from repeat 9?
-Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
-
-```{r}
-
-lasso_rnaseq_repeat_9_df <- baseline_list[[9]]$test_metadata |>
-  dplyr::filter(platform == "RNA-seq") |>
-  dplyr::left_join(baseline_list[[9]]$lasso$test_results$predicted_labels_df,
-                   by = "sample_accession")
-
-calculate_confusion_matrix(predicted_labels = lasso_rnaseq_repeat_9_df$predicted_labels,
-                           true_labels = lasso_rnaseq_repeat_9_df$subgroup,
-                           labels = mb_subgroups)$table
-
-
-```
-
-For this repeat (only), the model predicts almost all samples to be SHH!
-
 ### kTSP (w) binary rules plot
 
 ```{r}
@@ -474,23 +329,19 @@ official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
 official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
 official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_weighted"]]$test_results$model_output
 
-
-train_test_samples_list <- get_train_test_samples(genex_df = bulk_genex_df,
-                                                  metadata_df = bulk_metadata_df,
-                                                  train_test_seed = official_train_test_seed,
-                                                  proportion_of_studies_train = 0.5)
+test_samples <- baseline_list[[official_model]]$test_metadata$sample_accession
 
 # confirm it's the same test samples in the same order
-if (any(train_test_samples_list$test != row.names(official_ktsp_test_results))) {
+if (any(test_samples != row.names(official_ktsp_test_results))) {
   
   stop("Testing sets do not match!")
   
 } else { # use train_test_samples_list and classifier to visualize binary rules
   
   genex_df_test <- bulk_genex_df |>
-    dplyr::select(train_test_samples_list$test)
+    dplyr::select(dplyr::all_of(test_samples))
   metadata_df_test <- bulk_metadata_df |>
-    dplyr::filter(sample_accession %in% train_test_samples_list$test)
+    dplyr::filter(sample_accession %in% test_samples)
   
   test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
                                                 Labels = metadata_df_test$subgroup,
