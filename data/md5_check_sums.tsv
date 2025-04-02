@@ -180,7 +180,7 @@ d93113b0f20fa45de9dbd4df891be142  data/GSE60862/GSE60862/metadata_GSE60862.tsv
 6bd1964894e016ca41d66051e6a28566  data/GSE60862/GSE60862/GSE60862.tsv
 9ed2fa92d31d51f17fc048b98158a5e1  data/GSE60862/README.md
 b62634d9eccbb548499ce384605fe47a  data/GSE60862/LICENSE.TXT
-0d4e1457253a8cb519116e742db486c8  data/data_sources.tsv
+dc4d0333d80a473fcaa454af6b9e471c  data/data_sources.tsv
 1f3c8bfa55ba38db2edde1a206f90bf1  data/OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds
 f207a129a5442f4ed3c3b63a46ec9fde  data/OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds
 d75303b0b255b76eb63de076957bdefc  data/OpenPBTA/pbta-histologies.tsv
@@ -237,6 +237,7 @@ ebacb0f506a40e60a3c9e77f089862e8  data/GSE155446/split/1238.tsv
 439a1b372769c3c05e1a3b7428eca16d  data/GSE155446/split/1167.tsv
 a2e950e48a53ae52ca2b85657ecb0ec7  data/GSE155446/GSE155446_human_cell_metadata.csv.gz
 e986ea870d51f65ebec819d02c99dab4  data/GSE155446/GSE155446_human_raw_counts.csv.gz
+c464133192f27a7462f5780cb243bb78  data/GSE155446/meta.tsv
 9ed2fa92d31d51f17fc048b98158a5e1  data/GSE37418/README.md
 b3c9af5200898f64e6d489c2d33b5c19  data/GSE37418/GSE37418/metadata_GSE37418.tsv
 9abe19d7eaa2ef6e18d37591f0624185  data/GSE37418/GSE37418/GSE37418.tsv
