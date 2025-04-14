@@ -14,7 +14,7 @@ ah_date <- "2022-10-30"
 #We want to use single sample prediction models to predict tumor subgroup in medulloblastoma (MB) patient samples.
 #Our gene expression data comes from multiple studies, and different studies were generated using different platforms (array and RNA-seq).
 
-#Our goals are to train different prediction models (kTSP, RF, MM2S, and LASSO) and to assess model performance on a per-platform and per-subgroup basis.
+#Our goals are to train (kTSP, RF, LASSO) or use (MM2S, medullopackage) different prediction models and to assess model performance on a per-platform and per-subgroup basis.
 #Ideally, models would perform well regardless of the platform or subgroup of the sample, but differences in sample size mean some groups may be underrepresented in the data available for training.
 #Inverse-weighting may boost performance for smaller groups, and we can test this in kTSP and RF models using parameters for weighted (w) and unweighted (unw) analyses.
 
@@ -95,7 +95,6 @@ model_types <- c("ktsp_weighted", "ktsp_unweighted",
 if (create_models) {
 
   # kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults)
-  message("kTSP and RF models with ktsp_weighted = TRUE and rf_weighted = TRUE (defaults) ", Sys.time())
   weighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                   metadata_df = bulk_metadata_df,
                                                   labels = mb_subgroups,
@@ -125,7 +124,6 @@ if (create_models) {
                                                .default = names(x))))
 
   # kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE
-  message("kTSP and RF models with ktsp_weighted = FALSE and rf_weighted = FALSE ", Sys.time())
   unweighted_kTSP_RF_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                     metadata_df = bulk_metadata_df,
                                                     labels = mb_subgroups,
@@ -160,7 +158,6 @@ if (create_models) {
                                      c)
 
   # MM2S, LASSO, and medulloPackage models
-  message("MM2S, LASSO, and medulloPackage models ", Sys.time())
   mm2s_lasso_medulloPackage_models_list <- run_many_models(genex_df = bulk_genex_df,
                                                            metadata_df = bulk_metadata_df,
                                                            labels = mb_subgroups,
@@ -172,15 +169,7 @@ if (create_models) {
                                                            n_repeats = n_repeats,
                                                            n_cores = n_cores)
 
-  # merge kTSP, RF, MM2S, and LASSO model lists
-  message("combining all models ", Sys.time())
-
-  readr::write_rds(x = kTSP_RF_models_list,
-                   file = here::here(models_dir, "kTSP_RF_models.rds"))
-
-  readr::write_rds(x = mm2s_lasso_medulloPackage_models_list,
-                   file = here::here(models_dir, "MM2S_lasso_medulloPackage_models.rds"))
-
+  # merge kTSP, RF, MM2S, LASSO, and medullopackage model lists
   baseline_list <- purrr::map2(kTSP_RF_models_list,
                                mm2s_lasso_medulloPackage_models_list,
                                c) |>
@@ -209,13 +198,11 @@ if (create_models) {
   }
 
   # write models to file
-  message("write models to file ", Sys.time())
   readr::write_rds(x = baseline_list,
                    file = baseline_filepath)
 
 } else { # if create_models = FALSE and models already exist
 
-  message("reading models inexplicably ", Sys.time())
   baseline_list <- readr::read_rds(baseline_filepath)
 
 }
