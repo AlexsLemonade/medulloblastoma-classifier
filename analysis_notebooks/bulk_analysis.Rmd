@@ -1,7 +1,6 @@
 ---
 title: "Visualize results of MB subgroup prediction"
 author: "Steven Foltz"
-date: "2022 - 2023"
 output:
   html_document:
     toc: TRUE
@@ -131,11 +130,16 @@ plot_df |>
 
 ```
 
-- Models perform slightly better on Array test data (mid-.90s) than RNA-seq test data (low-.90s) (except for MM2S).
-- kTSP (w) and kTSP (unw) show no difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
+- Within each model type, median models performance is slightly better on Array test data than RNA-seq test data
+- kTSP (w) and kTSP (unw) show little difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
 - The reverse is true for RF models, with RF (w) outperforming RF (unw) for both Array and RNA-seq test data
-- In weighted models, RF outperformed kTSP in RNA-seq, while the unweighted kTSP outperformed RF in both platforms
-- MM2S showed better test performance in RNA-seq data despite the original model being trained on Array
+- For Array data, the model rankings from lowest median Kappa to highest: MM2S, LASSO, RF (unw), RF (w), kTSP (w), medulloPackage, kTSP (unw)
+- For RNA-seq data, the model rankings from lowest median Kappa to highest: medullopackage, MM2S, RF (unw), LASSO, kTSP (w), RF (w), kTSP (unw)
+- Overall, the unweighted kTSP model performed best across both Array and RNA-seq data types
+- medulloPackage showed high performance in Array but low performance in RNA-seq, making its overall ranking unclear
+  - medulloPackage performance on RNA-seq is further complicated by the wide range of Kappa values returned from different testing sets
+  - For some testing sets, performance of medulloPackage was comparable to kTSP (unw)
+  - see more about [Medullpackage on RNA-seq](#medullopackage-on-rna-seq) below
 
 ### Plot Kappa
 
@@ -204,7 +208,9 @@ mm2s_rnaseq_repeat_6_df <- baseline_list[[6]]$test_metadata |>
 
 ```
 
-#### MM2S RNA-seq Repeat 4
+#### MM2S RNA-seq Repeat 4 (and 6)
+
+MM2S showed poor performance on GSE164677 data.
 
 ```{r}
 
@@ -215,14 +221,17 @@ calculate_confusion_matrix(predicted_labels = mm2s_rnaseq_repeat_4_df$MM2S_Predi
 
 ```
 
-#### MM2S RNA-seq Repeat 6
+#### medulloPackage on RNA-seq
+
+medulloPackage performed best on OpenPBTA data (Kappa = 0.968) and worse on data from GSE164677 (n = 59, Kappa = 0.855) and St. Jude (n = 57, Kappa = 0.856)
 
 ```{r}
-
-calculate_confusion_matrix(predicted_labels = mm2s_rnaseq_repeat_6_df$MM2S_Prediction,
-                           true_labels = mm2s_rnaseq_repeat_6_df$subgroup,
-                           labels = mb_subgroups)$table
-
+plot_df |>
+  dplyr::filter(model_type == "medulloPackage",
+                platform == "RNA-seq",
+                metric == "Kappa") |>
+  dplyr::select(study, total_samples, metric, value) |>
+  dplyr::arrange(value)
 
 ```
 
@@ -274,9 +283,8 @@ plot_df |>
 
 ```
 
-- Overall, prediction models show excellent sensitivity and specificity, with subgroup performance G3 < G4 < SHH < WNT for Array and G4 < G3 < SHH < WNT for RNA-seq
-- We observed the largest discrepancy in model performance with G3 predictions using MM2S with Array test data (as previously documented by MM2S authors), but kTSP, RF, and LASSO methods can improve on it
-- Notably MM2S G3 predictions with RNA-seq data showed more comparable performance with the other methods
+- Overall, prediction models show excellent sensitivity and specificity, with SSH and WNT subgroup performance higher than G3 and G4 for both Array and RNA-seq
+- We observed the largest discrepancy in model performance with G3 predictions using MM2S with Array test data (as previously documented by MM2S authors), but kTSP, RF, LASSO, and medulloPackage methods can improve on it
 
 The following plot illustrates the differences observed between model types in G3 subgroup Balanced Accuracy.
 
