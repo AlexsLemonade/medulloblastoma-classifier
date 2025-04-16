@@ -5,36 +5,42 @@
 
 data_dir <- here::here("data")
 processed_data_dir <- here::here("processed_data")
+processed_single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
+
+dir.create(processed_data_dir, showWarnings = FALSE)
+dir.create(processed_single_cell_data_dir, showWarnings = FALSE)
 
 # input file names
-GSE124814_metadata_input_filename <- file.path(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
-GSE164677_metadata_input_filename <- file.path(data_dir, "GSE164677", "GSE164677_Asian_MB_RNA-seq.txt.gz")
-openpbta_metadata_input_filename <- file.path(data_dir, "OpenPBTA", "pbta-histologies.tsv")
-sj_metadata_input_filename <- file.path(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
-GSE119926_metadata_input_filename <- file.path(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
+GSE124814_metadata_input_filename <- here::here(data_dir, "GSE124814", "GSE124814_sample_descriptions.xlsx")
+GSE164677_metadata_input_filename <- here::here(data_dir, "GSE164677", "GSE164677_series_matrix.txt.gz")
+openpbta_metadata_input_filename <- here::here(data_dir, "OpenPBTA", "pbta-histologies.tsv")
+sj_metadata_input_filename <- here::here(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
+GSE119926_metadata_input_filename <- here::here(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
+GSE155446_metadata_input_filename <- here::here(data_dir, "GSE155446", "GSE155446_human_cell_metadata.csv.gz")
 
 # output file names
-bulk_metadata_output_filename <- file.path(processed_data_dir,
-                                           "bulk_metadata.tsv")
-pseudobulk_metadata_output_filename <- file.path(processed_data_dir,
-                                                 "pseudobulk_metadata.tsv")
+bulk_metadata_output_filename <- here::here(processed_data_dir,
+                                            "bulk_metadata.tsv")
+pseudobulk_metadata_output_filename <- here::here(processed_single_cell_data_dir,
+                                                  "pseudobulk_metadata.tsv")
 
 ################################################################################
 # functions
 ################################################################################
 
 clean_mb_subgroups <- function(df){
-  
+
   df <- df |>
-    dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3") ~ "G3",
-                                              subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4") ~ "G4",
-                                              subgroup %in% c("NORM") ~ "Normal",
+    dplyr::mutate(subgroup = dplyr::case_when(subgroup %in% c("E", "Group 3", "Group3", "Group3_alpha", "Group3_beta", "Group3_gamma", "MB_GRP3", "GP3") ~ "G3",
+                                              subgroup %in% c("C", "D", "Group 4", "Group4", "Group4_alpha", "Group4_beta", "Group4_gamma", "MB_GRP4", "GP4") ~ "G4",
+                                              subgroup %in% c("NORM", "n/a (NORM)") ~ "Normal",
                                               subgroup %in% c("B", "MB_SHH", "SHH_alpha", "SHH_beta", "SHH_delta", "SHH_gamma", "SHH-infant", "SHH-adult") ~ "SHH",
                                               subgroup %in% c("A", "MB_WNT", "WNT_alpha", "WNT_beta") ~ "WNT",
-                                              TRUE ~ subgroup))
-  
+                                              subgroup %in% c("GP3/4") ~ "G3/G4",
+                                              .default = subgroup))
+
   return(df)
-  
+
 }
 
 ################################################################################
@@ -107,18 +113,11 @@ GSE124814_metadata <- readxl::read_xlsx(GSE124814_metadata_input_filename,
 # GSE164677
 ################################################################################
 
-# This file contains both metadata and expression values
-# Here, we only want the first two rows (the metadata rows), then transpose it,
-# then clean it up for combination with metadata from other studies.
-GSE164677_metadata <- readr::read_tsv(GSE164677_metadata_input_filename,
-                                      col_names = FALSE,
-                                      col_types = "c",
-                                      n_max = 2) |>
-  tibble::column_to_rownames(var = "X1") |>
-  t() |>
-  tibble::as_tibble() |>
-  dplyr::select(sample_accession = gene,
-                subgroup = group) |>
+# Get the GEO series metadata file and transform it
+GSE164677_metadata <- GEOquery::getGEO(filename = GSE164677_metadata_input_filename) |>
+  as.data.frame() |>
+  dplyr::select(sample_accession = geo_accession,
+                subgroup = medulloblastoma.subgroup.ch1) |>
   dplyr::mutate(study = "GSE164677",
                 is_duplicate = FALSE,
                 platform = "RNA-seq") |>
@@ -137,7 +136,7 @@ openpbta_mb_metadata <- readr::read_tsv(file = openpbta_metadata_input_filename,
                   sep = ", ",
                   extra = "merge") |>
   dplyr::mutate(subgroup = dplyr::na_if(x = subgroup,
-                                        y = "To be classified")) |> 
+                                        y = "To be classified")) |>
   dplyr::arrange(Kids_First_Participant_ID, Kids_First_Biospecimen_ID) |> # patient ID, sample ID
   dplyr::mutate(is_duplicate = duplicated(Kids_First_Participant_ID)) |> # marks 2+ instance of patient ID
   dplyr::rename("sample_accession" = "Kids_First_Biospecimen_ID") |>
@@ -199,7 +198,7 @@ sj_metadata <- readr::read_tsv(file = sj_metadata_input_filename,
 # GSE119926
 ################################################################################
 
-GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filename) |>
+GSE119926_metadata <- GEOquery::getGEO(filename = GSE119926_metadata_input_filename) |>
   as.data.frame() |>
   dplyr::mutate(is_duplicate = FALSE,
                 study = "GSE119926",
@@ -214,11 +213,36 @@ GSE119926_metadata <- GEOquery::getGEO(filename=GSE119926_metadata_input_filenam
                 platform,
                 is_PDX,
                 subtype = methylation.subtype.ch1) |>
-  clean_mb_subgroups() |>
-  readr::write_tsv(file = pseudobulk_metadata_output_filename)
+  clean_mb_subgroups()
 
 ################################################################################
-# combine metadata and write to file
+# GSE155446
+################################################################################
+
+# Two sample names are mismatched between metadata and data files
+# Metadata sample 966-recurrence likely matches data file 966-2.tsv
+# Metadata sample 934-repeat MAY match data file 943.tsv, since that's the only remaining non-matching file
+# We remove them here to be conservative.
+# We also remove any samples that have NA for a subgroup, as we can not
+# test models without a subgroup label.
+
+GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
+                                      col_types = "c") |>
+  dplyr::select(sample_accession = geo_sample_id,
+                title = geo_sample_id,
+                subgroup = subgroup) |>
+  unique() |>
+  dplyr::mutate(study = "GSE155446",
+                is_duplicate = FALSE,
+                platform = "Pseudo-bulk",
+                is_PDX = FALSE,
+                subtype = NA) |>
+  dplyr::filter(sample_accession != "966-recurrence",
+                sample_accession != "934-repeat") |>
+  clean_mb_subgroups()
+
+################################################################################
+# combine bulk metadata and write to file
 ################################################################################
 
 # 4 MB subgroups, NA subgroup, Normal subgroup, LGG
@@ -227,5 +251,14 @@ dplyr::bind_rows(GSE124814_metadata,
                  openpbta_mb_metadata,
                  openpbta_lgg_metadata,
                  sj_metadata) |>
-  dplyr::filter(!is_duplicate) |> 
+  dplyr::filter(!is_duplicate) |>
   readr::write_tsv(file = bulk_metadata_output_filename)
+
+################################################################################
+# combine pseudo-bulk metadata and write to file
+################################################################################
+
+dplyr::bind_rows(GSE119926_metadata,
+                 GSE155446_metadata) |>
+  dplyr::filter(!is_duplicate) |>
+  readr::write_tsv(file = pseudobulk_metadata_output_filename)

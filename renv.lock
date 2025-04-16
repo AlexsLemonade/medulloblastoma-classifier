@@ -4,7 +4,7 @@
     "Repositories": [
       {
         "Name": "CRAN",
-        "URL": "https://p3m.dev/cran/latest"
+        "URL": "https://packagemanager.posit.co/cran/2023-04-20"
       }
     ]
   },
@@ -269,22 +269,8 @@
     },
     "Cairo": {
       "Package": "Cairo",
-      "Version": "1.6-2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "RemoteType": "standard",
-      "RemotePkgRef": "Cairo",
-      "RemoteRef": "Cairo",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "aarch64-apple-darwin20",
-      "RemoteSha": "1.6-2",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics"
-      ],
-      "Hash": "3918e6b40d27984ca4a99c73b92406c3"
+      "Version": "1.6-0",
+      "Source": "Repository"
     },
     "DBI": {
       "Package": "DBI",
@@ -628,18 +614,8 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-59",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "methods",
-        "stats",
-        "utils"
-      ],
-      "Hash": "26570ae748e78cb2b0f56019dd2ba354"
+      "Version": "7.3-58.3",
+      "Source": "Repository"
     },
     "MM2S": {
       "Package": "MM2S",
@@ -1029,24 +1005,15 @@
       ],
       "Hash": "ae913ff30bce222686e66e45448fcfb6"
     },
+    "UpSetR": {
+      "Package": "UpSetR",
+      "Version": "1.4.0",
+      "Source": "Repository"
+    },
     "XML": {
       "Package": "XML",
-      "Version": "3.99-0.17",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "RemoteType": "standard",
-      "RemotePkgRef": "XML",
-      "RemoteRef": "XML",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "source",
-      "RemoteSha": "3.99-0.17",
-      "Requirements": [
-        "R",
-        "methods",
-        "utils"
-      ],
-      "Hash": "bc2a8a1139d8d4bd9c46086708945124"
+      "Version": "3.99-0.14",
+      "Source": "Repository"
     },
     "XVector": {
       "Package": "XVector",
@@ -1462,20 +1429,8 @@
     },
     "cpp11": {
       "Package": "cpp11",
-      "Version": "0.5.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "RemoteType": "standard",
-      "RemotePkgRef": "cpp11",
-      "RemoteRef": "cpp11",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "source",
-      "RemoteSha": "0.5.0",
-      "Requirements": [
-        "R"
-      ],
-      "Hash": "91570bba75d0c9d3f1040c835cee8fba"
+      "Version": "0.4.3",
+      "Source": "Repository"
     },
     "crayon": {
       "Package": "crayon",
@@ -1591,26 +1546,8 @@
     },
     "dplyr": {
       "Package": "dplyr",
-      "Version": "1.1.2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "R6",
-        "cli",
-        "generics",
-        "glue",
-        "lifecycle",
-        "magrittr",
-        "methods",
-        "pillar",
-        "rlang",
-        "tibble",
-        "tidyselect",
-        "utils",
-        "vctrs"
-      ],
-      "Hash": "dea6970ff715ca541c387de363ff405e"
+      "Version": "1.1.1",
+      "Source": "Repository"
     },
     "dqrng": {
       "Package": "dqrng",
@@ -1808,21 +1745,8 @@
     },
     "fs": {
       "Package": "fs",
-      "Version": "1.6.4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "RemoteType": "standard",
-      "RemotePkgRef": "fs",
-      "RemoteRef": "fs",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "aarch64-apple-darwin20",
-      "RemoteSha": "1.6.4",
-      "Requirements": [
-        "R",
-        "methods"
-      ],
-      "Hash": "15aeb8c27f5ea5161f9f6a641fafd93a"
+      "Version": "1.6.1",
+      "Source": "Repository"
     },
     "futile.logger": {
       "Package": "futile.logger",
@@ -1932,6 +1856,11 @@
         "vipor"
       ],
       "Hash": "e2adea988a575e168ad44022e80cd44e"
+    },
+    "ggforce": {
+      "Package": "ggforce",
+      "Version": "0.4.1",
+      "Source": "Repository"
     },
     "ggplot2": {
       "Package": "ggplot2",
@@ -2322,33 +2251,8 @@
     },
     "igraph": {
       "Package": "igraph",
-      "Version": "2.0.3",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "RemoteType": "standard",
-      "RemotePkgRef": "igraph",
-      "RemoteRef": "igraph",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "aarch64-apple-darwin20",
-      "RemoteSha": "2.0.3",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "cli",
-        "cpp11",
-        "grDevices",
-        "graphics",
-        "lifecycle",
-        "magrittr",
-        "methods",
-        "pkgconfig",
-        "rlang",
-        "stats",
-        "utils",
-        "vctrs"
-      ],
-      "Hash": "c3b7d801d722e26e4cd888e042bf9af5"
+      "Version": "1.4.2",
+      "Source": "Repository"
     },
     "interactiveDisplayBase": {
       "Package": "interactiveDisplayBase",
@@ -2631,6 +2535,27 @@
       ],
       "Hash": "57af0c3da1f1a50680b186591c3359af"
     },
+    "medulloPackage": {
+      "Package": "medulloPackage",
+      "Version": "0.1.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "medullo-classifier-package",
+      "RemoteUsername": "d3b-center",
+      "RemoteRef": "v0.1.1",
+      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c",
+      "Requirements": [
+        "R",
+        "caret",
+        "dplyr",
+        "e1071",
+        "lattice",
+        "plyr",
+        "reshape2"
+      ],
+      "Hash": "fef6bd9b86183aa8618a881ce51f2c47"
+    },
     "memoise": {
       "Package": "memoise",
       "Version": "2.0.1",
@@ -2903,6 +2828,11 @@
       ],
       "Hash": "bd54ba8a0a5faded999a7aab6e46b374"
     },
+    "polyclip": {
+      "Package": "polyclip",
+      "Version": "1.10-4",
+      "Source": "Repository"
+    },
     "preprocessCore": {
       "Package": "preprocessCore",
       "Version": "1.60.2",
@@ -3120,36 +3050,8 @@
     },
     "recipes": {
       "Package": "recipes",
-      "Version": "1.0.6",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "cli",
-        "clock",
-        "dplyr",
-        "ellipsis",
-        "generics",
-        "glue",
-        "gower",
-        "hardhat",
-        "ipred",
-        "lifecycle",
-        "lubridate",
-        "magrittr",
-        "purrr",
-        "rlang",
-        "stats",
-        "tibble",
-        "tidyr",
-        "tidyselect",
-        "timeDate",
-        "utils",
-        "vctrs",
-        "withr"
-      ],
-      "Hash": "eb53ffc9674dc9a52c3a7e22d96d3f56"
+      "Version": "1.0.5",
+      "Source": "Repository"
     },
     "rematch": {
       "Package": "rematch",
@@ -3871,6 +3773,11 @@
       ],
       "Hash": "e4e357f28c2edff493936b6cb30c3d65"
     },
+    "tweenr": {
+      "Package": "tweenr",
+      "Version": "2.0.2",
+      "Source": "Repository"
+    },
     "tzdb": {
       "Package": "tzdb",
       "Version": "0.3.0",
@@ -4010,14 +3917,8 @@
     },
     "xfun": {
       "Package": "xfun",
-      "Version": "0.39",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "stats",
-        "tools"
-      ],
-      "Hash": "8f56e9acb54fb525e66464d57ab58bcb"
+      "Version": "0.38",
+      "Source": "Repository"
     },
     "xml2": {
       "Package": "xml2",
