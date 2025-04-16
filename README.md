@@ -17,7 +17,7 @@ It also checks on pull requests that alter relevant files that the image can be 
 To pull the most recent copy of the Docker image, use the following command:
 
 ```sh
-docker pull ghcr.io/AlexsLemonade/medulloblastoma-classifier:latest
+docker pull ghcr.io/alexslemonade/medulloblastoma-classifier:latest
 ```
 
 To run the container, use the following command from the root of this repository:
@@ -27,12 +27,14 @@ docker run \
   --mount type=bind,target=/home/rstudio/medulloblastoma-classifier,source=$PWD \
   -e PASSWORD={PASSWORD} \
   -p 8787:8787 \
-  ghcr.io/AlexsLemonade/medulloblastoma-classifier:latest
+  ghcr.io/alexslemonade/medulloblastoma-classifier:latest
 ```
 
 Be sure to replace `{PASSWORD}`, including the curly braces, with a password of your choice.
 
 You can then access the RStudio at <http://localhost:8787> using the username `rstudio` and the password you just set.
+
+For Apple Silicon users, include the `--platform linux/amd64` tag in the `docker pull` and `docker run` commands.
 
 #### Managing R packages with renv
 
@@ -96,6 +98,8 @@ We use an S3 bucket (`s3://data-lab-mb-ssp`) with versioning enabled to manage t
 - `data`
 - `models`
 - `processed_data`
+- `plots/data`
+- `results`
 
 Which are all present in the `.gitignore` file.
 
@@ -105,7 +109,7 @@ To push files to S3, use the following command from the root of the repository:
 aws s3 sync {directory} s3://data-lab-mb-ssp/{directory}
 ```
 
-Where `{directory}` should be one of: `data`, `models`, `processed_data`.
+Where `{directory}` should be one of: `data`, `models`, `processed_data`, `plots/data`, or `results`.
 
 To pull files locally, use the following command from the root of the repository:
 

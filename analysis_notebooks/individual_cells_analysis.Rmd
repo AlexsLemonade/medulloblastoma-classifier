@@ -1,0 +1,530 @@
+---
+title: "scRNA-seq: Individual cell labeling"
+author: "Steven Foltz and Jaclyn Taroni"
+date: "2024"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+This notebook uses pair-based medulloblastoma subgroup prediction models trained on bulk data to predict the subgroup of individual cells in scRNA-seq samples.
+k-Top Scoring Pairs (kTSP) and random forest (RF) models were trained using bulk gene expression data (bulk array and RNA-seq) in `analysis_notebooks/baseline_models.Rmd`.
+Here, we analyze the kTSP and RF predictions on individual cells generated in `predict/predict_pseudobulk_and_single_cells.R`.
+
+We are using scRNA-seq data associated with the following publications:
+
+- [Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6), which is Smart-seq2 dataset
+- [Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135), which is a 10X Genomics dataset
+
+# Setup
+
+Set seed.
+
+```{r setup}
+set.seed(8222)
+```
+
+Set MB subgroups.
+
+```{r}
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+```
+
+## Libraries and functions
+
+```{r}
+# Source color scheme
+source(here::here("utils/color_schemes.R"))
+
+# Load libraries 
+library(ggplot2)
+library(patchwork)
+library(SingleCellExperiment)
+```
+
+## Directories and files
+
+### Input
+
+```{r}
+results_dir <- here::here("results")
+processed_data_dir <- here::here("processed_data")
+single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
+smartseq_data_dir <- here::here(single_cell_data_dir, "GSE119926")
+tenx_data_dir <- here::here(single_cell_data_dir, "GSE155446")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
+models_dir <- here::here("models")
+
+# Get file paths of individual SingleCellExperiment RDS objects
+sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
+                                          "sce"),
+                          glob = "*_sce.rds"),
+               fs::dir_ls(path = fs::path(tenx_data_dir,
+                                          "sce"),
+                          glob = "*_sce.rds")
+)
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+  stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
+
+# Genes in official weighted models
+genes_filepath <- file.path(results_dir, 
+                            "genes_in_weighted_official_models.tsv")
+
+# Individual cell predictions plot data
+plot_data_filepath <- here::here(plots_data_dir, 
+                                 "single_cell_test_predictions.tsv")
+
+# We need the kTSP model for a later step
+baseline_models_filepath <- here::here(models_dir,
+                                      "baseline.rds")
+```
+
+## Read in data
+
+### Predicted labels
+
+Starting with the individual cells predicted labels plot data 
+
+```{r}
+single_cell_plot_df <- readr::read_tsv(plot_data_filepath,
+                                       show_col_types = FALSE)
+```
+
+### kTSP model
+
+We need this -- and only this -- model for a later binary kTSP plot.
+
+```{r}
+baseline_models <- readr::read_rds(baseline_models_filepath)
+official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
+ktsp_model <- baseline_models[[official_model]]$ktsp_weighted$classifier
+rm(baseline_models, official_model)
+```
+
+### Genes in models
+
+Get the genes included in models
+
+```{r}
+genes_df <- readr::read_tsv(genes_filepath)
+
+# Grab a vector of unique Ensembl gene identifiers
+genes_vector <- genes_df |>
+  dplyr::pull(gene) |>
+  unique()
+```
+
+### SCE Expression
+
+```{r}
+sce_expression_list <- sce_files |>
+  purrr::imap(
+    \(x, sample_name) {
+      
+      # Read in SingleCellExperiment object
+      sce <- readr::read_rds(x)
+      
+      # Append sample name to cell index -- cell index is used in the
+      # data frame that has individual cell subgroup labels in it
+      colnames(sce) <- stringr::str_c(sample_name,
+                                      "_",
+                                      1:ncol(sce))
+      
+      # Total number of genes detected 
+      num_genes_detected <- apply(counts(sce), 2, \(y) sum(y > 0))
+      
+      # Extract the expression values in the counts slot, for the genes included
+      # in at least one model
+      genex_df <- counts(sce)[which(rownames(sce) %in% genes_vector), ]
+      
+      # Return a list of:
+      #   Counts or TPM (depending on the experiment) for genes in at 
+      #     least one model
+      #   Number of genes that are detected in each cell
+      list(genex_df = genex_df |> 
+             tibble::rownames_to_column("gene"),
+           num_genes_detected = num_genes_detected)
+    }
+  )
+
+# Create a long version of expression data frame with columns that include
+# sample identifiers and cell indexes for joining with the plot data that
+# contains predicted labels for each model and the study. We will also add the
+# information about genes used in the models.
+expression_df <- sce_expression_list |>
+  purrr::map(\(x) x[["genex_df"]]) |>
+  purrr::reduce(dplyr::inner_join, by = "gene") |>
+  tidyr::pivot_longer(cols = -1,
+                      names_to = "cell",
+                      values_to = "expression") |>
+  tidyr::separate(cell, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    dplyr::select(single_cell_plot_df,
+                  sample_accession,
+                  cell_index,
+                  predicted_labels,
+                  model_type,
+                  study
+    ),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  dplyr::right_join(
+    genes_df,
+    by = "gene"
+  )
+
+# Get number of genes detected per cell and join with labels, other metadata
+num_genes_detected_df <- sce_expression_list |>
+  purrr::map(\(x) data.frame(
+    num_genes_detected = x[["num_genes_detected"]]
+  )) |>
+  dplyr::bind_rows() |>
+  tibble::rownames_to_column("cell_identifier") |>
+  tidyr::separate(cell_identifier, 
+                  into = c("sample_accession", "cell_index"), 
+                  sep = "_") |>
+  dplyr::mutate(cell_index = as.integer(cell_index)) |>
+  dplyr::left_join(
+    single_cell_plot_df |>
+      dplyr::select(sample_accession,
+                    cell_index,
+                    study,
+                    predicted_labels,
+                    subgroup,
+                    model_type),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  # A cell will be correctly classified when the predicted label matches the
+  # true subgroup
+  dplyr::mutate(correct_classification = (predicted_labels == subgroup))
+```
+
+## Plotting
+
+### Individual cell predicted labels
+
+Plot what proportion of individual cells are predicted to be each subgroup, keeping studies separate.
+
+```{r}
+smartseq_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE119926") |>
+  dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
+  ggplot(aes(y = sample_accession,
+             x = n,
+             fill = predicted_labels)) +
+  geom_col(position = position_fill()) +
+  scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  facet_grid(rows = vars(subgroup),
+             cols = vars(model_type),
+             space = "free_y",
+             scales = "free_y") +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(y = NULL,
+       x = "Single-cell Percentage",
+       fill = "Predicted Subgroup",
+       title = "GSE119926 (Smart-seq2)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, 
+                                   vjust = 1,
+                                   hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+
+tenx_object <- single_cell_plot_df |>
+  dplyr::filter(study == "GSE155446") |>
+  dplyr::count(sample_accession, subgroup, predicted_labels, model_type) |>
+  ggplot(aes(y = sample_accession,
+             x = n,
+             fill = predicted_labels)) +
+  geom_col(position = position_fill()) +
+  scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+  facet_grid(rows = vars(subgroup),
+             cols = vars(model_type),
+             space = "free_y",
+             scales = "free_y") +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(y = NULL,
+       x = "Single-cell Percentage",
+       fill = "Predicted Subgroup",
+       title = "GSE155446 (10x)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, 
+                                   vjust = 1,
+                                   hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+
+smartseq_object + tenx_object + plot_layout(guides = "collect")
+```
+
+We can see that cells that originate from SHH samples in the 10X experiment tend to be classified as G4, and this is particularly pronounced in the RF model.
+Let's take a look at why that might be.
+
+### Diagnostic plots
+
+#### Number of genes detected
+
+```{r}
+num_genes_detected_df |>
+  # Remove sample where it's impossible for predicted labels and the subgroup
+  # to match, as the model cannot predict "G3/G4"
+  dplyr::filter(subgroup %in% mb_subgroups) |>
+  ggplot(aes(x = num_genes_detected,
+             fill = correct_classification,
+             group = correct_classification)) +
+  geom_density(alpha = 0.2) +
+  facet_grid(rows = vars(model_type), cols = vars(study)) +
+  labs(x = "Total Number of Genes Detected",
+       fill = "Cell Correctly Classified?",
+       title = "Genes Detected") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5),
+        plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+
+Cells that have predicted labels that are different from the sample's true subgroup label appear to tend to have fewer total genes detected, particularly in the 10X experiment.
+
+### Number of genes in model that are not detected
+
+What about genes that are explicitly included in the model? 
+How many of those are zero?
+Let's consider each model separately.
+
+#### Random Forest
+
+```{r}
+# Grab only the rows relevant to RF model
+rf_df <- expression_df |> 
+  dplyr::filter(model_type == "RF (w)", model == "RF") |>
+  # These columns are only relevant to the kTSP models
+  dplyr::select(-gene_subgroup, -gene_in_pair)
+
+# Count the number of genes in the model that are zero
+rf_informative_genes_df <- rf_df |> 
+  dplyr::group_by(sample_accession,
+                  cell_index) |>
+  dplyr::summarize(num_zeros = sum(expression == 0)) |>
+  dplyr::inner_join(
+    num_genes_detected_df |>
+      dplyr::filter(model_type != "kTSP (w)") |>
+      dplyr::select(sample_accession, 
+                    cell_index,
+                    predicted_labels,
+                    study, 
+                    correct_classification),
+    by = c("sample_accession", "cell_index")
+  )
+```
+
+Look at the number of zeros between correctly and incorrectly classified cells.
+
+```{r}
+rf_informative_genes_df |>
+  ggplot(aes(x = num_zeros,
+             fill = correct_classification,
+             group = correct_classification)) +
+  geom_density(alpha = 0.2) +
+  facet_grid(cols = vars(study)) +
+  labs(x = "Number of Undetected Genes in Model",
+       fill = "Cell Correctly Classified?",
+       title = "Random Forest") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+
+Let's also look based on the predicted label.
+
+```{r}
+rf_informative_genes_df |>
+  ggplot(aes(x = predicted_labels,
+             y = num_zeros,
+             color = correct_classification)) +
+  geom_violin(position = "dodge") +
+  facet_grid(cols = vars(study)) +
+  theme_bw() +
+  labs(x = "Predicted Cell Label",
+       y = "Number of Undetected Genes in Model",
+       color = "Cell Correctly Classified?",
+       title = "Random Forest") +
+  stat_summary(fun = median,
+               geom = "point",
+               position = position_dodge(width = 0.9))  +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+
+This suggests that the cells getting incorrectly labeled as G4 tend to have 0s for many of the genes in the RF model in the 10X dataset.
+
+#### k-Top Scoring Pairs
+
+Let's now look at the kTSP models.
+For kTSP models, we can identify which subgroup's rules a gene is included in.
+Different subgroups will have differing numbers of rules and, therefore, different numbers of informative genes.
+Thus, it's more helpful to look at the percentage of genes with a 0 count or TPM value on a per subgroup basis.
+
+```{r}
+# Grab only the rows relevant to kTSP model
+ktsp_df <- expression_df |> 
+  dplyr::filter(model_type == "kTSP (w)", model == "kTSP") |>
+  # Drop the column that contains information about whether a gene is gene 1
+  # or gene 2 in the rule
+  dplyr::select(-gene_in_pair)
+
+# Get the percentage of genes involved in each subgroup's rules that are 
+# zero
+ktsp_informative_genes_df <- ktsp_df |>
+  # Need the cell (sample_accession + cell_index) and which subgroup a gene
+  # is informative about
+  dplyr::group_by(sample_accession,
+                  cell_index,
+                  gene_subgroup) |>
+  # Number genes expression == 0 / number of genes
+  dplyr::summarize(percent_zeros = sum(expression == 0) / dplyr::n()) |>
+  # Add information about the study, predicted labels, sample subgroup, and
+  # whether or not a cell was correctly classified
+  dplyr::inner_join(
+    num_genes_detected_df |>
+      dplyr::filter(model_type != "RF (w)") |>
+      dplyr::select(sample_accession, 
+                    cell_index,
+                    study,
+                    predicted_labels,
+                    subgroup,
+                    correct_classification),
+    by = c("sample_accession", "cell_index")
+  ) |>
+  # Only keep the rows with the gene subgroup relevant to the true subgroup
+  dplyr::filter(gene_subgroup == subgroup)
+```
+
+For each true subgroup label, compare the % of genes in the subgroup rules that are zero between correctly and incorrectly classified cells.
+
+```{r}
+ktsp_informative_genes_df |>
+  # Remove genes that couldn't be classified correctly because the sample is
+  # "G3/G4" which the model does not predict but make it more general
+  dplyr::filter(subgroup %in% mb_subgroups) |>
+  ggplot(aes(x = correct_classification,
+             y = percent_zeros,
+             color = correct_classification)) +
+  ggforce::geom_sina(alpha = 0.5) +
+  facet_grid(rows = vars(subgroup), cols = vars(study)) +
+  guides(color = "none") +
+  labs(x = "Cell Correctly Classified?",
+       y = "% Undetected Genes in Rules",
+       title = "k-Top Scoring Pairs") +
+  stat_summary(fun = median,
+               geom = "point",
+               color = "black")  +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))
+```
+
+As we might expect, when a cell gets labeled as another subgroup, the genes in the true subgroup's rules tend to have more zeros.
+
+But there are some instances where cells are correctly classified without any genes in that group detected.
+What subgroups does this happen for?
+
+```{r}
+correctly_classified_with_all_zeros_df <- ktsp_informative_genes_df |>
+  dplyr::filter(correct_classification, percent_zeros == 1)
+
+correctly_classified_with_all_zeros_df |>
+  dplyr::group_by(predicted_labels) |>
+  dplyr::count()
+```
+
+A cell can be classified as G3 if all rules have a score of zero, which will sometimes happen to be correct:
+
+```{r}
+correctly_classified_with_all_zeros_df |>
+  dplyr::select(sample_accession, cell_index) |> 
+  dplyr::left_join(dplyr::filter(single_cell_plot_df,
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::filter(G3 == 0,
+                G4 == 0, 
+                SHH == 0,
+                WNT == 0) |>
+  dplyr::group_by(predicted_labels) |>
+  dplyr::count()
+```
+
+This explains **most cases** of correct cells with informative counts all = 0, most likely because G3 comes before all other subgroups alphabetically.
+
+But there are some instances of SHH cells being correctly classified without informative gene counts as well.
+Let's take a look at those:
+
+```{r}
+correctly_classified_with_all_zeros_df |>
+  dplyr::select(sample_accession, cell_index) |> 
+  dplyr::left_join(dplyr::filter(single_cell_plot_df,
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::filter(predicted_labels == "SHH") |>
+  dplyr::pull(SHH) |>
+  summary()
+```
+
+Because we set `weighted_votes = TRUE`, this is probably equivalent to one of the 19 SHH rules being true in every case.
+
+```{r}
+# Get wide version of expression, only for relevant genes, i.e., in the kTSP models
+exprs_shh_zeros <- correctly_classified_with_all_zeros_df |>
+  dplyr::filter(predicted_labels == "SHH") |>
+  dplyr::select(sample_accession, cell_index) |>
+  dplyr::left_join(dplyr::filter(expression_df, 
+                                 model == "kTSP",
+                                 model_type == "kTSP (w)"),
+                   by = c("sample_accession", "cell_index")) |>
+  dplyr::select(sample_accession, cell_index, gene, expression) |>
+  tidyr::pivot_wider(names_from = c(sample_accession, cell_index), 
+                     values_from = expression) |>
+  tibble::column_to_rownames("gene")
+
+# Prepare it for use with multiclassPairs
+shh_zeros_mcp_data <- multiclassPairs::ReadData(Data = exprs_shh_zeros,
+                                                Labels = rep("SHH", 
+                                                             ncol(exprs_shh_zeros)),
+                                                Platform = rep("scRNA-seq", 
+                                                               ncol(exprs_shh_zeros)),
+                                                verbose = FALSE)
+
+# Make the binary TSP plot
+multiclassPairs::plot_binary_TSP(Data = shh_zeros_mcp_data,
+                                 classifier = ktsp_model, 
+                                 classes = "SHH",
+                                 show_rule_name = TRUE,
+                                 show_platform = FALSE,
+                                 show_predictions = FALSE,
+                                 cluster_cols = FALSE,
+                                 cluster_rows = FALSE,
+                                 legend = FALSE,
+                                 anno_height = 0.05,
+                                 score_height = 0.05,
+                                 margin = c(0, 5, 0, 0.5))
+
+```
+This is not what I would expect based on the SHH scores, so further investigation is required.
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
