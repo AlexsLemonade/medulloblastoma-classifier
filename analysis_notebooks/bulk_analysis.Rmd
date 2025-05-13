@@ -179,7 +179,7 @@ baseline_kappa_plot
 ```
 
 To aid in visualization, the following data points were excluded from the previous plot.
-Later we explore this [excluded data point](#excluded-data-point) in more detail.
+Later we explore these [excluded data points](#excluded-data-points) in more detail.
 
 ```{r}
 
