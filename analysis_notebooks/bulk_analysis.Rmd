@@ -139,7 +139,7 @@ plot_df |>
 - medulloPackage showed high performance in Array but low performance in RNA-seq, making its overall ranking unclear
   - medulloPackage performance on RNA-seq is further complicated by the wide range of Kappa values returned from different testing sets
   - For some testing sets, performance of medulloPackage was comparable to kTSP (unw)
-  - see more about [Medullpackage on RNA-seq](#medullopackage-on-rna-seq) below
+  - see more about [Medullopackage on RNA-seq](#medullopackage-on-rna-seq) below
 
 ### Plot Kappa
 
