@@ -192,6 +192,7 @@ plot_df |>
 ### Excluded data points
 
 What's up with the MM2S model on RNA-seq data from repeats 4 and 6?
+As shown above, repeats 4 and 6 used the same test set and had the exact same Kappa value for the MM2S model.
 Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
 
 ```{r}
@@ -199,11 +200,6 @@ Note, this analysis will be specific to the particular data sets and parameters 
 mm2s_rnaseq_repeat_4_df <- baseline_list[[4]]$test_metadata |>
   dplyr::filter(platform == "RNA-seq") |>
   dplyr::left_join(baseline_list[[4]]$mm2s$test_results$model_output,
-                   by = c("sample_accession" = "SampleName"))
-
-mm2s_rnaseq_repeat_6_df <- baseline_list[[6]]$test_metadata |>
-  dplyr::filter(platform == "RNA-seq") |>
-  dplyr::left_join(baseline_list[[6]]$mm2s$test_results$model_output,
                    by = c("sample_accession" = "SampleName"))
 
 ```
