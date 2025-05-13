@@ -322,7 +322,7 @@ baseline_accuracy_plot
 
 ```
 
-### kTSP (w) binary rules plot
+### kTSP (unweighted) binary rules plot
 
 ```{r}
 
@@ -330,8 +330,8 @@ official_model <- baseline_list |>
   purrr::map_lgl("official_model") |>
   which()
 official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
-official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
-official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_weighted"]]$test_results$model_output
+official_ktsp_model <- baseline_list[[official_model]][["ktsp_unweighted"]]$classifier
+official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_unweighted"]]$test_results$model_output
 
 test_samples <- baseline_list[[official_model]]$test_metadata$sample_accession
 
@@ -377,11 +377,11 @@ if (any(test_samples != row.names(official_ktsp_test_results))) {
 
 ```
 
-### kTSP (w) confusion matrix
+### kTSP (unweighted) confusion matrix
 
 ```{r}
   
-baseline_list[[official_model]][["ktsp_weighted"]]$cm
+baseline_list[[official_model]][["ktsp_unweighted"]]$cm
 
 ```
 
