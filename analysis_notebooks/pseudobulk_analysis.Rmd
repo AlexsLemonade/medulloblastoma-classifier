@@ -110,7 +110,7 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 # We will plot the scores, which range from 0 to 1, as individual points for
 # the kTSP models
 ktsp_pseudobulk_plot_df <- pseudobulk_plot_df |>
-  dplyr::filter(model_type == "kTSP (w)") |>
+  dplyr::filter(model_type == "kTSP (unw)") |>
   dplyr::select(-best.fit) |>
   tidyr::pivot_longer(cols = all_of(mb_subgroups),
                       names_to = "predicted_subgroup")
@@ -210,7 +210,7 @@ ktsp_smartseq_points_object <- ktsp_pseudobulk_plot_df |>
                 color = "Predicted Subgroup",
                 shape = "Predicted Subgroup",
                 title = "GSE119926 (Smart-seq2)",
-                subtitle = "k Top Scoring Pairs (Weighted)") +
+                subtitle = "k Top Scoring Pairs (Unweighted)") +
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
@@ -234,7 +234,7 @@ ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
                 shape = "Predicted Subgroup",
                 fill = "Predicted Subgroup",
                 title = "GSE155446 (10x)",
-                subtitle = "k Top Scoring Pairs (Weighted)") +
+                subtitle = "k Top Scoring Pairs (Unweighted)") +
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
@@ -374,7 +374,7 @@ df_for_metrics <- pseudobulk_plot_df |>
   # For both rule-based models, the subgroup with the highest score or
   # or probability will be the label that gets assigned
   dplyr::filter(model_type %in% c("RF (w)", 
-                                  "kTSP (w)")) |>
+                                  "kTSP (unw)")) |>
   dplyr::rowwise() |> 
   dplyr::mutate(
     predicted_labels = c("G3", 
@@ -405,7 +405,7 @@ df_for_metrics <- pseudobulk_plot_df |>
 # to calculate metrics separate
 model_experiment_pairs_df <- expand.grid(
   c("GSE119926", "GSE155446"),
-  c("kTSP (w)", "RF (w)", "medulloPackage") 
+  c("kTSP (unw)", "RF (w)", "medulloPackage") 
 ) |>
   dplyr::rename(dataset = Var1,
                 classifier = Var2)
