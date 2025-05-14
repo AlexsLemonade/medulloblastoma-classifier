@@ -220,10 +220,20 @@ test_single_cells <- function(sample_acc,
   # predict the subgroup of each observation (individual cell) using given model
   if (model_type == "ktsp") {
     
-    test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
-                             metadata_df_test = metadata_df_this_sample,
-                             classifier = classifier,
-                             labels = labels)
+    if (ncol(genex_df_this_sample) > 0) {
+      
+      test_object <- test_ktsp(genex_df_test = genex_df_this_sample,
+                               metadata_df_test = metadata_df_this_sample,
+                               classifier = classifier,
+                               labels = labels)
+    } else {
+      
+      test_object <- list(
+        prediction_labels_df = data.frame(),
+        model_output = data.frame()
+      )
+      
+    }
     
     if (length(unclassified_cell_ids) > 0) {
       
@@ -248,9 +258,20 @@ test_single_cells <- function(sample_acc,
 
   } else if (model_type == "rf") {
 
-    test_object <- test_rf(genex_df_test = genex_df_this_sample,
-                           metadata_df_test = metadata_df_this_sample,
-                           classifier = classifier)
+    if (ncol(genex_df_this_sample) > 0) {
+      
+      test_object <- test_rf(genex_df_test = genex_df_this_sample,
+                             metadata_df_test = metadata_df_this_sample,
+                             classifier = classifier)
+      
+    } else {
+      
+      test_object <- list(
+        prediction_labels_df = data.frame(),
+        model_output = data.frame()
+      )
+      
+    }
     
     if (length(unclassified_cell_ids) > 0) {
       # build out a prediction matrix for the unclassified cells to append to
