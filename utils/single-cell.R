@@ -212,6 +212,10 @@ test_single_cells <- function(sample_acc,
   #  formatted and consistent with each other
   check_input_files(genex_df = genex_df_this_sample,
                     metadata_df = metadata_df_this_sample)
+  
+  if (ncol(genex_df_this_sample) == 0) {
+    return(NULL)
+  }
 
   # predict the subgroup of each observation (individual cell) using given model
   if (model_type == "ktsp") {
