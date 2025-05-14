@@ -1,3 +1,18 @@
+set_up_AnnotationHub <- function(ah_date = "2022-10-30") {
+
+  # Run this one time before doing anything with AnnotationHub in parallel
+  #
+  # Inputs
+  #  ah_date: AnnotationHub snapshot date (default: 2022-10-30)
+
+  # set up AnnotationHub
+  AnnotationHub::setAnnotationHubOption("ASK", FALSE) # download without asking
+  ah <- suppressMessages(AnnotationHub::AnnotationHub())
+  AnnotationHub::snapshotDate(ah) <- ah_date # set AnnotationHub snapshot date
+  hs_orgdb <- suppressMessages(AnnotationHub::query(ah, c("OrgDb", "Homo sapiens"))[[1]]) # humans
+
+}
+
 convert_gene_names <- function(genex_df,
                                gene_column_before,
                                gene_column_after,
