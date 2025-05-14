@@ -84,7 +84,7 @@ if (any(duplicated(sce_sample_titles))) {
 
 # Genes in official weighted models
 genes_filepath <- file.path(results_dir, 
-                            "genes_in_weighted_official_models.tsv")
+                            "genes_in_kTSP_unw_and_RF_w_official_models.tsv")
 
 # Individual cell predictions plot data
 plot_data_filepath <- here::here(plots_data_dir, 
@@ -113,7 +113,7 @@ We need this -- and only this -- model for a later binary kTSP plot.
 ```{r}
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
-ktsp_model <- baseline_models[[official_model]]$ktsp_weighted$classifier
+ktsp_model <- baseline_models[[official_model]]$ktsp_unweighted$classifier
 rm(baseline_models, official_model)
 ```
 
@@ -323,7 +323,7 @@ rf_informative_genes_df <- rf_df |>
   dplyr::summarize(num_zeros = sum(expression == 0)) |>
   dplyr::inner_join(
     num_genes_detected_df |>
-      dplyr::filter(model_type != "kTSP (w)") |>
+      dplyr::filter(model_type != "kTSP (unw)") |>
       dplyr::select(sample_accession, 
                     cell_index,
                     predicted_labels,
@@ -381,7 +381,7 @@ Thus, it's more helpful to look at the percentage of genes with a 0 count or TPM
 ```{r}
 # Grab only the rows relevant to kTSP model
 ktsp_df <- expression_df |> 
-  dplyr::filter(model_type == "kTSP (w)", model == "kTSP") |>
+  dplyr::filter(model_type == "kTSP (unw)", model == "kTSP") |>
   # Drop the column that contains information about whether a gene is gene 1
   # or gene 2 in the rule
   dplyr::select(-gene_in_pair)
@@ -456,7 +456,7 @@ A cell can be classified as G3 if all rules have a score of zero, which will som
 correctly_classified_with_all_zeros_df |>
   dplyr::select(sample_accession, cell_index) |> 
   dplyr::left_join(dplyr::filter(single_cell_plot_df,
-                                 model_type == "kTSP (w)"),
+                                 model_type == "kTSP (unw)"),
                    by = c("sample_accession", "cell_index")) |>
   dplyr::filter(G3 == 0,
                 G4 == 0, 
@@ -475,7 +475,7 @@ Let's take a look at those:
 correctly_classified_with_all_zeros_df |>
   dplyr::select(sample_accession, cell_index) |> 
   dplyr::left_join(dplyr::filter(single_cell_plot_df,
-                                 model_type == "kTSP (w)"),
+                                 model_type == "kTSP (unw)"),
                    by = c("sample_accession", "cell_index")) |>
   dplyr::filter(predicted_labels == "SHH") |>
   dplyr::pull(SHH) |>
@@ -491,7 +491,7 @@ exprs_shh_zeros <- correctly_classified_with_all_zeros_df |>
   dplyr::select(sample_accession, cell_index) |>
   dplyr::left_join(dplyr::filter(expression_df, 
                                  model == "kTSP",
-                                 model_type == "kTSP (w)"),
+                                 model_type == "kTSP (unw)"),
                    by = c("sample_accession", "cell_index")) |>
   dplyr::select(sample_accession, cell_index, gene, expression) |>
   tidyr::pivot_wider(names_from = c(sample_accession, cell_index), 
