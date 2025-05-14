@@ -44,14 +44,14 @@ if (create_models &
     (file.exists(baseline_filepath)) &
     !overwrite) {
 
-  stop("Model output file already exists and overwrite is set to FALSE in analysis_notebooks/baseline.Rmd.")
+  stop("Model output file already exists and overwrite is set to FALSE in predict/predict_baseline_models.R.")
 
 }
 
 # check that files exist if create_models is FALSE
 if (!create_models & !file.exists(baseline_filepath)) {
 
-  stop("Model output file does not exist and create_models is set to FALSE in analysis_notebooks/baseline.Rmd.")
+  stop("Model output file does not exist and create_models is set to FALSE in predict/predict_baseline_models.R.")
 
 }
 
