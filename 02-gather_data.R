@@ -5,7 +5,7 @@
 # Chante Bethell, Steven Foltz
 # November-December 2022
 
-data_dir <- here::here("data")
+data_dir <- here::here("data") 
 processed_data_dir <- here::here("processed_data")
 single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
 GSE119926_dir <- here::here(single_cell_data_dir, "GSE119926")
