@@ -89,7 +89,7 @@ tenx_metadata_df <- singlecell_metadata_df |>
 # Read in and prepare models
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
-classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_weighted$classifier,
+classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_unweighted$classifier,
                         rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
@@ -145,7 +145,7 @@ pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list,  # each dataset
                                    subgroup),
                    by = "sample_accession") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp" ~ "kTSP (w)",
+                                               "ktsp" ~ "kTSP (unw)",
                                                "rf" ~ "RF (w)",
                                                "medullopackage" ~ "medulloPackage"))
 
@@ -216,7 +216,7 @@ single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
                                    is_PDX),
                    by = "sample_accession") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp" ~ "kTSP (w)",
+                                               "ktsp" ~ "kTSP (unw)",
                                                "rf" ~ "RF (w)"))
 
 readr::write_tsv(x = single_cell_plot_df,

@@ -1,0 +1,416 @@
+---
+title: "Visualize results of MB subgroup prediction"
+author: "Steven Foltz"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+# Setup
+
+```{r setup}
+
+# Source code and libraries
+source(here::here("utils/color_schemes.R"))
+source(here::here("utils/convert_gene_names.R"))
+source(here::here("utils/modeling.R"))
+library(patchwork)
+
+seed <- 44
+
+# Define directories and input/output file paths
+processed_data_dir <- here::here("processed_data")
+models_dir <- here::here("models")
+plots_dir <- here::here("plots")
+plots_data_dir <- file.path(plots_dir, "data")
+
+bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
+bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
+
+baseline_filepath <- file.path(models_dir, "baseline.rds")
+
+baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
+baseline_kappa_plot_filepath <- file.path(plots_dir, "baseline_kappa.pdf")
+baseline_accuracy_plot_filepath <- file.path(plots_dir, "baseline_accuracy.pdf")
+baseline_binary_TSP_plot_filepath <- file.path(plots_dir, "baseline_binary_TSP.pdf")
+baseline_figure_filepath <- file.path(plots_dir, "baseline_figure.pdf")
+
+# check that baseline model exists and read in the file
+if (file.exists(baseline_filepath)) {
+  
+  baseline_list <- readr::read_rds(baseline_filepath)
+  
+  model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                   "rf_weighted", "rf_unweighted",
+                   "lasso", "mm2s", "medullopackage")
+  
+} else {
+  
+  stop(glue::glue("Baseline model file ", baseline_filepath, " does not exist."))
+  
+}
+
+# set subgroups analyzed in this notebook (canonical MB subgroups)
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+
+# Read in essential data
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath,
+                                 show_col_types = FALSE) |>
+  tibble::column_to_rownames(var = "gene")
+
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(sample_accession %in% names(bulk_genex_df),
+                subgroup %in% mb_subgroups)
+
+bulk_genex_df <- bulk_genex_df |>
+  dplyr::select(dplyr::all_of(bulk_metadata_df$sample_accession))
+
+check_input_files(genex_df = bulk_genex_df,
+                  metadata_df = bulk_metadata_df)
+
+```
+
+# Visualize Kappa and accuracy results
+
+### Gather data
+
+The variable `baseline_list` is a list of lists.
+The first level of lists correspond to different repeats using different training/testing sets.
+Within each repeat, there are list elements corresponding to particular model results (e.g., `ktsp_weighted` or `lasso`) as well as metadata about the repeat (e.g., the seed used for to determine training/testing sets).
+To create a data frame for plotting, we need to gather modeling metrics (Kappa and Balanced Accuracy) from each model across all the repeats.
+
+```{r}
+
+plot_df <- baseline_list |>
+  purrr::map(return_model_metrics,
+             model_types = model_types,
+             metadata_df = bulk_metadata_df,
+             labels = mb_subgroups,
+             platforms = c("Array", "RNA-seq")) |>
+  purrr::list_rbind(names_to = "repeat_index") |>
+  dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "mm2s" ~ "MM2S",
+                                               "lasso" ~ "LASSO",
+                                               "medullopackage" ~ "medulloPackage"))
+
+readr::write_tsv(x = plot_df,
+                 file = baseline_plot_df_filepath)
+
+```
+
+### Kappa tables
+
+Kappa measures how often our predicted subgroups agree with the true subgroups, accounting for the chance of random agreement (necessary when subgroups are imbalanced).
+Kappa is an overall measure that applies to an entire set of predictions across subgroups.
+Values of Kappa closer to 1 indicate higher agreement, and values closer to 0 indicate random assignment.
+
+$$ \kappa = \frac{p_o - p_e}{1 - p_e} $$
+
+where $p_o$ is the observed proportion of agreement and $p_e$ is the expected proportion of chance agreement.
+
+The following table summarizes Kappa values stratified by platform (Array or RNA-seq) and model type by showing the median Kappa value.
+
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  dplyr::group_by(platform, model_type) |>
+  dplyr::summarize(median_kappa = median(value),
+                   .groups = "drop") |>
+  tidyr::pivot_wider(names_from = platform,
+                     values_from = median_kappa) |>
+  knitr::kable(caption = "Median Kappa values (by platform)")
+
+```
+
+- Within each model type, median models performance is slightly better on Array test data than RNA-seq test data
+- kTSP (w) and kTSP (unw) show little difference in performance in Array test data (more Array data in training set), but kTSP (unw) outperformed kTSP (w) in RNA-seq test data (against expectation)
+- The reverse is true for RF models, with RF (w) outperforming RF (unw) for both Array and RNA-seq test data
+- For Array data, the model rankings from lowest median Kappa to highest: MM2S, LASSO, RF (unw), RF (w), kTSP (w), medulloPackage, kTSP (unw)
+- For RNA-seq data, the model rankings from lowest median Kappa to highest: medullopackage, MM2S, RF (unw), LASSO, kTSP (w), RF (w), kTSP (unw)
+- Overall, the unweighted kTSP model performed best across both Array and RNA-seq data types
+- medulloPackage showed high performance in Array but low performance in RNA-seq, making its overall ranking unclear
+  - medulloPackage performance on RNA-seq is further complicated by the wide range of Kappa values returned from different testing sets
+  - For some testing sets, performance of medulloPackage was comparable to kTSP (unw)
+  - see more about [Medullopackage on RNA-seq](#medullopackage-on-rna-seq) below
+
+### Plot Kappa
+
+```{r}
+
+set.seed(seed)
+
+baseline_kappa_plot <- plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = model_type,
+                               color = platform)) +
+  ggplot2::geom_violin(draw_quantiles = 0.5,
+                       position = ggplot2::position_dodge(0.7),
+                       show.legend = FALSE) +
+  ggplot2::geom_point(shape = 16,
+                      position = ggplot2::position_jitterdodge(jitter.width = 0.1,
+                                                               jitter.height = 0)) +
+  ggplot2::coord_cartesian(xlim = c(0.6,1)) +
+  ggplot2::facet_wrap(~ subgroup,
+                      ncol = 1) +
+  ggplot2::labs(x = "Kappa",
+                y = NULL,
+                color = "Platform") +
+  ggplot2::scale_color_manual(values = platform_colors) + 
+  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) + 
+  ggplot2::theme_bw() +
+  ggplot2::theme(strip.background = ggplot2::element_blank())
+
+ggplot2::ggsave(filename = baseline_kappa_plot_filepath,
+                plot = baseline_kappa_plot,
+                height = 7,
+                width = 7)
+
+baseline_kappa_plot
+
+```
+
+To aid in visualization, the following data points were excluded from the previous plot.
+Later we explore these [excluded data points](#excluded-data-points) in more detail.
+
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Kappa",
+                value < 0.6)
+
+```
+
+### Excluded data points
+
+What's up with the MM2S model on RNA-seq data from repeats 4 and 6?
+As shown above, repeats 4 and 6 used the same test set and had the exact same Kappa value for the MM2S model.
+Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
+
+```{r}
+
+mm2s_rnaseq_repeat_4_df <- baseline_list[[4]]$test_metadata |>
+  dplyr::filter(platform == "RNA-seq") |>
+  dplyr::left_join(baseline_list[[4]]$mm2s$test_results$model_output,
+                   by = c("sample_accession" = "SampleName"))
+
+```
+
+#### MM2S RNA-seq Repeat 4 (and 6)
+
+MM2S showed poor performance on GSE164677 data.
+
+```{r}
+
+calculate_confusion_matrix(predicted_labels = mm2s_rnaseq_repeat_4_df$MM2S_Prediction,
+                           true_labels = mm2s_rnaseq_repeat_4_df$subgroup,
+                           labels = mb_subgroups)$table
+
+
+```
+
+#### medulloPackage on RNA-seq
+
+medulloPackage performed best on OpenPBTA data (Kappa = 0.968) and worse on data from GSE164677 (n = 59, Kappa = 0.855) and St. Jude (n = 57, Kappa = 0.856)
+
+```{r}
+plot_df |>
+  dplyr::filter(model_type == "medulloPackage",
+                platform == "RNA-seq",
+                metric == "Kappa") |>
+  dplyr::select(study, total_samples, metric, value) |>
+  dplyr::arrange(value)
+
+```
+
+### Accuracy tables
+
+Balanced accuracy is the average sensitivity and specificity of a model and is measured per subgroup.
+
+$$ \text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2} $$
+
+where
+
+$$ \text{Sensitivity} = \frac{TP}{TP + FN} \text{ and Specificity} = \frac{TN}{TN + FP} $$
+
+for true and false positive and negative predictions.
+
+The following table summarizes Balanced Accuracy values stratified by model type separately for each platform (Array or RNA-seq) by showing the median Kappa value.
+
+#### Array test data
+
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                platform == "Array") |>
+  dplyr::group_by(model_type, subgroup) |>
+  dplyr::summarize(median_accuracy = median(value),
+                   .groups = "drop") |>
+  dplyr::mutate(median_accuracy = round(median_accuracy, 3)) |>
+  tidyr::pivot_wider(names_from = subgroup,
+                     values_from = median_accuracy) |>
+knitr::kable(caption = "Median Balanced Accuracy values")
+
+```
+
+#### RNA-seq test data
+
+```{r}
+
+plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                platform == "RNA-seq") |>
+  dplyr::group_by(model_type, subgroup) |>
+  dplyr::summarize(median_accuracy = median(value),
+                   .groups = "drop") |>
+  dplyr::mutate(median_accuracy = round(median_accuracy, 3)) |>
+  tidyr::pivot_wider(names_from = subgroup,
+                     values_from = median_accuracy) |>
+  knitr::kable(caption = "Median Balanced Accuracy values")
+
+```
+
+- Overall, prediction models show excellent sensitivity and specificity, with SSH and WNT subgroup performance higher than G3 and G4 for both Array and RNA-seq
+- We observed the largest discrepancy in model performance with G3 predictions using MM2S with Array test data (as previously documented by MM2S authors), but kTSP, RF, LASSO, and medulloPackage methods can improve on it
+
+The following plot illustrates the differences observed between model types in G3 subgroup Balanced Accuracy.
+
+### Plot accuracy (G3 only)
+
+```{r}
+
+set.seed(seed)
+
+baseline_accuracy_plot <- plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                subgroup %in% c("G3")) |>
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = model_type,
+                               color = platform)) +
+  ggplot2::geom_violin(draw_quantiles = 0.5,
+                       show.legend = FALSE,
+                       position = ggplot2::position_dodge(0.7)) +
+  ggplot2::geom_point(shape = 16,
+                      position = ggplot2::position_jitterdodge(jitter.width = 0.1,
+                                                               jitter.height = 0)) +
+  ggplot2::facet_wrap(~ subgroup,
+                      ncol = 1) +
+  #ggplot2::coord_cartesian(xlim = c(0.6,1)) +
+  ggplot2::labs(x = "Balanced Accuracy",
+                y = NULL,
+                color = "Platform") +
+  ggplot2::scale_fill_manual(values = c("#FFFFFF", "#FFFFFF")) +
+  ggplot2::scale_color_manual(values = platform_colors) + 
+  ggplot2::theme_bw() +
+  ggplot2::theme(strip.background = ggplot2::element_blank())
+
+ggplot2::ggsave(filename = baseline_accuracy_plot_filepath,
+                plot = baseline_kappa_plot,
+                height = 7,
+                width = 7)
+
+baseline_accuracy_plot
+
+```
+
+### kTSP (unweighted) binary rules plot
+
+```{r}
+
+official_model <- baseline_list |>
+  purrr::map_lgl("official_model") |>
+  which()
+official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
+official_ktsp_model <- baseline_list[[official_model]][["ktsp_unweighted"]]$classifier
+official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_unweighted"]]$test_results$model_output
+
+test_samples <- baseline_list[[official_model]]$test_metadata$sample_accession
+
+# confirm it's the same test samples in the same order
+if (any(test_samples != row.names(official_ktsp_test_results))) {
+  
+  stop("Testing sets do not match!")
+  
+} else { # use train_test_samples_list and classifier to visualize binary rules
+  
+  genex_df_test <- bulk_genex_df |>
+    dplyr::select(dplyr::all_of(test_samples))
+  metadata_df_test <- bulk_metadata_df |>
+    dplyr::filter(sample_accession %in% test_samples)
+  
+  test_data_object <- multiclassPairs::ReadData(Data = genex_df_test,
+                                                Labels = metadata_df_test$subgroup,
+                                                Platform = metadata_df_test$platform,
+                                                verbose = FALSE)
+  
+  # The plot_binary_TSP() output cannot be saved to a variable directly, but
+  # saving the plot as a function call makes it available to call again later
+  # Source: https://stackoverflow.com/a/46961131
+  binary_TSP_plot <- \() {multiclassPairs::plot_binary_TSP(Data = test_data_object,
+                                                           classifier = official_ktsp_model, 
+                                                           prediction = official_ktsp_test_results, 
+                                                           classes = mb_subgroups,
+                                                           show_rule_name = FALSE,
+                                                           show_platform = FALSE,
+                                                           ref_col = subgroup_colors,
+                                                           pred_col = subgroup_colors,
+                                                           legend = FALSE,
+                                                           anno_height = 0.05,
+                                                           score_height = 0.05,
+                                                           margin = c(0, 5, 0, 0.5))}
+  
+  binary_TSP_plot_object <- patchwork::wrap_elements(full = ~ binary_TSP_plot())
+  
+  ggplot2::ggsave(filename = baseline_binary_TSP_plot_filepath,
+                  plot = binary_TSP_plot_object,
+                  width = 7,
+                  height = 7)
+
+}
+
+```
+
+### kTSP (unweighted) confusion matrix
+
+```{r}
+  
+baseline_list[[official_model]][["ktsp_unweighted"]]$cm
+
+```
+
+# Baseline figure
+
+```{r}
+
+panel_a_b <- baseline_kappa_plot + baseline_accuracy_plot +
+  patchwork::plot_layout(guides = "collect")
+panel_c <- patchwork::wrap_elements(full = ~ binary_TSP_plot())
+
+figure_plot <- panel_a_b / panel_c +
+  patchwork::plot_annotation(tag_levels = 'a') +
+  patchwork::plot_layout(nrow = 2,
+                         heights = c(1,2))
+
+ggplot2::ggsave(filename = baseline_figure_filepath,
+                plot = figure_plot,
+                width = 7.5,
+                height = 6)
+
+figure_plot
+
+```
+
+# Session info
+
+```{r session_info}
+sessionInfo()
+```
