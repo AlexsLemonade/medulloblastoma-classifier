@@ -139,7 +139,7 @@ plot_df |>
 - medulloPackage showed high performance in Array but low performance in RNA-seq, making its overall ranking unclear
   - medulloPackage performance on RNA-seq is further complicated by the wide range of Kappa values returned from different testing sets
   - For some testing sets, performance of medulloPackage was comparable to kTSP (unw)
-  - see more about [Medullpackage on RNA-seq](#medullopackage-on-rna-seq) below
+  - see more about [Medullopackage on RNA-seq](#medullopackage-on-rna-seq) below
 
 ### Plot Kappa
 
@@ -179,7 +179,7 @@ baseline_kappa_plot
 ```
 
 To aid in visualization, the following data points were excluded from the previous plot.
-Later we explore this [excluded data point](#excluded-data-point) in more detail.
+Later we explore these [excluded data points](#excluded-data-points) in more detail.
 
 ```{r}
 
@@ -192,6 +192,7 @@ plot_df |>
 ### Excluded data points
 
 What's up with the MM2S model on RNA-seq data from repeats 4 and 6?
+As shown above, repeats 4 and 6 used the same test set and had the exact same Kappa value for the MM2S model.
 Note, this analysis will be specific to the particular data sets and parameters used in the original creation of this notebook.
 
 ```{r}
@@ -199,11 +200,6 @@ Note, this analysis will be specific to the particular data sets and parameters 
 mm2s_rnaseq_repeat_4_df <- baseline_list[[4]]$test_metadata |>
   dplyr::filter(platform == "RNA-seq") |>
   dplyr::left_join(baseline_list[[4]]$mm2s$test_results$model_output,
-                   by = c("sample_accession" = "SampleName"))
-
-mm2s_rnaseq_repeat_6_df <- baseline_list[[6]]$test_metadata |>
-  dplyr::filter(platform == "RNA-seq") |>
-  dplyr::left_join(baseline_list[[6]]$mm2s$test_results$model_output,
                    by = c("sample_accession" = "SampleName"))
 
 ```
@@ -326,7 +322,7 @@ baseline_accuracy_plot
 
 ```
 
-### kTSP (w) binary rules plot
+### kTSP (unweighted) binary rules plot
 
 ```{r}
 
@@ -334,8 +330,8 @@ official_model <- baseline_list |>
   purrr::map_lgl("official_model") |>
   which()
 official_train_test_seed <- baseline_list[[official_model]]$train_test_seed
-official_ktsp_model <- baseline_list[[official_model]][["ktsp_weighted"]]$classifier
-official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_weighted"]]$test_results$model_output
+official_ktsp_model <- baseline_list[[official_model]][["ktsp_unweighted"]]$classifier
+official_ktsp_test_results <- baseline_list[[official_model]][["ktsp_unweighted"]]$test_results$model_output
 
 test_samples <- baseline_list[[official_model]]$test_metadata$sample_accession
 
@@ -372,8 +368,10 @@ if (any(test_samples != row.names(official_ktsp_test_results))) {
                                                            score_height = 0.05,
                                                            margin = c(0, 5, 0, 0.5))}
   
+  binary_TSP_plot_object <- patchwork::wrap_elements(full = ~ binary_TSP_plot())
+  
   ggplot2::ggsave(filename = baseline_binary_TSP_plot_filepath,
-                  plot = binary_TSP_plot(),
+                  plot = binary_TSP_plot_object,
                   width = 7,
                   height = 7)
 
@@ -381,11 +379,11 @@ if (any(test_samples != row.names(official_ktsp_test_results))) {
 
 ```
 
-### kTSP (w) confusion matrix
+### kTSP (unweighted) confusion matrix
 
 ```{r}
   
-baseline_list[[official_model]][["ktsp_weighted"]]$cm
+baseline_list[[official_model]][["ktsp_unweighted"]]$cm
 
 ```
 
