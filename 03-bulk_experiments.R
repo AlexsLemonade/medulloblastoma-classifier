@@ -12,7 +12,7 @@ predict_baseline_models_filepath <- file.path(predict_dir, "predict_baseline_mod
 bulk_analysis_filepath <- file.path(nb_dir, "bulk_analysis.Rmd")
 
 # ESTIMATE tumor purity
-#rmarkdown::render(estimate_tumor_purity_filepath)
+rmarkdown::render(estimate_tumor_purity_filepath)
 
 # Run baseline models
 source(predict_baseline_models_filepath)
