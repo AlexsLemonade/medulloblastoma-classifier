@@ -30,7 +30,7 @@ baseline_models_filepath <- file.path(models_dir, "baseline.rds")
 
 ```{r}
 genes_list_filepath <- file.path(results_dir, 
-                                 "genes_in_weighted_official_models.tsv")
+                                 "genes_in_kTSP_unw_and_RF_w_official_models.tsv")
 ```
 
 ## Get pair-based models
@@ -41,7 +41,7 @@ We are going to look at the weighted version of the kTSP and RF models in the "o
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, 
                                            \(x) x[["official_model"]]))
-ktsp_model <- baseline_models[[official_model]]$ktsp_weighted$classifier
+ktsp_model <- baseline_models[[official_model]]$ktsp_unweighted$classifier
 rf_model <- baseline_models[[official_model]]$rf_weighted$classifier
 ```
 
