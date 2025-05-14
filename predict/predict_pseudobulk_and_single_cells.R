@@ -92,6 +92,18 @@ official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"
 classifier_list <- list(ktsp = baseline_models[[official_model]]$ktsp_unweighted$classifier,
                         rf = baseline_models[[official_model]]$rf_weighted$classifier)
 
+# Grab the genes from individual models
+classifier_genes <- list()
+classifier_genes$ktsp <- classifier_list$ktsp$classifier |>  
+  purrr::map(\(x)
+             data.frame(x$TSP)) |>
+  dplyr::bind_rows(.id = "subgroup") |>
+  tidyr::pivot_longer(cols = dplyr::starts_with("gene"),
+                      names_to = "gene_in_pair",
+                      values_to = "gene") |>
+  dplyr::pull(gene)
+classifier_genes$rf <- classifier_list$rf$RF_scheme$genes
+
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Predict the subgroup of pseudobulk samples
@@ -161,6 +173,8 @@ model_test_list <- purrr::map(names(classifier_list), # classifier model types
                                                                               metadata_df = singlecell_metadata_df,
                                                                               labels = mb_subgroups,
                                                                               classifier = classifier_list[[model_type]],
+                                                                              genes_in_classifier = classifier_genes[[model_type]],
+                                                                              prop_genes_detected = ifelse(model_type == "rf", 0.15, 0.25),
                                                                               platform = "scRNA-seq")) |>
                                 purrr::set_names(singlecell_metadata_df$title)) |>
   purrr::set_names(names(classifier_list))
