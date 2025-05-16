@@ -9,7 +9,7 @@
 #       genes included in the RF model
 #
 #   ktsp:
-#     ktsp_mode = "gene": Only retain cells with non-zero counts for at least 
+#     ktsp_mode = "gene": Only retain cells with non-zero counts for at least
 #                         opt$prop_observed genes in the model, ignoring rules
 #                         and subgroup -- same as RF
 #     ktsp_mode = "rule": Only retain cells where at least opt$prop_observed
@@ -29,7 +29,7 @@ library(optparse)
 option_list <- list(
   make_option(
     opt_str = c("-o", "--output_file"),
-    type = "character", 
+    type = "character",
     help = "File path for TSV file that will be output with the results"
   ),
   make_option(
@@ -61,7 +61,7 @@ opt$ktsp_mode <- tolower(opt$ktsp_mode)
 # Error handling
 stopifnot(
   "Unsupported model type" = (opt$model_type %in% c("rf", "ktsp")),
-  "Unsupported ktsp_mode argument" = (opt$ktsp_mode %in% c("gene", "rule")) 
+  "Unsupported ktsp_mode argument" = (opt$ktsp_mode %in% c("gene", "rule"))
 )
 
 #### Functions -----------------------------------------------------------------
@@ -104,14 +104,14 @@ sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
 
 # Fail if there are any sample title collisions
 if (any(duplicated(sce_sample_titles))) {
-  
+
   stop("Duplicate single-cell sample title detected!")
-  
+
 } else {
-  
+
   # Name the vector using the sample title
   names(sce_files) <- sce_sample_titles
-  
+
 }
 
 #### Read in data --------------------------------------------------------------
@@ -129,17 +129,17 @@ official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"
 
 # Use model type option to determine which classifier to use
 if (opt$model_type == "ktsp") {
-  
+
   classifier <- baseline_models[[official_model]]$ktsp_unweighted$classifier
-  
+
 } else if (opt$model_type == "rf") {
 
   classifier <- baseline_models[[official_model]]$rf_weighted$classifier
-  
+
 } else {
-  
+
   stop("Model type is not supported")
-  
+
 }
 
 # Remove somewhat large object
@@ -149,7 +149,7 @@ rm(baseline_models)
 if (opt$model_type == "ktsp") {
 
   # Extract rules in tidy data frame
-  rules_df <- classifier$classifiers |>  
+  rules_df <- classifier$classifiers |>
     purrr::map(\(x)
                data.frame(x$TSP)) |>
     dplyr::bind_rows(.id = "subgroup") |>
@@ -159,27 +159,27 @@ if (opt$model_type == "ktsp") {
                         names_to = "gene_in_pair",
                         values_to = "gene") |>
     dplyr::ungroup()
-  
+
   # If we're using gene-based filtering, we're just going to pass the vector
   # of genes used in the model
   if (opt$ktsp_mode == "gene") {
-    
+
     genes_in_classifier <- rules_df$gene
     rules_df <- NULL
-    
+
   } else {
-    
+
     genes_in_classifier <- NULL
-    
+
   }
 
-  
+
 } else {  # rf
-  
+
   # Extract genes used in the RF model
   genes_in_classifier <- classifier$RF_scheme$genes
   rules_df <- NULL
-  
+
 }
 
 # Predict on all SingleCellExperiment objects
@@ -201,7 +201,7 @@ test_objects <- singlecell_metadata_df$title |>
   purrr::set_names(singlecell_metadata_df$title)
 
 # Create a data frame with the predictions that can be easily used for plotting
-single_cell_plot_df <- test_objects |> 
+single_cell_plot_df <- test_objects |>
   # We want the labels as well as the prediction matrix (i.e., subgroup scores)
   purrr::map(\(x)
              dplyr::bind_cols(x$predicted_labels_df,
@@ -215,11 +215,11 @@ single_cell_plot_df <- test_objects |>
                               names = c("sample_accession",
                                         "cell_index")) |>
   # Use model type option to determine value of model type column
-  dplyr::mutate(model_type = ifelse(opt$model_type == "ktsp", 
-                                    "kTSP (unw)", 
+  dplyr::mutate(model_type = ifelse(opt$model_type == "ktsp",
+                                    "kTSP (unw)",
                                     "RF (w)")) |>
   # Add in more metadata -- joining by sample identifier
-  dplyr::left_join(singlecell_metadata_df |> 
+  dplyr::left_join(singlecell_metadata_df |>
                      dplyr::select(sample_accession,
                                    study,
                                    subgroup,
