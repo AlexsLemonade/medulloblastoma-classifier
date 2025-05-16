@@ -21,7 +21,7 @@ option_list <- list(
     help = "The proportion of genes or rules observed in the classifier that need to be detected to retain a cell for classification (default: %default)"
   ),
   make_option(
-    opt_str = c("-k, --ktsp_mode"),
+    opt_str = c("-k", "--ktsp_mode"),
     type = "character",
     default = "rule",
     help = "What method should be used to filter out cells in a kTSP model? 'gene' or 'rule' (default: %default)"
