@@ -1,7 +1,7 @@
 # Functions related to SingleCellExperiment operations
 #
-# Chante Bethell
-# February 2023
+# Chante Bethell, Steven Foltz, and Jaclyn Taroni
+# 2023 - 2025
 
 convert_dataframe_list_to_sce <- function(df_list) {
   # Purpose: Convert a list of data frame or matrix objects into
@@ -123,6 +123,26 @@ test_single_cells <- function(sample_acc,
                               filtering_type = "rule",
                               prop_observed = 0.1,
                               platform = "scRNA-seq") {
+  
+  # Applies prediction model to gene expression matrix
+  #
+  # Inputs:
+  #  sample_acc: sample accession used for filtering metadata out of metadata_df
+  #  sce_filepath: file path to a single cell experiment object RDS file
+  #  metadata_df: metadata data frame (must include sample_accession, study, subgroup, and platform columns)
+  #  labels: vector of possible sample labels (e.g., c("G3","G4","SHH","WNT"))
+  #  classifier: classifier model (model class must be OnevsrestScheme_TSP for kTSP or rule_based_RandomForest for random forest)
+  #  genes_in_classifier: a vector of genes used in the rules-based classifier; required when filtering type = "gene" or the classifier is RF
+  #  rules_df: A data frame of the rules used in a kTSP model; required when filtering_type = "rule"
+  #  filtering_type: How should filtering be applied for kTSP model?
+  #     rule (default): More than prop_observed rules have at least one gene detected for all subgroups (requires rules_df)
+  #     gene: More than prop_observed genes used in the model, regardless of what rule they are in, are required.
+  #           This is functionally the same as what is done for RF
+  #  prop_observed: what proportion of genes used in the classifier or in subgroup rules need to be detected to move forward with prediction? (default: 0.1)
+  #  platform: gene expression platform for this sample (default: scRNA-seq)
+  #
+  # Outputs:
+  #  Returns a test object -- the cells that don't meet the required threshold will be marked "Unclassified"
   
   # Detect classifier class and error-handling
   if ( class(classifier) == "OnevsrestScheme_TSP" ) {
