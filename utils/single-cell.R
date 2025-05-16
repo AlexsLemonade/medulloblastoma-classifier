@@ -312,7 +312,10 @@ test_ktsp_single_cells <- function(sample_acc,
     
     rules_prop_observed_df <- rules_df |>
       # Join with gene expression data
-      dplyr::left_join(genex_df_this_sample) |>
+      dplyr::left_join(
+        tibble::rownames_to_column(genex_df_this_sample, "gene"),
+        by = "gene"
+      ) |>
       # Turn into TRUE/FALSE if detected (value > 0)
       dplyr::mutate_if(is.numeric, ~ ifelse(.x > 0, TRUE, FALSE)) |>
       # Keep track of if at least one gene for that rule is detected

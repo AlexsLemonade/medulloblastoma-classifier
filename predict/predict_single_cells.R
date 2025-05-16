@@ -46,7 +46,6 @@ stopifnot(
 # Load functions
 source(here::here("utils/modeling.R"))
 source(here::here("utils/single-cell.R"))
-source(here::here("utils/convert_gene_names.R"))
 
 #### Directories and files -----------------------------------------------------
 
@@ -62,6 +61,10 @@ tenx_data_dir <- here::here(single_cell_data_dir, "GSE155446")
 
 # Baseline models
 baseline_models_filepath <- here::here(models_dir, "baseline.rds")
+
+# Metadata
+singlecell_metadata_filepath <- here::here(single_cell_data_dir,
+                                           "pseudobulk_metadata.tsv")
 
 # Get file paths of individual SingleCellExperiment RDS objects
 sce_files <- c(fs::dir_ls(path = fs::path(smartseq_data_dir,
@@ -97,12 +100,6 @@ singlecell_metadata_df <- readr::read_tsv(singlecell_metadata_filepath,
                                           show_col_types = FALSE) |>
   dplyr::mutate(sample_accession = title)
 
-# Split up by study to pass to test_*()
-smartseq_metadata_df <- singlecell_metadata_df |>
-  dplyr::filter(study == "GSE119926")
-tenx_metadata_df <- singlecell_metadata_df |>
-  dplyr::filter(study == "GSE155446")
-
 # Read in and prepare models
 baseline_models <- readr::read_rds(baseline_models_filepath)
 official_model <- which(purrr::map_lgl(baseline_models, \(x) x[["official_model"]]))
@@ -113,9 +110,13 @@ if (opt$model_type == "ktsp") {
   classifier <- baseline_models[[official_model]]$ktsp_unweighted$classifier
   
   
-} else {
+} else if (opt$model_type == "rf") {
 
   classifier <- baseline_models[[official_model]]$rf_weighted$classifier
+  
+} else {
+  
+  stop("Model type is not supported")
   
 }
 
@@ -123,9 +124,9 @@ if (opt$model_type == "ktsp") {
 rm(baseline_models)
 
 
-if (model_type == "ktsp") {
+if (opt$model_type == "ktsp") {
 
-  # Extract rules in data frame form
+  # Extract rules in tidy data frame
   rules_df <- classifier$classifiers |>  
     purrr::map(\(x)
                data.frame(x$TSP)) |>
@@ -137,11 +138,61 @@ if (model_type == "ktsp") {
                         values_to = "gene") |>
     dplyr::ungroup()
 
-  test_objects <- sce_files |>
-    purrr::map2()
+  # Predict with kTSP on individual cells in every SingleCellExperiment
+  test_objects <- singlecell_metadata_df$title |>
+    purrr::map(\(x)
+      test_ktsp_single_cells(
+        sample_acc = x,
+        sce_filepath = sce_files[x],
+        metadata_df = singlecell_metadata_df,
+        labels = mb_subgroups,
+        classifier = classifier,
+        rules_df = rules_df,
+        prop_observed = opt$prop_observed,
+        filtering_type = opt$ktsp_mode,
+        platform = "scRNA-seq"
+      )
+    ) |>
+    purrr::set_names(singlecell_metadata_df$title)
+  
+} else {  # rf
+  
+  # Predict with rf on individual cells in every SingleCellExperiment
+  test_objects <- singlecell_metadata_df$title |> 
+    purrr::map(\(x)
+               test_rf_single_cells(
+                 sample_acc = x,
+                 sce_filepath = sce_files[x],
+                 metadata_df = singlecell_metadata_df,
+                 labels = mb_subgroups,
+                 classifier = classifier,
+                 genes_in_classifier = classifier$RF_scheme$genes,
+                 prop_observed = opt$prop_observed,
+                 platform = "scRNA-seq"
+               )           
+    )
   
 }
 
+single_cell_plot_df <- test_objects |> 
+  purrr::map(\(x)
+             dplyr::bind_cols(x$predicted_labels_df,
+                              tibble::as_tibble(x$model_output))
+  ) |>
+  dplyr::bind_rows() |>
+  tidyr::separate_wider_delim(cols = sample_accession,
+                              delim = "_",
+                              names = c("sample_accession",
+                                        "cell_index")) |>
+  dplyr::mutate(model_type = ifelse(opt$model_type == "ktsp", 
+                                    "kTSP (unw)", 
+                                    "RF (w)")) |>
+  dplyr::left_join(singlecell_metadata_df |> 
+                     dplyr::select(sample_accession,
+                                   study,
+                                   subgroup,
+                                   is_PDX),
+                   by = "sample_accession")
 
-
-genes_in_classifier <- classifier$RF_scheme$genes
+readr::write_tsv(x = single_cell_plot_df,
+                 file = opt$output_file)
