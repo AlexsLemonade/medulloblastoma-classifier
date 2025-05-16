@@ -1,6 +1,29 @@
 #! /usr/bin/env Rscript
 # J. Taroni 2025
 
+# Predict individual cell labels using kTSP unweighted or RF weighted models
+#
+# You can filter out cells that do not meet a threshold:
+#
+#   rf: Only retain cells with non-zero counts for at least opt$prop_observed
+#       genes included in the RF model
+#
+#   ktsp:
+#     ktsp_mode = "gene": Only retain cells with non-zero counts for at least 
+#                         opt$prop_observed genes in the model, ignoring rules
+#                         and subgroup -- same as RF
+#     ktsp_mode = "rule": Only retain cells where at least opt$prop_observed
+#                         rules have a non-zero count for at least one rule for
+#                         all subgroup (default!)
+#
+# Example usage:
+#
+#  Rscript predict_single_cells.R \
+#     --output_file "kTSP_gene_filtered_0.1.tsv" \
+#     --model_type ktsp \
+#     --prop_observed 0.1 \
+#     --ktsp_mode gene
+
 library(optparse)
 
 option_list <- list(
