@@ -140,16 +140,16 @@ test_single_cells <- function(sample_acc,
   }
   
   # Need rules data frame for kTSP
-  if (model_type == "ktsp" & is.null(rules_df)) {
+  if (model_type == "ktsp" & filtering_type == "rule" & is.null(rules_df)) {
     
-    stop("rules_df can not be NULL when model type is kTSP")
+    stop("rules_df can not be NULL when model type is kTSP and using rule-based filtering")
     
   }
   
   # Need vector of genes used in the classifier for RF
-  if (model_type == "rf" & is.null(genes_in_classifier)) {
+  if ((model_type == "rf" | filtering_type == "gene") & is.null(genes_in_classifier)) {
     
-    stop("genes_in_classifier can not be NULL when model type is kTSP")
+    stop("genes_in_classifier can not be NULL when model type is rf or when using gene-based filtering for kTSP")
     
   }
   
@@ -204,9 +204,6 @@ test_single_cells <- function(sample_acc,
   # the only way to do it for RF
   if (filtering_type == "gene" | model_type == "rf") {
     
-    # Get a vector of genes used in the classifier
-    genes_in_classifier <- rules_df |>
-      dplyr::pull(gene)  
     # just genes in classifier
     classifier_genex <- genex_df_this_sample[which(rownames(genex_df_this_sample) %in% genes_in_classifier), ]
     # find the number of classifier-relevant genes detected
