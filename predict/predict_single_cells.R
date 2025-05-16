@@ -109,7 +109,6 @@ if (opt$model_type == "ktsp") {
   
   classifier <- baseline_models[[official_model]]$ktsp_unweighted$classifier
   
-  
 } else if (opt$model_type == "rf") {
 
   classifier <- baseline_models[[official_model]]$rf_weighted$classifier
@@ -123,7 +122,7 @@ if (opt$model_type == "ktsp") {
 # Remove somewhat large object
 rm(baseline_models)
 
-
+# If kTSP, set up the data frame of rules
 if (opt$model_type == "ktsp") {
 
   # Extract rules in tidy data frame
@@ -137,56 +136,66 @@ if (opt$model_type == "ktsp") {
                         names_to = "gene_in_pair",
                         values_to = "gene") |>
     dplyr::ungroup()
+  
+  # If we're using gene-based filtering, we're just going to pass the vector
+  # of genes used in the model
+  if (opt$ktsp_mode == "gene") {
+    
+    genes_in_classifier <- rules_df$gene
+    rules_df <- NULL
+    
+  } else {
+    
+    genes_in_classifier <- NULL
+    
+  }
 
-  # Predict with kTSP on individual cells in every SingleCellExperiment
-  test_objects <- singlecell_metadata_df$title |>
-    purrr::map(\(x)
-      test_ktsp_single_cells(
-        sample_acc = x,
-        sce_filepath = sce_files[x],
-        metadata_df = singlecell_metadata_df,
-        labels = mb_subgroups,
-        classifier = classifier,
-        rules_df = rules_df,
-        prop_observed = opt$prop_observed,
-        filtering_type = opt$ktsp_mode,
-        platform = "scRNA-seq"
-      )
-    ) |>
-    purrr::set_names(singlecell_metadata_df$title)
   
 } else {  # rf
   
-  # Predict with rf on individual cells in every SingleCellExperiment
-  test_objects <- singlecell_metadata_df$title |> 
-    purrr::map(\(x)
-               test_rf_single_cells(
-                 sample_acc = x,
-                 sce_filepath = sce_files[x],
-                 metadata_df = singlecell_metadata_df,
-                 labels = mb_subgroups,
-                 classifier = classifier,
-                 genes_in_classifier = classifier$RF_scheme$genes,
-                 prop_observed = opt$prop_observed,
-                 platform = "scRNA-seq"
-               )           
-    )
+  # Extract genes used in the RF model
+  genes_in_classifier <- classifier$RF_scheme$genes
+  rules_df <- NULL
   
 }
 
+# Predict on all SingleCellExperiment objects
+test_objects <- singlecell_metadata_df$title |>
+  purrr::map(\(x)
+             test_single_cells(
+               sample_acc = x,
+               sce_filepath = sce_files[x],
+               metadata_df = singlecell_metadata_df,
+               labels = mb_subgroups,
+               classifier = classifier,
+               rules_df = rules_df,
+               genes_in_classifier = genes_in_classifier,
+               prop_observed = opt$prop_observed,
+               filtering_type = opt$ktsp_mode,
+               platform = "scRNA-seq"
+             )
+  ) |>
+  purrr::set_names(singlecell_metadata_df$title)
+
+# Create a data frame with the predictions that can be easily used for plotting
 single_cell_plot_df <- test_objects |> 
+  # We want the labels as well as the prediction matrix (i.e., subgroup scores)
   purrr::map(\(x)
              dplyr::bind_cols(x$predicted_labels_df,
                               tibble::as_tibble(x$model_output))
   ) |>
+  # Bind predictions for individual samples
   dplyr::bind_rows() |>
+  # Split identifier into sample identifier and cell index
   tidyr::separate_wider_delim(cols = sample_accession,
                               delim = "_",
                               names = c("sample_accession",
                                         "cell_index")) |>
+  # Use model type option to determine value of model type column
   dplyr::mutate(model_type = ifelse(opt$model_type == "ktsp", 
                                     "kTSP (unw)", 
                                     "RF (w)")) |>
+  # Add in more metadata -- joining by sample identifier
   dplyr::left_join(singlecell_metadata_df |> 
                      dplyr::select(sample_accession,
                                    study,
@@ -194,5 +203,6 @@ single_cell_plot_df <- test_objects |>
                                    is_PDX),
                    by = "sample_accession")
 
+# Write to file using the output file argument
 readr::write_tsv(x = single_cell_plot_df,
                  file = opt$output_file)
