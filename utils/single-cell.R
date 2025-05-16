@@ -246,15 +246,19 @@ test_single_cells <- function(sample_acc,
   unclassified_cell_ids <- colnames(genex_df_this_sample)[-cells_to_retain]
   
   # for prediction, only retain the cells above the threshold
-  genex_df_this_sample <- genex_df_this_sample[, cells_to_retain]
+  genex_df_this_sample <- genex_df_this_sample[, cells_to_retain, drop = FALSE]
   metadata_df_this_sample <- metadata_df_this_sample |>
     dplyr::filter(sample_accession %in% colnames(genex_df_this_sample))
   
-  # check_input_files() is sourced from utils/modeling.R. This function ensures
-  #  the genex_df and metadata_df given to the test_*() function are properly
-  #  formatted and consistent with each other
-  check_input_files(genex_df = genex_df_this_sample,
-                    metadata_df = metadata_df_this_sample)
+  # This check will fail if there are no cells with labels being predicted
+  if (ncol(genex_df_this_sample) > 0) {
+    
+    # check_input_files() is sourced from utils/modeling.R. This function ensures
+    #  the genex_df and metadata_df given to the test_*() function are properly
+    #  formatted and consistent with each other
+    check_input_files(genex_df = genex_df_this_sample,
+                      metadata_df = metadata_df_this_sample)
+  }
   
   if (model_type == "ktsp") {
     
