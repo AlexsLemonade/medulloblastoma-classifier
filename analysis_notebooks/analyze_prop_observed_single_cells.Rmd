@@ -146,7 +146,8 @@ smartseq_object <- per_sample_stats_df |>
   stat_summary(geom = "pointrange",
                fun = median,
                fun.max = \(x) quantile(x, 0.75),
-               fun.min = \(x) quantile(x, 0.25)) +
+               fun.min = \(x) quantile(x, 0.25),
+               size = 0.1)+
   facet_grid(rows = vars(subgroup),
              cols = vars(strategy)) +
   labs(title = "GSE119926 (Smart-seq2)",
@@ -171,7 +172,8 @@ tenx_object <- per_sample_stats_df |>
   stat_summary(geom = "pointrange",
                fun = median,
                fun.max = \(x) quantile(x, 0.75),
-               fun.min = \(x) quantile(x, 0.25)) +
+               fun.min = \(x) quantile(x, 0.25),
+               size = 0.1) +
   facet_grid(rows = vars(subgroup),
              cols = vars(strategy)) +
   labs(title = "GSE155446 (10X)",
