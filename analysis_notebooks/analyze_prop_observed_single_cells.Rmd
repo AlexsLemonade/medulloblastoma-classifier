@@ -1,0 +1,51 @@
+---
+title: "Analyzing filtering single cells based on genes/rules observed"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+
+```{r}
+results_dir <- here::here("results", "single_cells_filtered")
+results_files <- fs::dir_ls(
+  path = results_dir,
+  glob = "*.tsv"
+)
+
+suppressMessages(
+  results_list <- results_files |> 
+    purrr::map(readr::read_tsv)
+)
+
+results_df <- results_list |> 
+  purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
+  dplyr::bind_rows(.id = "run") |>
+  dplyr::mutate(
+    prop_observed = stringr::word(run, 2, sep = "_"),
+    filtering_type = stringr::word(run, 3, sep = "_")
+  ) |>
+  dplyr::select(-run)
+```
+
+```{r}
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+
+accuracy_df <- results_df |>
+  dplyr::group_by(model_type, prop_observed, filtering_type) |>
+  dplyr::filter(predicted_labels %in% mb_subgroups) |>
+  dplyr::summarize(accuracy_pred_cells = sum(predicted_labels == subgroup) / dplyr::n())
+
+stats_df <- results_df |> 
+  dplyr::group_by(model_type, prop_observed, filtering_type) |>
+  dplyr::summarize(prop_unclassified = sum(predicted_labels == "Unclassified") / dplyr::n()) |>
+  dplyr::inner_join(accuracy_df,
+                    by = c("model_type", "prop_observed", "filtering_type"))
+
+rm(accuracy_df, results_list)
+```
+
