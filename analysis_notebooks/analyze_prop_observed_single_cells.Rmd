@@ -9,19 +9,41 @@ output:
     df_print: paged
 ---
 
+## Libraries
+
+```{r}
+library(ggplot2)
+library(patchwork)
+```
+
+## Files and directories
 
 ```{r}
 results_dir <- here::here("results", "single_cells_filtered")
+plots_dir <- here::here("plots")
+
+# All results files
 results_files <- fs::dir_ls(
   path = results_dir,
   glob = "*.tsv"
 )
 
-suppressMessages(
-  results_list <- results_files |> 
-    purrr::map(readr::read_tsv)
+# Output
+plot_file <- here::here(plots_dir, "single_cells_rules_based_prop_observed.pdf")
+```
+
+## Read in data
+
+```{r}
+suppressWarnings(
+  suppressMessages(
+    results_list <- results_files |> 
+      purrr::map(readr::read_tsv)
+  )
 )
 
+# Create a data frame and use the file names to create prop_observed and
+# filtering_type variables for grouping
 results_df <- results_list |> 
   purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
   dplyr::bind_rows(.id = "run") |>
@@ -30,22 +52,151 @@ results_df <- results_list |>
     filtering_type = stringr::word(run, 3, sep = "_")
   ) |>
   dplyr::select(-run)
+
+# Remove large list
+rm(results_list)
+
+# Set subgroups
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 ```
+
+## Calculate stats
 
 ```{r}
-mb_subgroups <- c("G3", "G4", "SHH", "WNT")
-
-accuracy_df <- results_df |>
-  dplyr::group_by(model_type, prop_observed, filtering_type) |>
+# Calculate accuracy per sample
+per_sample_accuracy_df <- results_df |>
+  # For each sample and experimental condition
+  dplyr::group_by(
+    sample_accession, 
+    model_type, 
+    prop_observed, 
+    filtering_type
+  ) |>
+  # Remove unclassified cells
   dplyr::filter(predicted_labels %in% mb_subgroups) |>
-  dplyr::summarize(accuracy_pred_cells = sum(predicted_labels == subgroup) / dplyr::n())
+  # So we can calculate the accuracy of only the predictions
+  dplyr::summarize(
+    accuracy_pred_cells = sum(predicted_labels == subgroup) / dplyr::n()
+  )
 
-stats_df <- results_df |> 
-  dplyr::group_by(model_type, prop_observed, filtering_type) |>
-  dplyr::summarize(prop_unclassified = sum(predicted_labels == "Unclassified") / dplyr::n()) |>
-  dplyr::inner_join(accuracy_df,
-                    by = c("model_type", "prop_observed", "filtering_type"))
+# Calculate % unclassified cells and join with accuracy
+per_sample_stats_df <- results_df |> 
+  # For each sample and experimental condition
+  dplyr::group_by(
+    sample_accession, 
+    model_type, 
+    prop_observed, 
+    filtering_type
+  ) |>
+  # Count what proportion of the cells are labeled as unclassified
+  dplyr::summarize(
+    prop_unclassified = sum(predicted_labels == "Unclassified") / dplyr::n()
+  ) |>
+  # Add accuracy data
+  dplyr::inner_join(per_sample_accuracy_df,
+                    by = c("sample_accession", 
+                           "model_type", 
+                           "prop_observed", 
+                           "filtering_type")) |>
+  # Add back study and true subgroup information
+  dplyr::left_join(results_df |>
+                     dplyr::select(
+                       sample_accession,
+                       subgroup,
+                       study
+                     ) |>
+                     dplyr::distinct(),
+                   by = "sample_accession") |>
+  # Create a strategy variable to be used for faceting
+  dplyr::mutate(strategy = dplyr::case_when(
+    model_type == "kTSP (unw)" ~ stringr::str_c(model_type, 
+                                                filtering_type, 
+                                                sep = " "),
+    TRUE ~ "RF (w)"
+  )) |>
+  # Tidy for plotting
+  tidyr::pivot_longer(c("prop_unclassified", "accuracy_pred_cells"),
+                      names_to = "measure") |>
+  # Pretty measure variable for plotting
+  dplyr::mutate(measure = dplyr::case_when(
+    measure == "prop_unclassified" ~ "Proportion of Cells Unclassified",
+    measure == "accuracy_pred_cells" ~ "Accuracy of Predicted Cells"
+  ))
 
-rm(accuracy_df, results_list)
+rm(per_sample_accuracy_df)
 ```
 
+## Plotting
+
+### Statistics
+
+```{r}
+# Smart-seq2 experiment
+smartseq_object <- per_sample_stats_df |>
+  dplyr::filter(study == "GSE119926",
+                subgroup %in% mb_subgroups) |>
+  ggplot(
+    aes(
+      x = prop_observed,
+      y = value,
+      group = measure,
+      color = measure
+    )
+  ) +
+  stat_summary(geom = "pointrange",
+               fun = median,
+               fun.max = \(x) quantile(x, 0.75),
+               fun.min = \(x) quantile(x, 0.25)) +
+  facet_grid(rows = vars(subgroup),
+             cols = vars(strategy)) +
+  labs(title = "GSE119926 (Smart-seq2)",
+       x = "Threshold for Observations",
+       y = "") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))
+
+# 10X Genomics Experiment
+tenx_object <- per_sample_stats_df |>
+  dplyr::filter(study == "GSE155446",
+                subgroup %in% mb_subgroups) |>
+  ggplot(
+    aes(
+      x = prop_observed,
+      y = value,
+      group = measure,
+      color = measure
+    )
+  ) +
+  stat_summary(geom = "pointrange",
+               fun = median,
+               fun.max = \(x) quantile(x, 0.75),
+               fun.min = \(x) quantile(x, 0.25)) +
+  facet_grid(rows = vars(subgroup),
+             cols = vars(strategy)) +
+  labs(title = "GSE155446 (10X)",
+       x = "Threshold for Observations",
+       y = "") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))
+
+combined_stats_plot <- smartseq_object + tenx_object + 
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "bottom")
+
+combined_stats_plot
+```
+```{r}
+ggsave(plot = combined_stats_plot, 
+       filename = plot_file,
+       height = 8.5,
+       width = 11,
+       units = "in")
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
