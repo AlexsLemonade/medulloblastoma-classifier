@@ -4,9 +4,6 @@
 # Load SCE library
 library(SingleCellExperiment)
 
-# Set seed
-set.seed(8222)
-
 # Source single-cell functions
 source(here::here("utils/single-cell.R"))
 
