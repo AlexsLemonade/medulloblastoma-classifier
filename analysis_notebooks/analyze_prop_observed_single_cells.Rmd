@@ -21,6 +21,7 @@ library(patchwork)
 ```{r}
 make_stacked_labels_plot <- function(df,
                                      plot_title,
+                                     plot_subtitle,
                                      plot_colors = c(G3 = "#E69F00",
                                                      G4 = "#56B4E9",
                                                      SHH = "#009E73",
@@ -49,13 +50,16 @@ make_stacked_labels_plot <- function(df,
     labs(y = NULL,
          x = "Single-cell Percentage",
          fill = "Predicted Subgroup",
-         title = plot_title) +
+         title = plot_title,
+         subtitle = plot_subtitle) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, 
                                      vjust = 1,
                                      hjust = 1),
-          plot.title = element_text(hjust = 0.5))
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
   
+  return(plot_object)
 }
 ```
 
@@ -73,7 +77,10 @@ results_files <- fs::dir_ls(
 )
 
 # Output
-plot_file <- here::here(plots_dir, "single_cells_rules_based_prop_observed.pdf")
+pointrange_plot_file <- here::here(plots_dir, 
+                                   "single_cells_rules_based_prop_observed.pdf")
+stacked_plot_file <- here::here(plots_dir,
+                                "single_cell_individual_label_percentage.pdf")
 ```
 
 ## Read in data
@@ -235,7 +242,7 @@ combined_stats_plot
 ```
 ```{r}
 ggsave(plot = combined_stats_plot, 
-       filename = plot_file,
+       filename = pointrange_plot_file,
        height = 8.5,
        width = 11,
        units = "in")
@@ -244,8 +251,37 @@ ggsave(plot = combined_stats_plot,
 ### Stacked bar plot of labels
 
 ```{r}
+# No filtering for Smart-seq2
+smartseq_stacked_object <- results_df |>
+  dplyr::filter(study == "GSE119926",
+                prop_observed == 0,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+  make_stacked_labels_plot(plot_title = "GSE119926 (Smart-seq2)",
+                           plot_subtitle = "No filtering") +
+  theme(legend.position = "none")
 
+# Prop_observed == 0.1 and gene filtering for kTSP for 10x dataset
+tenx_stacked_object <- results_df |>
+  dplyr::filter(study == "GSE155446",
+                prop_observed == 0.1,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+  make_stacked_labels_plot(plot_title = "GSE155446 (10X)",
+                           plot_subtitle = "0.1 Filtering")
+
+combined_stacked_plot <- smartseq_stacked_object + tenx_stacked_object
+
+combined_stacked_plot
 ```
+```{r}
+ggsave(plot = combined_stacked_plot, 
+       filename = stacked_plot_file,
+       height = 8.5,
+       width = 11,
+       units = "in")
+```
+
 
 ## Session Info
 
