@@ -16,6 +16,50 @@ library(ggplot2)
 library(patchwork)
 ```
 
+## Functions
+
+```{r}
+make_stacked_labels_plot <- function(df,
+                                     plot_title,
+                                     plot_colors = c(G3 = "#E69F00",
+                                                     G4 = "#56B4E9",
+                                                     SHH = "#009E73",
+                                                     WNT = "#CC79A7",
+                                                     Unclassified = "#E0E0E0")) {
+  # Given a data frame of individual cell labels df, created a stacked bar plot
+  # that shows the % of cells classified as each label, including unclassified
+  # using a standard palette that can be overridden by passing a named vector
+  # to plot_colors
+  
+  plot_object <- df |> 
+    dplyr::count(sample_accession, 
+                 subgroup, 
+                 predicted_labels, 
+                 model_type) |>
+    ggplot(aes(y = sample_accession,
+               x = n,
+               fill = predicted_labels)) +
+    geom_col(position = position_fill()) +
+    scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+    facet_grid(rows = vars(subgroup),
+               cols = vars(model_type),
+               space = "free_y",
+               scales = "free_y") +
+    scale_fill_manual(values = plot_colors) +
+    labs(y = NULL,
+         x = "Single-cell Percentage",
+         fill = "Predicted Subgroup",
+         title = plot_title) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, 
+                                     vjust = 1,
+                                     hjust = 1),
+          plot.title = element_text(hjust = 0.5))
+  
+}
+```
+
+
 ## Files and directories
 
 ```{r}
@@ -195,6 +239,12 @@ ggsave(plot = combined_stats_plot,
        height = 8.5,
        width = 11,
        units = "in")
+```
+
+### Stacked bar plot of labels
+
+```{r}
+
 ```
 
 ## Session Info
