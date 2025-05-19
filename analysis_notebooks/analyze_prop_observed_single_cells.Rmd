@@ -137,7 +137,7 @@ per_sample_stats_df <- results_df |>
     prop_unclassified = sum(predicted_labels == "Unclassified") / dplyr::n()
   ) |>
   # Add accuracy data
-  dplyr::inner_join(per_sample_accuracy_df,
+  dplyr::full_join(per_sample_accuracy_df,
                     by = c("sample_accession", 
                            "model_type", 
                            "prop_observed", 
