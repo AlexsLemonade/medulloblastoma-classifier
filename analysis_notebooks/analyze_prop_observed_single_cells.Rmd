@@ -9,6 +9,24 @@ output:
     df_print: paged
 ---
 
+k-Top Scoring Pairs (kTSP) and random forest (RF) models were trained using bulk gene expression data (bulk array and RNA-seq) in `predict/predict_baseline_models.R`.
+Here, we analyze the kTSP and RF predictions on individual cells generated via `predict/predict_single_cells.R` run using various filtering strategies for removing individual cells that we suspect we may not able to accurately predict i.e., because too few genes used in the model are observed in `05-single_cell_experiments.sh`.
+This is a problem that is expected to be more pronounced in 10X data, which is sparser than Smart-seq2 data.
+
+We are using scRNA-seq data associated with the following publications:
+
+- [Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6), which is Smart-seq2 dataset
+- [Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135), which is a 10X Genomics dataset
+
+For kTSP models, we used two filtering strategies:
+
+- Rule: Only retain cells where more than `prop_observed` rules have a non-zero count for at least one rule for all subgroups
+- Gene: Only retain cells with non-zero counts for more than `prop_observed` genes included in the model
+
+For RF, we only retain cells with non-zero counts for more than `prop_observed` genes included in the model (same as the gene filtering strategy for kTSP).
+
+In `05-single_cell_experiments.sh`, we vary the `prop_observed` values.
+
 ## Libraries
 
 ```{r}
@@ -17,6 +35,9 @@ library(patchwork)
 ```
 
 ## Functions
+
+We're going to make a stacked bar plot that shows the percent of cells in a sample labeled a particular way (i.e., subgroup or "Unclassified").
+Because we may want to make this plot for various filtering strategies in two datasets, we create a function.
 
 ```{r}
 make_stacked_labels_plot <- function(df,
@@ -85,13 +106,10 @@ stacked_plot_file <- here::here(plots_dir,
 
 ## Read in data
 
-```{r}
-suppressWarnings(
-  suppressMessages(
-    results_list <- results_files |> 
-      purrr::map(readr::read_tsv)
-  )
-)
+```{r, message=FALSE, warning=FALSE}
+# Create a list from reading in all the files
+results_list <- results_files |> 
+  purrr::map(readr::read_tsv, progress = FALSE)
 
 # Create a data frame and use the file names to create prop_observed and
 # filtering_type variables for grouping
@@ -112,6 +130,12 @@ mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 ```
 
 ## Calculate stats
+
+We are going to calculate "accuracy" per sample.
+This will represent the proportion of cells predicted to have a subgroup label that matches the sample subgroup label.
+This is not exactly a gold standard because we're looking at individual cell labels.
+
+We'll also calculate the proportion of cells in a sample that are "Unclassified" because of the filtering strategy that is used.
 
 ```{r}
 # Calculate accuracy per sample
@@ -240,6 +264,12 @@ combined_stats_plot <- smartseq_object + tenx_object +
 
 combined_stats_plot
 ```
+
+It doesn't seem like filtering improves things for the Smart-seq2 dataset.
+For the 10X dataset, we see minor improvements in the accuracy of the predicted cell labels for classified cells as we increase the
+However, the results suggest that the RF classifier struggles with SHH and WNT predictions.
+This may suggest that the kTSP classifier is a better fit for 10X application.
+
 ```{r}
 ggsave(plot = combined_stats_plot, 
        filename = pointrange_plot_file,
@@ -249,6 +279,10 @@ ggsave(plot = combined_stats_plot,
 ```
 
 ### Stacked bar plot of labels
+
+Let's make plots that look at the percent of cells in a sample classified with each label.
+For the Smart-seq2 dataset, let's use values that represent _no filtering_, since it doesn't seem to matter very much.
+For the 10X dataset, let's pick `prop_observed == 0.1` and gene filtering strategy for kTSP, which seems to be somewhat balanced between making improvements in accuracy and having many unclassified cells.
 
 ```{r}
 # No filtering for Smart-seq2
@@ -274,6 +308,9 @@ combined_stacked_plot <- smartseq_stacked_object + tenx_stacked_object
 
 combined_stacked_plot
 ```
+
+This plot is consistent with what we would expect based on the last one -- the Smart-seq2 predictions are very "accurate" regardless of model, and the RF classifier struggles with SHH and WNT in the 10X dataset.
+
 ```{r}
 ggsave(plot = combined_stacked_plot, 
        filename = stacked_plot_file,
@@ -281,7 +318,6 @@ ggsave(plot = combined_stacked_plot,
        width = 11,
        units = "in")
 ```
-
 
 ## Session Info
 
