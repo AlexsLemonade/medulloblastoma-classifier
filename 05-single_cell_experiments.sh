@@ -45,3 +45,6 @@ for prop_observed in 0 0.05 0.10 0.15 0.20 0.25 0.5; do
     --prop_observed ${prop_observed}
   
 done
+
+# Render notebook analyzing results of varying filtering strategies
+Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/analyze_prop_observed_single_cells.Rmd')"
