@@ -262,9 +262,15 @@ test_single_cells <- function(sample_acc,
     )
   }
 
-  # unclassified cell identifiers
-  unclassified_cell_ids <- colnames(genex_df_this_sample)[-cells_to_retain]
-
+  # If no cells are retained, cells_to_retain will be a named int(0) and we can
+  # just pass all of the cell identifiers as unclassified cells
+  if (length(cells_to_retain) != 0) {
+    # unclassified cell identifiers
+    unclassified_cell_ids <- colnames(genex_df_this_sample)[-cells_to_retain]
+  } else {
+    unclassified_cell_ids <- colnames(genex_df_this_sample)
+  }
+  
   # for prediction, only retain the cells above the threshold
   genex_df_this_sample <- genex_df_this_sample[, cells_to_retain, drop = FALSE]
   metadata_df_this_sample <- metadata_df_this_sample |>
@@ -293,7 +299,7 @@ test_single_cells <- function(sample_acc,
     } else {  # Otherwise, build out empty data frames
 
       test_object <- list(
-        prediction_labels_df = data.frame(),
+        predicted_labels_df = data.frame(),
         model_output = data.frame()
       )
 
@@ -333,7 +339,7 @@ test_single_cells <- function(sample_acc,
     } else {  # Otherwise, build out empty data frames
 
       test_object <- list(
-        prediction_labels_df = data.frame(),
+        predicted_labels_df = data.frame(),
         model_output = data.frame()
       )
 
