@@ -5,14 +5,14 @@
 #
 # You can filter out cells that do not meet a threshold:
 #
-#   rf: Only retain cells with non-zero counts for at least opt$prop_observed
+#   rf: Only retain cells with non-zero counts for more than opt$prop_observed
 #       genes included in the RF model
 #
 #   ktsp:
-#     ktsp_mode = "gene": Only retain cells with non-zero counts for at least
+#     ktsp_mode = "gene": Only retain cells with non-zero counts for more than
 #                         opt$prop_observed genes in the model, ignoring rules
 #                         and subgroup -- same as RF
-#     ktsp_mode = "rule": Only retain cells where at least opt$prop_observed
+#     ktsp_mode = "rule": Only retain cells where more than opt$prop_observed
 #                         rules have a non-zero count for at least one rule for
 #                         all subgroup (default!)
 #
