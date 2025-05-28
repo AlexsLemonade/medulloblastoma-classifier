@@ -8,7 +8,8 @@ okabe_ito_colors <- unname(grDevices::palette.colors(palette = "Okabe-Ito"))
 subgroup_colors <- c(G3 = okabe_ito_colors[2],
                      G4 = okabe_ito_colors[3],
                      SHH = okabe_ito_colors[4],
-                     WNT = okabe_ito_colors[8])
+                     WNT = okabe_ito_colors[8],
+                     Unclassified = "#E0E0E0")
 
 # set platform colors
 platform_colors = c(Array = okabe_ito_colors[1],
