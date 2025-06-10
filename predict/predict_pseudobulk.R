@@ -1,5 +1,5 @@
 # Use existing prediction models trained on bulk data to predict subgroups
-# of pseudobulk and single cells using scRNA-seq data from Hovestadt, et. al
+# of pseudobulk data using scRNA-seq data from Hovestadt, et. al
 # https://www.nature.com/articles/s41586-019-1434-6
 # and Riemondy, et al. https://doi.org/10.1093/neuonc/noab135
 #
@@ -31,13 +31,12 @@ smartseq_genex_filepath <- here::here(smartseq_data_dir,
 tenx_genex_filepath <- here::here(tenx_data_dir,
                                   "GSE155446_pseudobulk_genex.tsv")
 
-# baseline models are generated prior to this in the notebook analysis_notebooks/baseline_models.Rmd
+# baseline models are generated prior to this in predict/predict_baseline_models.R
 # there is one baseline model designated as the official model that is used to test single cells here
 # "baseline" means that we used all genes and all available training/test data in modeling
 baseline_models_filepath <- here::here(models_dir, "baseline.rds")
 
-# Output files
-single_cell_plot_data_filepath <- here::here(plots_data_dir, "single_cell_test_predictions.tsv")
+# Output file
 pseudobulk_plot_data_filepath <- here::here(plots_data_dir, "pseudobulk_test_predictions.tsv")
 
 # Get file paths of individual SingleCellExperiment RDS objects
@@ -151,73 +150,3 @@ pseudobulk_plot_df <- purrr::map2(pseudobulk_test_list,  # each dataset
 
 readr::write_tsv(x = pseudobulk_plot_df,
                  file = pseudobulk_plot_data_filepath)
-
-# Predict the subgroup of single cells
-
-model_test_list <- purrr::map(names(classifier_list), # classifier model types
-                              \(model_type) purrr::map(singlecell_metadata_df$title,
-                                                       \(x) test_single_cells(sample_acc = x,
-                                                                              sce_filepath = sce_files[x],
-                                                                              metadata_df = singlecell_metadata_df,
-                                                                              labels = mb_subgroups,
-                                                                              classifier = classifier_list[[model_type]],
-                                                                              platform = "scRNA-seq")) |>
-                                purrr::set_names(singlecell_metadata_df$title)) |>
-  purrr::set_names(names(classifier_list))
-
-# Prep single cell plot data
-
-get_umap_coord_and_cluster <- function(sample_title) {
-
-  sce_filepath <- sce_files[sample_title]
-
-  sce_object <- readr::read_rds(sce_filepath)
-
-  umap_df <- data.frame(sample = sample_title,
-                        SingleCellExperiment::reducedDim(sce_object, "UMAP"),
-                        cluster = SummarizedExperiment::colData(sce_object)$louvain_10) |>
-    dplyr::mutate(cell_index = dplyr::row_number())
-
-  names(umap_df) <- c("sample_accession", "UMAP_1", "UMAP_2", "cluster", "cell_index")
-  row.names(umap_df) <- NULL
-
-  return(umap_df)
-
-}
-
-umap_list <- purrr::map(singlecell_metadata_df$title,
-                        \(sample_title) get_umap_coord_and_cluster(sample_title)) |>
-  dplyr::bind_rows()
-
-single_cell_plot_df <- purrr::map2(model_test_list, # list of test objects and
-                                   names(model_test_list), # their classifier model types
-                                   \(model_test, model_type) purrr::map(model_test,
-                                                                        \(x) dplyr::bind_cols(x$predicted_labels_df,
-                                                                                              tibble::as_tibble(x$model_output)) |>
-                                                                          tidyr::separate_wider_delim(cols = sample_accession,
-                                                                                                      delim = "_",
-                                                                                                      names = c("sample_accession",
-                                                                                                                "cell_index"))) |>
-                                     dplyr::bind_rows() |>
-                                     dplyr::mutate(model_type = model_type)) |>
-  dplyr::bind_rows() |>
-  dplyr::rowwise() |>
-  dplyr::mutate(max = max(G3, G4, SHH, WNT),
-                total = sum(G3, G4, SHH, WNT),
-                confidence = max/total,
-                cell_index = as.numeric(cell_index)) |>
-  dplyr::ungroup() |>
-  dplyr::left_join(umap_list,
-                   by = c("sample_accession", "cell_index")) |>
-  dplyr::left_join(singlecell_metadata_df |>
-                     dplyr::select(sample_accession,
-                                   study,
-                                   subgroup,
-                                   is_PDX),
-                   by = "sample_accession") |>
-  dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp" ~ "kTSP (unw)",
-                                               "rf" ~ "RF (w)"))
-
-readr::write_tsv(x = single_cell_plot_df,
-                 file = single_cell_plot_data_filepath)
