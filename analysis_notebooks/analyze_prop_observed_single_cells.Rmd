@@ -1,0 +1,336 @@
+---
+title: "Analyzing filtering single cells based on genes/rules observed"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+k-Top Scoring Pairs (kTSP) and random forest (RF) models were trained using bulk gene expression data (bulk array and RNA-seq) in `predict/predict_baseline_models.R`.
+Here, we analyze the kTSP and RF predictions on individual cells generated via `predict/predict_single_cells.R` run using various filtering strategies for removing individual cells that we suspect we may not able to accurately predict i.e., because too few genes used in the model are observed in `05-single_cell_experiments.sh`.
+This is a problem that is expected to be more pronounced in 10X data, which is sparser than Smart-seq2 data.
+
+We are using scRNA-seq data associated with the following publications:
+
+- [Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6), which is Smart-seq2 dataset
+- [Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135), which is a 10X Genomics dataset
+
+For kTSP models, we used two filtering strategies:
+
+- Rule: Only retain cells where more than `prop_observed` rules have a non-zero count for at least one rule for all subgroups
+- Gene: Only retain cells with non-zero counts for more than `prop_observed` genes included in the model
+
+For RF, we only retain cells with non-zero counts for more than `prop_observed` genes included in the model (same as the gene filtering strategy for kTSP).
+
+In `05-single_cell_experiments.sh`, we vary the `prop_observed` values.
+
+## Libraries
+
+```{r}
+library(ggplot2)
+library(patchwork)
+```
+
+## Functions
+
+### Source
+
+We only need the color schemes.
+
+```{r}
+source(here::here("utils/color_schemes.R"))
+```
+
+
+### Custom function
+
+We're going to make a stacked bar plot that shows the percent of cells in a sample labeled a particular way (i.e., subgroup or "Unclassified").
+Because we may want to make this plot for various filtering strategies in two datasets, we create a function.
+
+```{r}
+make_stacked_labels_plot <- function(df,
+                                     plot_title,
+                                     plot_subtitle,
+                                     plot_colors = subgroup_colors) {
+  # Given a data frame of individual cell labels df, created a stacked bar plot
+  # that shows the % of cells classified as each label, including unclassified
+  # using a standard palette that can be overridden by passing a named vector
+  # to plot_colors
+  
+  plot_object <- df |> 
+    dplyr::count(sample_accession, 
+                 subgroup, 
+                 predicted_labels, 
+                 model_type) |>
+    # Make sure the predicted labels are ordered the same as the color palette
+    dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                            levels = names(plot_colors))) |>
+    ggplot(aes(y = sample_accession,
+               x = n,
+               fill = predicted_labels)) +
+    geom_col(position = position_fill()) +
+    scale_x_continuous(labels = scales::percent) + # percentage makes sense here
+    facet_grid(rows = vars(subgroup),
+               cols = vars(model_type),
+               space = "free_y",
+               scales = "free_y") +
+    scale_fill_manual(values = plot_colors) +
+    labs(y = NULL,
+         x = "Single-cell Percentage",
+         fill = "Predicted Subgroup",
+         title = plot_title,
+         subtitle = plot_subtitle) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, 
+                                     vjust = 1,
+                                     hjust = 1),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
+  
+  return(plot_object)
+}
+```
+
+
+## Files and directories
+
+```{r}
+results_dir <- here::here("results", "single_cells_filtered")
+plots_dir <- here::here("plots")
+
+# All results files
+results_files <- fs::dir_ls(
+  path = results_dir,
+  glob = "*.tsv"
+)
+
+# Output
+pointrange_plot_file <- here::here(plots_dir, 
+                                   "single_cells_rules_based_prop_observed.pdf")
+stacked_plot_file <- here::here(plots_dir,
+                                "single_cell_individual_label_percentage.pdf")
+```
+
+## Read in data
+
+```{r, message=FALSE, warning=FALSE}
+# Create a list from reading in all the files
+results_list <- results_files |> 
+  purrr::map(readr::read_tsv, progress = FALSE)
+
+# Create a data frame and use the file names to create prop_observed and
+# filtering_type variables for grouping
+results_df <- results_list |> 
+  purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
+  dplyr::bind_rows(.id = "run") |>
+  dplyr::mutate(
+    prop_observed = stringr::word(run, 2, sep = "_"),
+    filtering_type = stringr::word(run, 3, sep = "_")
+  ) |>
+  dplyr::select(-run)
+
+# Remove large list
+rm(results_list)
+
+# Set subgroups
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+```
+
+## Calculate stats
+
+We are going to calculate "accuracy" per sample.
+This will represent the proportion of cells predicted to have a subgroup label that matches the sample subgroup label.
+This is not exactly a gold standard because we're looking at individual cell labels.
+
+We'll also calculate the proportion of cells in a sample that are "Unclassified" because of the filtering strategy that is used.
+
+```{r}
+# Calculate accuracy per sample
+per_sample_accuracy_df <- results_df |>
+  # For each sample and experimental condition
+  dplyr::group_by(
+    sample_accession, 
+    model_type, 
+    prop_observed, 
+    filtering_type
+  ) |>
+  # Remove unclassified cells
+  dplyr::filter(predicted_labels %in% mb_subgroups) |>
+  # So we can calculate the accuracy of only the predictions
+  dplyr::summarize(
+    accuracy_pred_cells = sum(predicted_labels == subgroup) / dplyr::n()
+  )
+
+# Calculate % unclassified cells and join with accuracy
+per_sample_stats_df <- results_df |> 
+  # For each sample and experimental condition
+  dplyr::group_by(
+    sample_accession, 
+    model_type, 
+    prop_observed, 
+    filtering_type
+  ) |>
+  # Count what proportion of the cells are labeled as unclassified
+  dplyr::summarize(
+    prop_unclassified = sum(predicted_labels == "Unclassified") / dplyr::n()
+  ) |>
+  # Add accuracy data
+  dplyr::full_join(per_sample_accuracy_df,
+                    by = c("sample_accession", 
+                           "model_type", 
+                           "prop_observed", 
+                           "filtering_type")) |>
+  # Add back study and true subgroup information
+  dplyr::left_join(results_df |>
+                     dplyr::select(
+                       sample_accession,
+                       subgroup,
+                       study
+                     ) |>
+                     dplyr::distinct(),
+                   by = "sample_accession") |>
+  # Create a strategy variable to be used for faceting
+  dplyr::mutate(strategy = dplyr::case_when(
+    model_type == "kTSP (unw)" ~ stringr::str_c(model_type, 
+                                                filtering_type, 
+                                                sep = " "),
+    TRUE ~ "RF (w)"
+  )) |>
+  # Tidy for plotting
+  tidyr::pivot_longer(c("prop_unclassified", "accuracy_pred_cells"),
+                      names_to = "measure") |>
+  # Pretty measure variable for plotting
+  dplyr::mutate(measure = dplyr::case_when(
+    measure == "prop_unclassified" ~ "Proportion of Cells Unclassified",
+    measure == "accuracy_pred_cells" ~ "Accuracy of Predicted Cells"
+  ))
+
+rm(per_sample_accuracy_df)
+```
+
+## Plotting
+
+### Statistics
+
+```{r}
+# Smart-seq2 experiment
+smartseq_object <- per_sample_stats_df |>
+  dplyr::filter(study == "GSE119926",
+                subgroup %in% mb_subgroups) |>
+  ggplot(
+    aes(
+      x = prop_observed,
+      y = value,
+      group = measure,
+      color = measure
+    )
+  ) +
+  stat_summary(geom = "pointrange",
+               fun = median,
+               fun.max = \(x) quantile(x, 0.75),
+               fun.min = \(x) quantile(x, 0.25),
+               size = 0.1)+
+  facet_grid(rows = vars(subgroup),
+             cols = vars(strategy)) +
+  labs(title = "GSE119926 (Smart-seq2)",
+       x = "Threshold for Observations",
+       y = "") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))
+
+# 10X Genomics Experiment
+tenx_object <- per_sample_stats_df |>
+  dplyr::filter(study == "GSE155446",
+                subgroup %in% mb_subgroups) |>
+  ggplot(
+    aes(
+      x = prop_observed,
+      y = value,
+      group = measure,
+      color = measure
+    )
+  ) +
+  stat_summary(geom = "pointrange",
+               fun = median,
+               fun.max = \(x) quantile(x, 0.75),
+               fun.min = \(x) quantile(x, 0.25),
+               size = 0.1) +
+  facet_grid(rows = vars(subgroup),
+             cols = vars(strategy)) +
+  labs(title = "GSE155446 (10X)",
+       x = "Threshold for Observations",
+       y = "") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))
+
+combined_stats_plot <- smartseq_object + tenx_object + 
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "bottom")
+
+combined_stats_plot
+```
+
+It doesn't seem like filtering improves things for the Smart-seq2 dataset.
+For the 10X dataset, we see minor improvements in the accuracy of the predicted cell labels for classified cells as we increase the threshold
+However, the results suggest that the RF classifier struggles with SHH and WNT predictions.
+This may suggest that the kTSP classifier is a better fit for 10X application while the RF model performs better in the Smart-seq2 dataset.
+
+```{r}
+ggsave(plot = combined_stats_plot, 
+       filename = pointrange_plot_file,
+       height = 8.5,
+       width = 11,
+       units = "in")
+```
+
+### Stacked bar plot of labels
+
+Let's make plots that look at the percent of cells in a sample classified with each label.
+For the Smart-seq2 dataset, let's use values that represent _no filtering_, since it doesn't seem to matter very much.
+For the 10X dataset, let's pick `prop_observed == 0.1` and gene filtering strategy for kTSP, which seems to be somewhat balanced between making improvements in accuracy and having many unclassified cells.
+
+```{r}
+# No filtering for Smart-seq2
+smartseq_stacked_object <- results_df |>
+  dplyr::filter(study == "GSE119926",
+                prop_observed == 0,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+  make_stacked_labels_plot(plot_title = "GSE119926 (Smart-seq2)",
+                           plot_subtitle = "No Filtering") +
+  theme(legend.position = "none")
+
+# Prop_observed == 0.1 and gene filtering for kTSP for 10x dataset
+tenx_stacked_object <- results_df |>
+  dplyr::filter(study == "GSE155446",
+                prop_observed == 0.1,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+  make_stacked_labels_plot(plot_title = "GSE155446 (10X)",
+                           plot_subtitle = "0.1 Filtering")
+
+combined_stacked_plot <- smartseq_stacked_object + tenx_stacked_object
+
+combined_stacked_plot
+```
+
+This plot is consistent with what we would expect based on the last one -- the Smart-seq2 predictions are very "accurate" regardless of model, and the RF classifier struggles with SHH and WNT in the 10X dataset.
+
+```{r}
+ggsave(plot = combined_stacked_plot, 
+       filename = stacked_plot_file,
+       height = 8.5,
+       width = 11,
+       units = "in")
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
