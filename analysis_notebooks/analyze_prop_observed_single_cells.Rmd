@@ -36,6 +36,17 @@ library(patchwork)
 
 ## Functions
 
+### Source
+
+We only need the color schemes.
+
+```{r}
+source(here::here("utils/color_schemes.R"))
+```
+
+
+### Custom function
+
 We're going to make a stacked bar plot that shows the percent of cells in a sample labeled a particular way (i.e., subgroup or "Unclassified").
 Because we may want to make this plot for various filtering strategies in two datasets, we create a function.
 
@@ -43,11 +54,7 @@ Because we may want to make this plot for various filtering strategies in two da
 make_stacked_labels_plot <- function(df,
                                      plot_title,
                                      plot_subtitle,
-                                     plot_colors = c(G3 = "#E69F00",
-                                                     G4 = "#56B4E9",
-                                                     SHH = "#009E73",
-                                                     WNT = "#CC79A7",
-                                                     Unclassified = "#E0E0E0")) {
+                                     plot_colors = subgroup_colors) {
   # Given a data frame of individual cell labels df, created a stacked bar plot
   # that shows the % of cells classified as each label, including unclassified
   # using a standard palette that can be overridden by passing a named vector
@@ -58,6 +65,9 @@ make_stacked_labels_plot <- function(df,
                  subgroup, 
                  predicted_labels, 
                  model_type) |>
+    # Make sure the predicted labels are ordered the same as the color palette
+    dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                            levels = names(plot_colors))) |>
     ggplot(aes(y = sample_accession,
                x = n,
                fill = predicted_labels)) +
@@ -266,9 +276,9 @@ combined_stats_plot
 ```
 
 It doesn't seem like filtering improves things for the Smart-seq2 dataset.
-For the 10X dataset, we see minor improvements in the accuracy of the predicted cell labels for classified cells as we increase the
+For the 10X dataset, we see minor improvements in the accuracy of the predicted cell labels for classified cells as we increase the threshold
 However, the results suggest that the RF classifier struggles with SHH and WNT predictions.
-This may suggest that the kTSP classifier is a better fit for 10X application.
+This may suggest that the kTSP classifier is a better fit for 10X application while the RF model performs better in the Smart-seq2 dataset.
 
 ```{r}
 ggsave(plot = combined_stats_plot, 
@@ -292,7 +302,7 @@ smartseq_stacked_object <- results_df |>
                 model_type == "RF (w)" | 
                   model_type == "kTSP (unw)" & filtering_type == "gene") |>
   make_stacked_labels_plot(plot_title = "GSE119926 (Smart-seq2)",
-                           plot_subtitle = "No filtering") +
+                           plot_subtitle = "No Filtering") +
   theme(legend.position = "none")
 
 # Prop_observed == 0.1 and gene filtering for kTSP for 10x dataset
