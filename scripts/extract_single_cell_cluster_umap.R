@@ -35,7 +35,7 @@ get_umap_coord_and_cluster <- function(sample_title) {
   cell_identifiers <- colnames(counts(sce_object))
 
   # If there are underscores, the string following the underscore is a cell
-  # barcode that we will use to
+  # barcode that we will use to join with cell type labels later
   if (any(stringr::str_detect(cell_identifiers, "\\_"))) {
     umap_df$barcode <- stringr::word(cell_identifiers, 2, sep = "_")
   }
