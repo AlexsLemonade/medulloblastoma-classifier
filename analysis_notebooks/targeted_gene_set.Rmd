@@ -1,18 +1,12 @@
 ---
-title: "Train and test models to predict MB subgroups using a targeted gene set"
+title: "Explore model accuracy using a targeted gene set"
 author: "Steven Foltz"
-date: "2023"
+date: "2025"
 output:
   html_document:
     toc: TRUE
     toc_float: TRUE
     df_print: paged
-params:
-  create_models: FALSE # train new models (if FALSE, reads existing models from file)
-  overwrite: FALSE # if create_models is also TRUE, overwrite existing models file
-  seed: 44 # set initial seed for run_many_models() and before stochastic plots
-  n_repeats: 10 # set number of times to repeat in run_many_models()
-  n_cores: 3 # set number of cores to use in run_many_models()
 ---
 
 # Rationale
@@ -32,69 +26,30 @@ We will use the [Nanostring nCounter PanCancer IO 360 Panel](https://nanostring.
 
 ```{r setup}
 
-# get input parameters
-create_models <- params$create_models
-overwrite <- params$overwrite
-
 # Source code and libraries
 source(here::here("utils/color_schemes.R"))
-source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
+source(here::here("utils/convert_gene_names.R"))
 library(patchwork)
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
 models_dir <- here::here("models")
 plots_dir <- here::here("plots")
-plots_data_dir <- file.path(plots_dir, "data")
+plots_data_dir <- here::here(plots_dir, "data")
 
-bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
-bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
+bulk_genex_filepath <- here::here(processed_data_dir, "bulk_genex.tsv")
+bulk_metadata_filepath <- here::here(processed_data_dir, "bulk_metadata.tsv")
 
-baseline_filepath <- file.path(models_dir, "baseline.rds")
-targeted_filepath <- file.path(models_dir, "targeted_gene_set.rds")
-random_filepath <- file.path(models_dir, "random_gene_sets.rds")
+baseline_filepath <- here::here(models_dir, "baseline.rds")
+targeted_filepath <- here::here(models_dir, "targeted_gene_set.rds")
+random_filepath <- here::here(models_dir, "random_gene_sets.rds")
 
-baseline_plot_df_filepath <- file.path(plots_data_dir, "baseline_plots_df.tsv")
-targeted_plot_df_filepath <- file.path(plots_data_dir, "targeted_plot_df.tsv")
-random_plot_df_filepath <- file.path(plots_data_dir, "random_plot_df.tsv")
+baseline_plot_df_filepath <- here::here(plots_data_dir, "baseline_plots_df.tsv")
+targeted_plot_df_filepath <- here::here(plots_data_dir, "targeted_plot_df.tsv")
+random_plot_df_filepath <- here::here(plots_data_dir, "random_plot_df.tsv")
 
-targeted_delta_kappa_plot_df_filepath <- file.path(plots_data_dir, "targeted_delta_kappa_plot_df.tsv")
-random_delta_kappa_plot_df_filepath <- file.path(plots_data_dir, "random_delta_kappa_plot_df.tsv")
-
-delta_kappa_plot_filepath <- file.path(plots_dir, "targeted_random_delta_kappa.pdf")
-
-# check that existing targeted gene set model file will not be overwritten if overwrite is FALSE
-if (create_models &
-    (file.exists(targeted_filepath)) &
-    !overwrite) {
-  
-  stop("Targeted gene set model output file already exists and overwrite is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
-  
-}
-
-# check that existing random gene sets model file will not be overwritten if overwrite is FALSE
-if (create_models &
-    (file.exists(random_filepath)) &
-    !overwrite) {
-  
-  stop("Random gene sets model output file already exists and overwrite is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
-  
-}
-
-# check that targeted file exist if create_models is FALSE
-if (!create_models & !file.exists(targeted_filepath)) {
-  
-  stop("Targeted model output file does not exist and create_models is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
-  
-}
-
-# check that random file exist if create_models is FALSE
-if (!create_models & !file.exists(random_filepath)) {
-  
-  stop("Random model output file does not exist and create_models is set to FALSE in analysis_notebooks/targeted_gene_set.Rmd.")
-  
-}
+kappa_plot_filepath <- here::here(plots_dir, "targeted_random_full_kappa.pdf")
 
 # set subgroups analyzed in this notebook (canonical MB subgroups)
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
@@ -115,145 +70,6 @@ bulk_genex_df <- bulk_genex_df |>
 check_input_files(genex_df = bulk_genex_df,
                   metadata_df = bulk_metadata_df)
 
-# targeted genes (Nanostring IO 360 gene panel)
-targeted_genes_filepath <- file.path(processed_data_dir,
-                                     "NS_IO_360_v1.0_Genes.tsv")
-
-targeted_genes_df <- readr::read_tsv(file = targeted_genes_filepath,
-                                     show_col_types = FALSE)
-
-n_targeted_genes_original <- nrow(targeted_genes_df)
-
-# convert targeted gene set from SYMBOL to ENSEMBL
-targeted_genes_df <- targeted_genes_df |>
-  convert_gene_names(gene_column_before = "Gene",
-                     gene_column_after = "gene",
-                     map_from = "SYMBOL",
-                     map_to = "ENSEMBL")
-
-# reduce bulk genex df to overlap with targeted genes
-bulk_genex_df_targeted <- bulk_genex_df[row.names(bulk_genex_df) %in% targeted_genes_df$gene, ]
-
-n_targeted_genes_overlap <- nrow(bulk_genex_df_targeted)
-
-# generate list of 10 random gene sets
-random_gene_set_list <- purrr::map(1:10,
-                                   \(x) sample(row.names(bulk_genex_df),
-                                               size = n_targeted_genes_overlap,
-                                               replace = FALSE))
-
-# select random genes from bulk genex df as a list
-random_gene_set_bulk_genex_df_list <- random_gene_set_list |>
-  purrr::map(\(x) bulk_genex_df[row.names(bulk_genex_df) %in% x, ])
-
-```
-
-### Number of genes in the panel
-
-The targeted gene panel comprises `r n_targeted_genes_original` genes.
-After converting from SYMBOL to ENSEMBL gene IDs and overlapping with our gene expression data, there are `r n_targeted_genes_overlap` genes available for training using the targeted gene set.
-We use the same number of genes when selecting genes for the random gene set models.
-
-# Train and test MB subgroup models using targeted gene set
-
-### Can we use MM2S with this targeted gene set?
-
-```{r}
-
-# convert overlapping targeted gene set from ENSEMBL to ENTREZID for MM2S
-targeted_genes_df_ENTREZID <- bulk_genex_df_targeted |>
-  tibble::rownames_to_column(var = "gene") |>
-  convert_gene_names(gene_column_before = "gene",
-                     gene_column_after = "gene",
-                     map_from = "ENSEMBL",
-                     map_to = "ENTREZID")
-
-# MM2S uses pathways defined by genes in HumanGMT$genesets
-# Only pathways with between 20-100 genes overlapping with expression data are scored
-n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
-                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
-  purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
-  sum() # = total number of pathways matching gene overlap criteria for scoring
-
-# MM2S assumes there are at least 24 pathways that get scored
-ifelse(n_mm2s_common_pathways >= 24,
-       "Yes!", "Unfortunately, no.")
-
-```
-
-MM2S uses a pathway-based approach, and those pathways are pre-defined in `MM2S::HumanGMT$genesets`.
-To return a GSVA score for a particular pathway, MM2S requires that between 20 and 100 genes overlap between the test data and the set of genes in that pathway.
-MM2S later requires that there are at least 24 such pathways in the data.
-However, with our targeted gene set, only `r n_mm2s_common_pathways` pathways match the `20 <= overlapping genes <= 100` criteria.
-MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
-
-### Create kTSP, RF, and LASSO models
-
-The following code creates kTSP, RF, and LASSO models using default settings.
-Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
-Models that are trained and tested on the same sets of samples can be paired to assess relative model performance using each gene set (full, targeted, and random).
-
-```{r}
-
-model_types <- c("ktsp", "rf", "lasso")
-
-if (create_models) {
-  
-  # uses the bulk_genex_df reduced to targeted gene set
-  targeted_list <- run_many_models(genex_df = bulk_genex_df_targeted,
-                                   metadata_df = bulk_metadata_df,
-                                   labels = mb_subgroups,
-                                   model_types = model_types,
-                                   initial_seed = params$seed,
-                                   n_repeats = params$n_repeats,
-                                   n_cores = params$n_cores,
-                                   ktsp_featureNo = 1000,
-                                   ktsp_n_rules_min = 5,
-                                   ktsp_n_rules_max = 50,
-                                   ktsp_weighted = TRUE,
-                                   rf_num.trees = 500,
-                                   rf_genes_altogether = 50,
-                                   rf_genes_one_vs_rest = 50,
-                                   rf_gene_repetition = 1,
-                                   rf_rules_altogether = 50,
-                                   rf_rules_one_vs_rest = 50,
-                                   rf_weighted = TRUE)
-  
-  # write models to file
-  readr::write_rds(x = targeted_list,
-                   file = targeted_filepath)
-  
-  # uses the bulk_genex_df reduced to random gene sets
-  random_list <- random_gene_set_bulk_genex_df_list |>
-    purrr::map(\(x) run_many_models(genex_df = x,
-                                    metadata_df = bulk_metadata_df,
-                                    labels = mb_subgroups,
-                                    model_types = model_types,
-                                    initial_seed = params$seed,
-                                    n_repeats = params$n_repeats,
-                                    n_cores = params$n_cores,
-                                    ktsp_featureNo = 1000,
-                                    ktsp_n_rules_min = 5,
-                                    ktsp_n_rules_max = 50,
-                                    ktsp_weighted = TRUE,
-                                    rf_num.trees = 500,
-                                    rf_genes_altogether = 50,
-                                    rf_genes_one_vs_rest = 50,
-                                    rf_gene_repetition = 1,
-                                    rf_rules_altogether = 50,
-                                    rf_rules_one_vs_rest = 50,
-                                    rf_weighted = TRUE))
-               
-  # write models to file
-  readr::write_rds(x = random_list,
-                   file = random_filepath)
-  
-} else { # if create_models = FALSE and models already exist
-  
-  targeted_list <- readr::read_rds(targeted_filepath)
-  random_list <- readr::read_rds(random_filepath)
-  
-}
 
 ```
 
@@ -262,6 +78,11 @@ if (create_models) {
 ### Gather targeted data
 
 ```{r}
+
+targeted_list <- readr::read_rds(targeted_filepath)
+random_list <- readr::read_rds(random_filepath)
+
+model_types <- c("ktsp", "rf", "lasso")
 
 # targeted model metrics
 targeted_plot_df <- targeted_list |>
@@ -273,12 +94,13 @@ targeted_plot_df <- targeted_list |>
   purrr::list_rbind(names_to = "repeat_index") |>
   dplyr::filter(metric == "Kappa") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp" ~ "kTSP (w)",
+                                               "ktsp" ~ "kTSP (unw)",
                                                "rf" ~ "RF (w)",
                                                "lasso" ~ "LASSO"))
 
 readr::write_tsv(x = targeted_plot_df,
                  file = targeted_plot_df_filepath)
+
 ```
 
 ### Gather random data
@@ -296,7 +118,7 @@ random_plot_df <- random_list |>
                purrr::list_rbind(names_to = "repeat_index") |>
                dplyr::filter(metric == "Kappa") |>
                dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                                            "ktsp" ~ "kTSP (w)",
+                                                            "ktsp" ~ "kTSP (unw)",
                                                             "rf" ~ "RF (w)",
                                                             "lasso" ~ "LASSO"))) |>
   purrr::list_rbind(names_to = "random_index")
@@ -306,105 +128,87 @@ readr::write_tsv(x = random_plot_df,
 
 ```
 
-# Find delta kappa values
-
-Delta kappa is the change in kappa values between paired models.
-Using full gene set models as the baseline of comparison, we define delta kappa as $\Delta\kappa = \kappa_{targeted} - \kappa_{full}$ for targeted gene sets and $\Delta\kappa = \kappa_{random} - \kappa_{full}$ for random gene sets.
-$\Delta\kappa < 0$ indicates that the targeted or random gene set underperformed relative to the full gene set model.
-$\Delta\kappa$ close to 0 indicates little difference in model performance based on the starting gene set.
+# Compare kappa values
 
 ```{r}
 
 # baseline model metrics
 baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
                                     show_col_types = FALSE) |>
-  dplyr::filter(metric == "Kappa")
+  dplyr::filter(metric == "Kappa",
+                model_type %in% c("kTSP (unw)", "RF (w)", "LASSO"))
 
-targeted_delta_kappa_plot_df <- targeted_plot_df |>
-  dplyr::select(repeat_index,
-                model_type,
-                platform,
-                kappa = value) |>
-  dplyr::left_join(baseline_plot_df |>
-                     dplyr::select(repeat_index,
-                                   model_type,
-                                   platform,
-                                   baseline_kappa = value),
-                   by = c("repeat_index",
-                          "model_type",
-                          "platform")) |>
-  dplyr::mutate(delta_kappa = kappa - baseline_kappa) |>
-  readr::write_tsv(file = targeted_delta_kappa_plot_df_filepath)
+set.seed(1627)
 
-random_delta_kappa_plot_df <- random_plot_df |>
-  dplyr::select(repeat_index,
-                model_type,
-                platform,
-                kappa = value) |>
-  dplyr::left_join(baseline_plot_df |>
-                     dplyr::select(repeat_index,
-                                   model_type,
-                                   platform,
-                                   baseline_kappa = value),
-                   by = c("repeat_index",
-                          "model_type",
-                          "platform")) |>
-  dplyr::mutate(delta_kappa = kappa - baseline_kappa) |>
-  readr::write_tsv(file = targeted_delta_kappa_plot_df_filepath)
-
-readr::write_tsv(x = targeted_delta_kappa_plot_df,
-                 file = targeted_delta_kappa_plot_df_filepath)
-
-readr::write_tsv(x = random_delta_kappa_plot_df,
-                 file = random_delta_kappa_plot_df_filepath)
-
-set.seed(1)
-
-delta_kappa_plot_object <- dplyr::bind_rows(targeted_delta_kappa_plot_df |>
-                                                       dplyr::mutate(gene_set = "Targeted"),
-                                                     random_delta_kappa_plot_df |>
-                                                       dplyr::mutate(gene_set = "Random")) |>
-  ggplot2::ggplot(ggplot2::aes(x = model_type,
-                               y = delta_kappa,
-                               color = platform)) +
-  ggplot2::geom_violin(position = ggplot2::position_dodge(width = 0.7),
-                       draw_quantiles = 0.5,
-                       show.legend = FALSE) +
-  ggplot2::geom_point(position = ggplot2::position_jitterdodge(jitter.width = 0.1,
-                                                               jitter.height = 0,
-                                                               dodge.width = 0.7)) +
-  ggplot2::facet_wrap(~ gene_set,
+kappa_plot_object <- dplyr::bind_rows(targeted_plot_df |>
+                                        dplyr::mutate(gene_set = "Targeted"),
+                                      random_plot_df |>
+                                        dplyr::mutate(gene_set = "Random"),
+                                      baseline_plot_df |>
+                                        dplyr::mutate(gene_set = "Full")) |>
+  ggplot2::ggplot(ggplot2::aes(x = platform,
+                               y = value,
+                               color = gene_set)) +
+  ggplot2::geom_boxplot() +
+  #ggplot2::geom_violin(#position = ggplot2::position_dodge(width = 0.7),
+  #                     draw_quantiles = 0.5,
+  #                     show.legend = FALSE) +
+  #ggplot2::geom_point(position = ggplot2::position_jitterdodge(jitter.width = 0.1,
+  #                                                             jitter.height = 0,
+  #                                                             dodge.width = 0.9),
+  #                    shape = 1) +
+  #ggplot2::geom_point(data = baseline_kappa_median_plot_df,
+  #                    mapping = ggplot2::aes(x = model_type,
+  #                                           y = baseline_median,
+  #                                           fill = platform),
+  #                    position = ggplot2::position_dodge(width = 0.7),
+  #                    shape = 16,
+  #                    color = "red") +
+  ggplot2::facet_wrap(~ model_type,
                       nrow = 1) +
-  ggplot2::scale_color_manual(values = platform_colors) +
-  ggplot2::coord_cartesian(ylim = c(-0.2, 0.1)) + 
+  #ggplot2::scale_color_manual(values = platform_colors) +
+  #ggplot2::coord_cartesian(ylim = c(-0.2, 0.1)) + 
   ggplot2::labs(x = "Method",
-                y = "Delta Kappa",
-                color = "Platform") +
+                y = "Kappa",
+                color = "Gene Set",
+                title = "Kappa comparison across gene sets") +
   ggplot2::theme_bw() +
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
-ggplot2::ggsave(filename = delta_kappa_plot_filepath,
-                plot = delta_kappa_plot_object,
+ggplot2::ggsave(filename = kappa_plot_filepath,
+                plot = kappa_plot_object,
                 height = 7,
                 width = 7)
 
-delta_kappa_plot_object
+kappa_plot_object
 
 ```
 
-To aid in visualization, the following data points were excluded from the previous plot.
+# Is there a statistical difference?
 
 ```{r}
 
-dplyr::bind_rows(targeted_delta_kappa_plot_df |>
-                   dplyr::mutate(gene_set = "Targeted"),
-                 random_delta_kappa_plot_df |>
-                   dplyr::mutate(gene_set = "Random")) |>
-  dplyr::filter(delta_kappa > 0.1 | delta_kappa < -0.2)
+test_list <- purrr::map(c("kTSP (unw)", "RF (w)", "LASSO"),
+                        \(mt) purrr::map(c("Array", "RNA-seq"),
+                                         \(p) {
+                                           
+                                           wilcox.test(x = targeted_plot_df |>
+                                                         dplyr::filter(model_type == mt,
+                                                                       platform == p) |> 
+                                                         dplyr::pull(value),
+                                                       y = baseline_plot_df |> 
+                                                         dplyr::filter(model_type == mt, 
+                                                                       platform == p) |> 
+                                                         dplyr::pull(value))
+                                           
+                                         }
+                        ) |> setNames(c("Array", "RNA-seq"))
+                        
+) |> setNames(c("kTSP (unw)", "RF (w)", "LASSO"))
+
 
 ```
-Two LASSO models (one starting with the full gene set, one with a random gene set) show poor performance and were excluded from the preceding visualization.
 
 # Session info
 
