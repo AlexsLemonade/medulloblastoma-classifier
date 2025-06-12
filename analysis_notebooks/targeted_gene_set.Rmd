@@ -49,7 +49,7 @@ baseline_plot_df_filepath <- here::here(plots_data_dir, "baseline_plots_df.tsv")
 targeted_plot_df_filepath <- here::here(plots_data_dir, "targeted_plot_df.tsv")
 random_plot_df_filepath <- here::here(plots_data_dir, "random_plot_df.tsv")
 
-kappa_plot_filepath <- here::here(plots_dir, "targeted_random_full_kappa.pdf")
+combined_plot_filepath <- here::here(plots_dir, "targeted_random_full_kappa_accuracy.pdf")
 
 # set subgroups analyzed in this notebook (canonical MB subgroups)
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
@@ -75,7 +75,7 @@ check_input_files(genex_df = bulk_genex_df,
 
 # Visualize Kappa and accuracy results
 
-### Gather targeted data
+### Gather targeted, random, and baseline data
 
 ```{r}
 
@@ -92,7 +92,6 @@ targeted_plot_df <- targeted_list |>
              labels = mb_subgroups,
              platforms = c("Array", "RNA-seq")) |>
   purrr::list_rbind(names_to = "repeat_index") |>
-  dplyr::filter(metric == "Kappa") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                "ktsp" ~ "kTSP (unw)",
                                                "rf" ~ "RF (w)",
@@ -100,12 +99,6 @@ targeted_plot_df <- targeted_list |>
 
 readr::write_tsv(x = targeted_plot_df,
                  file = targeted_plot_df_filepath)
-
-```
-
-### Gather random data
-
-```{r}
 
 # random model metrics
 random_plot_df <- random_list |>
@@ -116,7 +109,6 @@ random_plot_df <- random_list |>
                           labels = mb_subgroups,
                           platforms = c("Array", "RNA-seq")) |>
                purrr::list_rbind(names_to = "repeat_index") |>
-               dplyr::filter(metric == "Kappa") |>
                dplyr::mutate(model_type = dplyr::case_match(model_type,
                                                             "ktsp" ~ "kTSP (unw)",
                                                             "rf" ~ "RF (w)",
@@ -126,66 +118,25 @@ random_plot_df <- random_list |>
 readr::write_tsv(x = random_plot_df,
                  file = random_plot_df_filepath)
 
+# baseline model metrics
+baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(model_type %in% c("kTSP (unw)", "RF (w)", "LASSO"))
+
+# combined dfs
+
+compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
+                                              dplyr::mutate(gene_set = "Targeted"),
+                                            random_plot_df |>
+                                              dplyr::mutate(gene_set = "Random"),
+                                            baseline_plot_df |>
+                                              dplyr::mutate(gene_set = "Full"))
+
 ```
 
 # Compare kappa values
 
-```{r}
-
-# baseline model metrics
-baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
-                                    show_col_types = FALSE) |>
-  dplyr::filter(metric == "Kappa",
-                model_type %in% c("kTSP (unw)", "RF (w)", "LASSO"))
-
-set.seed(1627)
-
-kappa_plot_object <- dplyr::bind_rows(targeted_plot_df |>
-                                        dplyr::mutate(gene_set = "Targeted"),
-                                      random_plot_df |>
-                                        dplyr::mutate(gene_set = "Random"),
-                                      baseline_plot_df |>
-                                        dplyr::mutate(gene_set = "Full")) |>
-  ggplot2::ggplot(ggplot2::aes(x = platform,
-                               y = value,
-                               color = gene_set)) +
-  ggplot2::geom_boxplot() +
-  #ggplot2::geom_violin(#position = ggplot2::position_dodge(width = 0.7),
-  #                     draw_quantiles = 0.5,
-  #                     show.legend = FALSE) +
-  #ggplot2::geom_point(position = ggplot2::position_jitterdodge(jitter.width = 0.1,
-  #                                                             jitter.height = 0,
-  #                                                             dodge.width = 0.9),
-  #                    shape = 1) +
-  #ggplot2::geom_point(data = baseline_kappa_median_plot_df,
-  #                    mapping = ggplot2::aes(x = model_type,
-  #                                           y = baseline_median,
-  #                                           fill = platform),
-  #                    position = ggplot2::position_dodge(width = 0.7),
-  #                    shape = 16,
-  #                    color = "red") +
-  ggplot2::facet_wrap(~ model_type,
-                      nrow = 1) +
-  #ggplot2::scale_color_manual(values = platform_colors) +
-  #ggplot2::coord_cartesian(ylim = c(-0.2, 0.1)) + 
-  ggplot2::labs(x = "Method",
-                y = "Kappa",
-                color = "Gene Set",
-                title = "Kappa comparison across gene sets") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
-
-ggplot2::ggsave(filename = kappa_plot_filepath,
-                plot = kappa_plot_object,
-                height = 7,
-                width = 7)
-
-kappa_plot_object
-
-```
-
-# Is there a statistical difference?
+### Is there a statistical difference?
 
 ```{r}
 
@@ -209,6 +160,56 @@ test_list <- purrr::map(c("kTSP (unw)", "RF (w)", "LASSO"),
 
 
 ```
+
+### Visualize kappa difference 
+```{r}
+
+kappa_plot_object <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  ggplot2::ggplot(ggplot2::aes(x = platform,
+                               y = value,
+                               color = gene_set)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::facet_wrap(~ model_type,
+                      nrow = 1) +
+  ggplot2::labs(x = "Method",
+                y = "Kappa",
+                color = "Gene Set",
+                title = "Kappa comparison across gene sets") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+accuracy_plot_object <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy") |>
+  ggplot2::ggplot(ggplot2::aes(x = platform,
+                               y = value,
+                               color = gene_set)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::facet_grid(rows = dplyr::vars(subgroup), cols = dplyr::vars(model_type)) +
+  ggplot2::labs(x = "Method",
+                y = "Balanced Accuracy",
+                color = "Gene Set",
+                title = "Balanced accuracy comparison across gene sets") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+combined_plot <- kappa_plot_object / accuracy_plot_object +
+  plot_annotation(tag_levels = "a") +
+  plot_layout(guides = "collect", heights = c(1,4)) &
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+ggplot2::ggsave(filename = combined_plot_filepath,
+                plot = combined_plot,
+                height = 7,
+                width = 7)
+
+combined_plot
+
+```
+
 
 # Session info
 
