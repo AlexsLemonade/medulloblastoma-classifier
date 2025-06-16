@@ -261,11 +261,17 @@ if (create_models) {
 
   # Add _weighted to names of kTSP and RF list elements
   random_kTSP_RF_weighted_models_list <- random_kTSP_RF_weighted_models_list |>
-    purrr::map(\(x) setNames(x,
-                             dplyr::case_match(names(x),
-                                               "ktsp" ~ "ktsp_weighted",
-                                               "rf" ~ "rf_weighted",
-                                               .default = names(x))))
+    purrr::map(\(x)
+               purrr::map(x,
+                          \(y) setNames(y,
+                                        dplyr::case_match(names(y),
+                                                          "ktsp" ~ "ktsp_weighted",
+                                                          "rf" ~ "rf_weighted",
+                                                          .default = names(y)
+                                        )
+                          )
+               )
+    )
 
   # Random gene sets for unweighted kTSP, RF, and lasso
   random_kTSP_RF_lasso_unweighted_models_list <- random_gene_set_bulk_genex_df_list |>
@@ -291,11 +297,17 @@ if (create_models) {
 
   # Add _unweighted to names of kTSP and RF list elements
   random_kTSP_RF_lasso_unweighted_models_list <- random_kTSP_RF_lasso_unweighted_models_list |>
-    purrr::map(\(x) setNames(x,
-                             dplyr::case_match(names(x),
-                                               "ktsp" ~ "ktsp_unweighted",
-                                               "rf" ~ "rf_unweighted",
-                                               .default = names(x))))
+    purrr::map(\(x)
+               purrr::map(x,
+                          \(y) setNames(y,
+                                        dplyr::case_match(names(y),
+                                                          "ktsp" ~ "ktsp_unweighted",
+                                                          "rf" ~ "rf_unweighted",
+                                                          .default = names(y)
+                                        )
+                          )
+               )
+    )
 
   # combine random lists
   random_list <- purrr::map2(random_kTSP_RF_weighted_models_list,
