@@ -73,9 +73,7 @@ check_input_files(genex_df = bulk_genex_df,
 
 ```
 
-# Visualize Kappa and accuracy results
-
-### Gather targeted, random, and baseline data
+# Gather targeted, random, and baseline data
 
 ```{r}
 
@@ -134,34 +132,44 @@ compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
 
 ```
 
-# Compare kappa values
+# Compare model performance
 
-### Is there a statistical difference?
+### Statistical difference?
+
+#### Kappa
 
 ```{r}
 
-test_list <- purrr::map(c("kTSP (unw)", "RF (w)", "LASSO"),
-                        \(mt) purrr::map(c("Array", "RNA-seq"),
-                                         \(p) {
-                                           
-                                           wilcox.test(x = targeted_plot_df |>
-                                                         dplyr::filter(model_type == mt,
-                                                                       platform == p) |> 
-                                                         dplyr::pull(value),
-                                                       y = baseline_plot_df |> 
-                                                         dplyr::filter(model_type == mt, 
-                                                                       platform == p) |> 
-                                                         dplyr::pull(value))
-                                           
-                                         }
-                        ) |> setNames(c("Array", "RNA-seq"))
-                        
-) |> setNames(c("kTSP (unw)", "RF (w)", "LASSO"))
-
+compare_metrics_plot_df |> 
+  dplyr::filter(metric == "Kappa") |>
+  dplyr::group_by(model_type, platform) |>
+  rstatix::wilcox_test(value ~ gene_set,
+                       p.adjust.method = "BH") |>
+  dplyr::filter(p.adj < 0.05) |>
+  dplyr::arrange(p.adj) |>
+  knitr::kable()
 
 ```
 
-### Visualize kappa difference 
+#### Balanced Accuracy
+
+```{r}
+
+compare_metrics_plot_df |> 
+  dplyr::filter(metric == "Balanced Accuracy") |>
+  dplyr::group_by(model_type, platform, subgroup) |>
+  rstatix::wilcox_test(value ~ gene_set,
+                       p.adjust.method = "BH") |>
+  dplyr::filter(p.adj < 0.05) |>
+  dplyr::arrange(p.adj) |>
+  knitr::kable()
+
+```
+
+### Visualize difference
+
+#### Kappa
+
 ```{r}
 
 kappa_plot_object <- compare_metrics_plot_df |>
@@ -180,6 +188,11 @@ kappa_plot_object <- compare_metrics_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
+```
+
+#### Balance accuracy
+```{r}
+
 accuracy_plot_object <- compare_metrics_plot_df |>
   dplyr::filter(metric == "Balanced Accuracy") |>
   ggplot2::ggplot(ggplot2::aes(x = platform,
@@ -195,6 +208,12 @@ accuracy_plot_object <- compare_metrics_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
+```
+
+#### Combine plots
+
+```{r}
+
 combined_plot <- kappa_plot_object / accuracy_plot_object +
   plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect", heights = c(1,4)) &
@@ -209,7 +228,6 @@ ggplot2::ggsave(filename = combined_plot_filepath,
 combined_plot
 
 ```
-
 
 # Session info
 
