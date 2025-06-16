@@ -237,6 +237,13 @@ combined_plot
 
 ```
 
+# Interpretation
+
+- Full gene sets significantly outperform targeted gene sets
+- Random and targeted gene sets show overall similar performance
+- Targeted gene sets may be useful for modeling, but would choose the full gene set if available
+- Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
+
 # Session info
 
 ```{r session_info}
