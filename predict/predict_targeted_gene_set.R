@@ -310,10 +310,15 @@ if (create_models) {
     )
 
   # combine random lists
-  random_list <- purrr::map2(random_kTSP_RF_weighted_models_list,
-                             random_kTSP_RF_lasso_unweighted_models_list,
-                             c) |>
-    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
+  random_list <- purrr::map(
+    1:10,
+    \(x) {
+      purrr::map2(random_kTSP_RF_weighted_models_list[[x]],
+                  random_kTSP_RF_lasso_unweighted_models_list[[x]],
+                  c) |>
+        purrr::map(\(y) y[!duplicated(names(y))]) # remove duplicate list items
+    }
+  )
 
   # write models to file
   readr::write_rds(x = random_list,
