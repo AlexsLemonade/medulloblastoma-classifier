@@ -10,16 +10,16 @@ n_cores <- 3 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
 
 # Rationale
-  
+
 # Experiments that generate RNA expression data may use a targeted gene panel as a more cost-effective approach to analyze a subset of genes thought to have greater relevance for disease, especially in clinical settings.
 # However, when a model is trained using whole transcriptome data, the genes selected for that model will generally show only partial or no overlap with a targeted gene panel.
 # Even though kTSP and RF models can tolerate missing genes, prediction performance on new samples will likely suffer as a result of having fewer gene:gene comparisons to score.
 # A model trained using a targeted panel of genes from the start could be applied to sample data that includes more genes, however there may be a decrease in model performance due to starting with a smaller feature space.
 # This leads to two key questions:
-  
+
 # 1. Given a targeted gene set of cancer-related genes, how does model performance compare between targeted gene set models and full gene set models?
 # 2. Does the identity of the genes in the targeted gene set matter? In other words, can a random gene set of the same size perform just as well as the targeted gene set?
-  
+
 # We will use the [Nanostring nCounter PanCancer IO 360 Panel](https://nanostring.com/products/ncounter-assays-panels/oncology/pancancer-io-360/) targeted gene set published by Nanostring, available for download [here](https://nanostring.com/products/ncounter-assays-panels/panel-selection-tool/) and found in this repository at `processed_data/NS_IO_360_v1.0_Genes.tsv`.
 
 # Setup
@@ -44,32 +44,32 @@ random_filepath <- file.path(models_dir, "random_gene_sets.rds")
 if (create_models &
     (file.exists(targeted_filepath)) &
     !overwrite) {
-  
+
   stop("Targeted gene set model output file already exists and overwrite is set to FALSE in predict/predict_targeted_gene_set.R.")
-  
+
 }
 
 # check that existing random gene sets model file will not be overwritten if overwrite is FALSE
 if (create_models &
     (file.exists(random_filepath)) &
     !overwrite) {
-  
+
   stop("Random gene sets model output file already exists and overwrite is set to FALSE in predict/predict_targeted_gene_set.R.")
-  
+
 }
 
 # check that targeted file exist if create_models is FALSE
 if (!create_models & !file.exists(targeted_filepath)) {
-  
+
   stop("Targeted model output file does not exist and create_models is set to FALSE in predict/predict_targeted_gene_set.R.")
-  
+
 }
 
 # check that random file exist if create_models is FALSE
 if (!create_models & !file.exists(random_filepath)) {
-  
+
   stop("Random model output file does not exist and create_models is set to FALSE in predict/predict_targeted_gene_set.R.")
-  
+
 }
 
 # set subgroups analyzed in this notebook (canonical MB subgroups)
@@ -164,66 +164,152 @@ ifelse(n_mm2s_common_pathways >= 24,
 
 ### Create kTSP, RF, and LASSO models
 
-# The following code creates kTSP (unw), RF (w), and LASSO models using default settings.
+# The following code creates kTSP (weighted and unweighted), RF (weighted and unweighted), and LASSO models using default settings.
 # Supplying the same `initial_seed` to each instance of `run_many_models()` ensures the training/testing sets of each repeat are the same for each model.
-# Models that are trained and tested on the same sets of samples can be paired to assess relative model performance using each gene set (full, targeted, and random).
-
-model_types <- c("ktsp", "rf", "lasso")
 
 if (create_models) {
-  
-  # uses the bulk_genex_df reduced to targeted gene set
-  targeted_list <- run_many_models(genex_df = bulk_genex_df_targeted,
-                                   metadata_df = bulk_metadata_df,
-                                   labels = mb_subgroups,
-                                   model_types = model_types,
-                                   initial_seed = seed,
-                                   n_repeats = n_repeats,
-                                   n_cores = n_cores,
-                                   ktsp_featureNo = 1000,
-                                   ktsp_n_rules_min = 5,
-                                   ktsp_n_rules_max = 50,
-                                   ktsp_weighted = FALSE,
-                                   rf_num.trees = 500,
-                                   rf_genes_altogether = 50,
-                                   rf_genes_one_vs_rest = 50,
-                                   rf_gene_repetition = 1,
-                                   rf_rules_altogether = 50,
-                                   rf_rules_one_vs_rest = 50,
-                                   rf_weighted = TRUE)
-  
+
+  # Targeted gene set for weighted kTSP and RF
+  targeted_kTSP_RF_weighted_models_list <- run_many_models(
+    genex_df = bulk_genex_df_targeted,
+    metadata_df = bulk_metadata_df,
+    labels = mb_subgroups,
+    model_types = c("ktsp", "rf"),
+    initial_seed = seed,
+    n_repeats = n_repeats,
+    n_cores = n_cores,
+    ktsp_featureNo = 1000,
+    ktsp_n_rules_min = 5,
+    ktsp_n_rules_max = 50,
+    ktsp_weighted = TRUE,
+    rf_num.trees = 500,
+    rf_genes_altogether = 50,
+    rf_genes_one_vs_rest = 50,
+    rf_gene_repetition = 1,
+    rf_rules_altogether = 50,
+    rf_rules_one_vs_rest = 50,
+    rf_weighted = TRUE)
+
+  # Add _weighted to names of kTSP and RF list elements
+  targeted_kTSP_RF_weighted_models_list <- targeted_kTSP_RF_weighted_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted",
+                                               .default = names(x))))
+
+  # Targeted gene set for unweighted kTSP, RF, and lasso
+  targeted_kTSP_RF_lasso_unweighted_models_list <- run_many_models(
+    genex_df = bulk_genex_df_targeted,
+    metadata_df = bulk_metadata_df,
+    labels = mb_subgroups,
+    model_types = c("ktsp", "rf", "lasso"),
+    initial_seed = seed,
+    n_repeats = n_repeats,
+    n_cores = n_cores,
+    ktsp_featureNo = 1000,
+    ktsp_n_rules_min = 5,
+    ktsp_n_rules_max = 50,
+    ktsp_weighted = FALSE,
+    rf_num.trees = 500,
+    rf_genes_altogether = 50,
+    rf_genes_one_vs_rest = 50,
+    rf_gene_repetition = 1,
+    rf_rules_altogether = 50,
+    rf_rules_one_vs_rest = 50,
+    rf_weighted = FALSE)
+
+  # Add _unweighted to names of kTSP and RF list elements
+  targeted_kTSP_RF_lasso_unweighted_models_list <- targeted_kTSP_RF_lasso_unweighted_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_unweighted",
+                                               "rf" ~ "rf_unweighted",
+                                               .default = names(x))))
+
+  # combine targeted lists
+  targeted_list <- purrr::map2(targeted_kTSP_RF_weighted_models_list,
+                               targeted_kTSP_RF_lasso_unweighted_models_list,
+                               c) |>
+    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
+
   # write models to file
   readr::write_rds(x = targeted_list,
                    file = targeted_filepath)
-  
-  # uses the bulk_genex_df reduced to random gene sets
-  random_list <- random_gene_set_bulk_genex_df_list |>
-    purrr::map(\(x) run_many_models(genex_df = x,
-                                    metadata_df = bulk_metadata_df,
-                                    labels = mb_subgroups,
-                                    model_types = model_types,
-                                    initial_seed = seed,
-                                    n_repeats = n_repeats,
-                                    n_cores = n_cores,
-                                    ktsp_featureNo = 1000,
-                                    ktsp_n_rules_min = 5,
-                                    ktsp_n_rules_max = 50,
-                                    ktsp_weighted = FALSE,
-                                    rf_num.trees = 500,
-                                    rf_genes_altogether = 50,
-                                    rf_genes_one_vs_rest = 50,
-                                    rf_gene_repetition = 1,
-                                    rf_rules_altogether = 50,
-                                    rf_rules_one_vs_rest = 50,
-                                    rf_weighted = TRUE))
-  
+
+  # Random gene sets for weighted kTSP and RF
+  random_kTSP_RF_weighted_models_list <- random_gene_set_bulk_genex_df_list |>
+    purrr::map(\(x) run_many_models(
+      genex_df = x,
+      metadata_df = bulk_metadata_df,
+      labels = mb_subgroups,
+      model_types = c("ktsp", "rf"),
+      initial_seed = seed,
+      n_repeats = n_repeats,
+      n_cores = n_cores,
+      ktsp_featureNo = 1000,
+      ktsp_n_rules_min = 5,
+      ktsp_n_rules_max = 50,
+      ktsp_weighted = TRUE,
+      rf_num.trees = 500,
+      rf_genes_altogether = 50,
+      rf_genes_one_vs_rest = 50,
+      rf_gene_repetition = 1,
+      rf_rules_altogether = 50,
+      rf_rules_one_vs_rest = 50,
+      rf_weighted = TRUE))
+
+  # Add _weighted to names of kTSP and RF list elements
+  random_kTSP_RF_weighted_models_list <- random_kTSP_RF_weighted_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_weighted",
+                                               "rf" ~ "rf_weighted",
+                                               .default = names(x))))
+
+  # Random gene sets for unweighted kTSP, RF, and lasso
+  random_kTSP_RF_lasso_unweighted_models_list <- random_gene_set_bulk_genex_df_list |>
+    purrr::map(\(x) run_many_models(
+      genex_df = x,
+      metadata_df = bulk_metadata_df,
+      labels = mb_subgroups,
+      model_types = c("ktsp", "rf", "lasso"),
+      initial_seed = seed,
+      n_repeats = n_repeats,
+      n_cores = n_cores,
+      ktsp_featureNo = 1000,
+      ktsp_n_rules_min = 5,
+      ktsp_n_rules_max = 50,
+      ktsp_weighted = FALSE,
+      rf_num.trees = 500,
+      rf_genes_altogether = 50,
+      rf_genes_one_vs_rest = 50,
+      rf_gene_repetition = 1,
+      rf_rules_altogether = 50,
+      rf_rules_one_vs_rest = 50,
+      rf_weighted = FALSE))
+
+  # Add _unweighted to names of kTSP and RF list elements
+  random_kTSP_RF_lasso_unweighted_models_list <- random_kTSP_RF_lasso_unweighted_models_list |>
+    purrr::map(\(x) setNames(x,
+                             dplyr::case_match(names(x),
+                                               "ktsp" ~ "ktsp_unweighted",
+                                               "rf" ~ "rf_unweighted",
+                                               .default = names(x))))
+
+  # combine random lists
+  random_list <- purrr::map2(random_kTSP_RF_weighted_models_list,
+                             random_kTSP_RF_lasso_unweighted_models_list,
+                             c) |>
+    purrr::map(\(x) x[!duplicated(names(x))]) # remove duplicate list items
+
   # write models to file
   readr::write_rds(x = random_list,
                    file = random_filepath)
-  
+
 } else { # if create_models = FALSE and models already exist
-  
+
   targeted_list <- readr::read_rds(targeted_filepath)
   random_list <- readr::read_rds(random_filepath)
-  
+
 }
