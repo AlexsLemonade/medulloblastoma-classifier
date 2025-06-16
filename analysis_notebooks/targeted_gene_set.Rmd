@@ -80,7 +80,9 @@ check_input_files(genex_df = bulk_genex_df,
 targeted_list <- readr::read_rds(targeted_filepath)
 random_list <- readr::read_rds(random_filepath)
 
-model_types <- c("ktsp", "rf", "lasso")
+model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                 "rf_weighted", "rf_unweighted",
+                 "lasso")
 
 # targeted model metrics
 targeted_plot_df <- targeted_list |>
@@ -91,8 +93,10 @@ targeted_plot_df <- targeted_list |>
              platforms = c("Array", "RNA-seq")) |>
   purrr::list_rbind(names_to = "repeat_index") |>
   dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp" ~ "kTSP (unw)",
-                                               "rf" ~ "RF (w)",
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
                                                "lasso" ~ "LASSO"))
 
 readr::write_tsv(x = targeted_plot_df,
@@ -108,9 +112,11 @@ random_plot_df <- random_list |>
                           platforms = c("Array", "RNA-seq")) |>
                purrr::list_rbind(names_to = "repeat_index") |>
                dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                                            "ktsp" ~ "kTSP (unw)",
-                                                            "rf" ~ "RF (w)",
-                                                            "lasso" ~ "LASSO"))) |>
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "lasso" ~ "LASSO"))) |>
   purrr::list_rbind(names_to = "random_index")
 
 readr::write_tsv(x = random_plot_df,
@@ -119,7 +125,9 @@ readr::write_tsv(x = random_plot_df,
 # baseline model metrics
 baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
                                     show_col_types = FALSE) |>
-  dplyr::filter(model_type %in% c("kTSP (unw)", "RF (w)", "LASSO"))
+  dplyr::filter(model_type %in% c("kTSP (w)", "kTSP (unw)",
+                                  "RF (w)", "RF (unw)",
+                                  "LASSO"))
 
 # combined dfs
 
