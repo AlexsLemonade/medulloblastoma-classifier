@@ -1,0 +1,251 @@
+---
+title: "Explore model accuracy using a targeted gene set"
+author: "Steven Foltz"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+# Rationale
+
+Experiments that generate RNA expression data may use a targeted gene panel as a more cost-effective approach to analyze a subset of genes thought to have greater relevance for disease, especially in clinical settings.
+However, when a model is trained using whole transcriptome data, the genes selected for that model will generally show only partial or no overlap with a targeted gene panel.
+Even though kTSP and RF models can tolerate missing genes, prediction performance on new samples will likely suffer as a result of having fewer gene:gene comparisons to score.
+A model trained using a targeted panel of genes from the start could be applied to sample data that includes more genes, however there may be a decrease in model performance due to starting with a smaller feature space.
+This leads to two key questions:
+
+1. Given a targeted gene set of cancer-related genes, how does model performance compare between targeted gene set models and full gene set models?
+2. Does the identity of the genes in the targeted gene set matter? In other words, can a random gene set of the same size perform just as well as the targeted gene set?
+
+We will use the [Nanostring nCounter PanCancer IO 360 Panel](https://nanostring.com/products/ncounter-assays-panels/oncology/pancancer-io-360/) targeted gene set published by Nanostring, available for download [here](https://nanostring.com/products/ncounter-assays-panels/panel-selection-tool/) and found in this repository at `processed_data/NS_IO_360_v1.0_Genes.tsv`.
+
+# Setup
+
+```{r setup}
+
+# Source code and libraries
+source(here::here("utils/color_schemes.R"))
+source(here::here("utils/modeling.R"))
+source(here::here("utils/convert_gene_names.R"))
+library(patchwork)
+
+# Define directories and input/output file paths
+processed_data_dir <- here::here("processed_data")
+models_dir <- here::here("models")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
+
+bulk_genex_filepath <- here::here(processed_data_dir, "bulk_genex.tsv")
+bulk_metadata_filepath <- here::here(processed_data_dir, "bulk_metadata.tsv")
+
+baseline_filepath <- here::here(models_dir, "baseline.rds")
+targeted_filepath <- here::here(models_dir, "targeted_gene_set.rds")
+random_filepath <- here::here(models_dir, "random_gene_sets.rds")
+
+baseline_plot_df_filepath <- here::here(plots_data_dir, "baseline_plots_df.tsv")
+targeted_plot_df_filepath <- here::here(plots_data_dir, "targeted_plot_df.tsv")
+random_plot_df_filepath <- here::here(plots_data_dir, "random_plot_df.tsv")
+
+combined_plot_filepath <- here::here(plots_dir, "targeted_random_full_kappa_accuracy.pdf")
+
+# set subgroups analyzed in this notebook (canonical MB subgroups)
+mb_subgroups <- c("G3", "G4", "SHH", "WNT")
+
+# Read in essential data
+bulk_genex_df <- readr::read_tsv(bulk_genex_filepath,
+                                 show_col_types = FALSE) |>
+  tibble::column_to_rownames(var = "gene")
+
+bulk_metadata_df <- readr::read_tsv(bulk_metadata_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(sample_accession %in% names(bulk_genex_df),
+                subgroup %in% mb_subgroups)
+
+bulk_genex_df <- bulk_genex_df |>
+  dplyr::select(dplyr::all_of(bulk_metadata_df$sample_accession))
+
+check_input_files(genex_df = bulk_genex_df,
+                  metadata_df = bulk_metadata_df)
+
+
+```
+
+# Gather targeted, random, and baseline data
+
+```{r}
+
+targeted_list <- readr::read_rds(targeted_filepath)
+random_list <- readr::read_rds(random_filepath)
+
+model_types <- c("ktsp_weighted", "ktsp_unweighted",
+                 "rf_weighted", "rf_unweighted",
+                 "lasso")
+
+# targeted model metrics
+targeted_plot_df <- targeted_list |>
+  purrr::map(return_model_metrics,
+             model_types = model_types,
+             metadata_df = bulk_metadata_df,
+             labels = mb_subgroups,
+             platforms = c("Array", "RNA-seq")) |>
+  purrr::list_rbind(names_to = "repeat_index") |>
+  dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "lasso" ~ "LASSO"))
+
+readr::write_tsv(x = targeted_plot_df,
+                 file = targeted_plot_df_filepath)
+
+# random model metrics
+random_plot_df <- random_list |>
+  purrr::map(\(x) x |>
+               purrr::map(return_model_metrics,
+                          model_types = model_types,
+                          metadata_df = bulk_metadata_df,
+                          labels = mb_subgroups,
+                          platforms = c("Array", "RNA-seq")) |>
+               purrr::list_rbind(names_to = "repeat_index") |>
+               dplyr::mutate(model_type = dplyr::case_match(model_type,
+                                               "ktsp_weighted" ~ "kTSP (w)",
+                                               "ktsp_unweighted" ~ "kTSP (unw)",
+                                               "rf_weighted" ~ "RF (w)",
+                                               "rf_unweighted" ~ "RF (unw)",
+                                               "lasso" ~ "LASSO"))) |>
+  purrr::list_rbind(names_to = "random_index")
+
+readr::write_tsv(x = random_plot_df,
+                 file = random_plot_df_filepath)
+
+# baseline model metrics
+baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
+                                    show_col_types = FALSE) |>
+  dplyr::filter(model_type %in% c("kTSP (w)", "kTSP (unw)",
+                                  "RF (w)", "RF (unw)",
+                                  "LASSO"))
+
+# combined dfs
+
+compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
+                                              dplyr::mutate(gene_set = "Targeted"),
+                                            random_plot_df |>
+                                              dplyr::mutate(gene_set = "Random"),
+                                            baseline_plot_df |>
+                                              dplyr::mutate(gene_set = "Full"))
+
+```
+
+# Compare model performance
+
+### Statistical difference?
+
+#### Kappa
+
+```{r}
+
+compare_metrics_plot_df |> 
+  dplyr::filter(metric == "Kappa") |>
+  dplyr::group_by(model_type, platform) |>
+  rstatix::wilcox_test(value ~ gene_set,
+                       p.adjust.method = "BH") |>
+  dplyr::filter(p.adj < 0.05) |>
+  dplyr::arrange(p.adj) |>
+  knitr::kable()
+
+```
+
+#### Balanced Accuracy
+
+```{r}
+
+compare_metrics_plot_df |> 
+  dplyr::filter(metric == "Balanced Accuracy") |>
+  dplyr::group_by(model_type, platform, subgroup) |>
+  rstatix::wilcox_test(value ~ gene_set,
+                       p.adjust.method = "BH") |>
+  dplyr::filter(p.adj < 0.05) |>
+  dplyr::arrange(p.adj) |>
+  knitr::kable()
+
+```
+
+### Visualize difference
+
+#### Kappa
+
+```{r}
+
+kappa_plot_object <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa") |>
+  ggplot2::ggplot(ggplot2::aes(x = platform,
+                               y = value,
+                               color = gene_set)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::facet_wrap(~ model_type,
+                      nrow = 1) +
+  ggplot2::labs(x = "Method",
+                y = "Kappa",
+                color = "Gene Set",
+                title = "Kappa comparison across gene sets") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+```
+
+#### Balance accuracy
+```{r}
+
+accuracy_plot_object <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy") |>
+  ggplot2::ggplot(ggplot2::aes(x = platform,
+                               y = value,
+                               color = gene_set)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::facet_grid(rows = dplyr::vars(subgroup), cols = dplyr::vars(model_type)) +
+  ggplot2::labs(x = "Method",
+                y = "Balanced Accuracy",
+                color = "Gene Set",
+                title = "Balanced accuracy comparison across gene sets") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+```
+
+#### Combine plots
+
+```{r}
+
+combined_plot <- kappa_plot_object / accuracy_plot_object +
+  plot_annotation(tag_levels = "a") +
+  plot_layout(guides = "collect", heights = c(1,4)) &
+  ggplot2::theme(legend.position = "bottom",
+                 legend.direction = "horizontal")
+
+ggplot2::ggsave(filename = combined_plot_filepath,
+                plot = combined_plot,
+                height = 7,
+                width = 7)
+
+combined_plot
+
+```
+
+# Interpretation
+
+- Full gene sets significantly outperform targeted gene sets
+- Random and targeted gene sets show overall similar performance
+- Targeted gene sets may be useful for modeling, but would choose the full gene set if available
+- Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
+
+# Session info
+
+```{r session_info}
+sessionInfo()
+```
