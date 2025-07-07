@@ -4,7 +4,7 @@
 # set some variables that guide what downstream steps are followed
 create_models <- TRUE # train new models (if FALSE, reads existing models from file)
 overwrite <- TRUE # if create_models is also TRUE, overwrite existing models file
-seed <- 6293 # set initial seed for run_many_models()
+seed <- 44 # set initial seed for run_many_models()
 n_repeats <- 10 # set number of times to repeat in run_many_models()
 n_cores <- 3 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
@@ -27,7 +27,6 @@ ah_date <- "2022-10-30"
 # Source code and libraries
 source(here::here("utils/convert_gene_names.R"))
 source(here::here("utils/modeling.R"))
-library(patchwork)
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
