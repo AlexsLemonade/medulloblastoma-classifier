@@ -223,7 +223,8 @@ if (create_models) {
 
   # Random gene sets for weighted kTSP and RF
 
-  for (perm_repeat in 40:n_random_gene_sets) {
+  # for some reason this fails on perm_repeat = 38
+  for (perm_repeat in 1:n_random_gene_sets) {
 
     print(perm_repeat)
 
