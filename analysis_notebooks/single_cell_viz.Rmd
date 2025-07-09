@@ -211,6 +211,8 @@ We'll make a stacked bar plot to examine the relationship between cell type labe
 
 ```{r}
 stacked_barplot <- tenx_results_df |>
+  # Clean up the cell type labels just for display
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
   # Make sure the predicted labels are ordered the same as the color palette
   # and order the cell types a particular way
   dplyr::mutate(predicted_labels = factor(predicted_labels,
@@ -218,12 +220,10 @@ stacked_barplot <- tenx_results_df |>
                 cell_type = factor(cell_type,
                                    levels = c(
                                      "malignant",
-                                     "macrophage_monocytes",
+                                     "macrophage/monocytes",
                                      "lymphocytes",
-                                     "oligodendrocytes_astrocytes_other"
+                                     "oligodendrocytes/astrocytes/other"
                                    ))) |>
-  # Clean up the cell type labels just for display
-  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
   ggplot(
     aes(
       x = cell_type,
