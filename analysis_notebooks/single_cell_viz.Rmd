@@ -11,6 +11,21 @@ output:
 
 ## Setup
 
+### Libraries
+
+```{r}
+library(ggplot2)
+library(patchwork)
+```
+
+### Source
+
+We only need the color schemes.
+
+```{r}
+source(here::here("utils", "color_schemes.R"))
+```
+
 ### Directories
 
 ```{r}
@@ -55,10 +70,20 @@ results_files <- c(no_filter_ktsp_results_file,
 
 ### Output files
 
+#### Data
+
 ```{r}
 individual_cells_results_file <- here::here(plots_data_dir,
                                             "single_cell_test_predictions.tsv")
 ```
+
+#### Plots
+
+```{r}
+stacked_barplot_file <- here::here("plots",
+                                   "10x_cell_type_subgroup_stacked_bar.pdf")
+```
+
 
 ## Read in and wrangle data
 
@@ -161,6 +186,9 @@ tenx_meta_df <- tenx_meta_df |>
 # Add this metadata to the results data frame
 tenx_results_df <- tenx_results_df |>
   dplyr::left_join(tenx_meta_df, by = c("sample_accession", "cell_index"))
+
+# Remove table of just metadata
+rm(tenx_meta_df)
 ```
 
 ### Combine results from studies and save
@@ -174,6 +202,50 @@ combined_results_df <- dplyr::bind_rows(tenx_results_df,
 readr::write_tsv(combined_results_df, file = individual_cells_results_file)
 ```
 
+## 10X Stacked Barplots
+
+We are interested in what subgroup different cell types get labeled as using the different pair-based classifiers.
+We only have cell type labels for the 10X dataset.
+
+We'll make a stacked bar plot to examine the relationship between cell type label and predicted subgroup label.
+
+```{r}
+stacked_barplot <- tenx_results_df |>
+  # Make sure the predicted labels are ordered the same as the color palette
+  dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors))) |>
+  ggplot(
+    aes(
+      x = cell_type,
+      fill = predicted_labels
+    )
+  ) +
+  geom_bar() +
+  facet_grid(col = vars(subgroup),
+             row = vars(model_type)) +
+  theme_bw() +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(x = "Cell Type",
+       y = "Cell Count",
+       fill = "Predicted Label",
+       title = "GSE155446 (10X) Predicted Label by Cell Type") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+stacked_barplot
+```
+It looks like non-malignant cells tend to be unclassified (i.e., because not enough relevant genes are not observed).
+
+```{r}
+ggsave(plot = stacked_barplot,
+       file = stacked_barplot_file,
+       width = 7,
+       height = 5,
+       unit = "in")
+```
+
+
+## UMAPs
 
 ## Session Info
 
