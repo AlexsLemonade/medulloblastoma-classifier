@@ -1,0 +1,183 @@
+---
+title: "Single-cell visualizations"
+author: "Jaclyn Taroni"
+date: '2025'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+## Setup
+
+### Directories
+
+```{r}
+# Set up directories
+tenx_data_dir <- here::here("data", 
+                            "GSE155446")
+sc_results_dir <- here::here("results",
+                             "single_cells_filtered")
+plots_data_dir <- here::here("plots", "data")
+plots_dir <- here::here("plots")
+```
+
+### Input files
+
+```{r}
+# 10X metadata from UCSC Cell Browser
+tenx_metadata_file <- here::here(tenx_data_dir,
+                                 "meta.tsv")
+
+# Table with UMAP coords, cluster ID, etc.
+umap_cluster_file <- here::here(plots_data_dir,
+                                "single_cell_umap_coord_cluster.tsv")
+
+# We don't want to do any filtering for the Smart-seq2 dataset
+no_filter_rf_results_file <- here::here(sc_results_dir, 
+                                        "rf_0.tsv")
+no_filter_ktsp_results_file <- here::here(sc_results_dir, 
+                                          "ktsp_0_gene.tsv")
+
+# 0.1, gene-based filtering for the 10X dataset
+tenperc_rf_results_file <- here::here(sc_results_dir, 
+                                      "rf_0.1.tsv")
+tenperc_ktsp_results_file <- here::here(sc_results_dir, 
+                                        "ktsp_0.1_gene.tsv")
+
+# Put all together for convenience
+results_files <- c(no_filter_ktsp_results_file, 
+                   no_filter_rf_results_file,
+                   tenperc_ktsp_results_file, 
+                   tenperc_rf_results_file)
+```
+
+### Output files
+
+```{r}
+individual_cells_results_file <- here::here(plots_data_dir,
+                                            "single_cell_test_predictions.tsv")
+```
+
+## Read in and wrangle data
+
+Read in all of the individual cell prediction files that we're going to use for plotting.
+
+```{r}
+# Create a data frame with all the results
+results_df <- results_files |> 
+  purrr::map(readr::read_tsv, 
+             progress = FALSE,
+             show_col_types = FALSE) |>
+  # Set names based on file names
+  purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
+  # Bind data frames together
+  dplyr::bind_rows(.id = "run") |>
+  # Use the file name to pull out the parameters that were used to generate the
+  # results into columns
+  dplyr::mutate(
+    prop_observed = stringr::word(run, 2, sep = "_"),
+    filtering_type = stringr::word(run, 3, sep = "_")
+  ) |>
+  # Drop identifier derived from file names
+  dplyr::select(-run)
+```
+
+Read in file that contains the UMAP coordinates and cluster labels for all individual cells in both datasets.
+
+```{r}
+umap_cluster_df <- readr::read_tsv(umap_cluster_file,
+                                   show_col_types = FALSE) |>
+  # Concatenate sample identifier and barcode for 10x data, which allows for
+  # joining with the metadata from UCSC Cell Browser
+  dplyr::mutate(cell_id = dplyr::case_when(
+    !is.na(barcode) ~ stringr::str_c(sample_accession, barcode, sep = "_"),
+    TRUE ~ NA
+  )) |>
+  dplyr::select(-barcode)
+```
+
+### Smart-seq2 dataset
+
+For the Smart-seq2 dataset, we observed no benefit to employing a filtering strategy, so we will move forward with results that have no filtering of cells in place.
+
+```{r}
+# Use no filtering strategy for Smart-seq2 dataset
+smartseq_results_df <- results_df |>
+  dplyr::filter(study == "GSE119926",
+                prop_observed == 0,
+                model_type == "RF (w)" | 
+                  # This filtering_type is just to avoid duplicates -- the
+                  # results between strategies with no filtering should be the
+                  # same
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+```
+
+Add the UMAP coordinates and cluster labels to the Smart-seq2 results
+
+```{r}
+smartseq_results_df <- smartseq_results_df |> 
+  dplyr::left_join(umap_cluster_df, by = c("sample_accession", "cell_index")) |>
+  # The cell_id column is all NA for this dataset because there are no barcodes
+  # so we can drop it
+  dplyr::select(-cell_id)
+```
+
+### 10X dataset
+
+For the 10X dataset, using a gene-based filtering strategy where at least 10% of the genes in rules was observed resulted in a small benefit, particularly for the kTSP model.
+
+```{r}
+# For the 10x dataset, use 0.1 proportion observed using the gene-based strategy
+tenx_results_df <- results_df |> 
+  dplyr::filter(study == "GSE155446",
+                prop_observed == 0.1,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+
+# Remove larger, unfiltered data frame
+rm(results_df)
+```
+
+Combine the predicted results, cell type labels obtained from UCSC Cell Browser, UMAP coordinates, and cluster labels for the 10X dataset.
+
+```{r}
+# Read in metadata from UCSC Cell Browser
+tenx_meta_df <- readr::read_tsv(tenx_metadata_file,
+                                show_col_types = FALSE)
+
+# Join the cell type labels from UCSC Cell Browser with the UMAP coordinates
+# and cluster labels
+tenx_meta_df <- tenx_meta_df |>
+  # We want the cell type labels from UCSC Cell Browser only
+  dplyr::select(Cell, cell_type) |>
+  # Keep only the 10X data for this particular data frame and drop the samples
+  # that we removed due to label ambiguity -- hence the inner join
+  dplyr::inner_join(umap_cluster_df, by = c("Cell" = "cell_id")) |>
+  # Drop the cell identifier now that joining is complete
+  dplyr::select(-Cell)
+
+# Add this metadata to the results data frame
+tenx_results_df <- tenx_results_df |>
+  dplyr::left_join(tenx_meta_df, by = c("sample_accession", "cell_index"))
+```
+
+### Combine results from studies and save
+
+Combine the results from the two studies into one data frame we can write to file.
+
+```{r}
+# The cell type column will be NA for the Smart-seq2 dataset
+combined_results_df <- dplyr::bind_rows(tenx_results_df,
+                                        smartseq_results_df)
+readr::write_tsv(combined_results_df, file = individual_cells_results_file)
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
