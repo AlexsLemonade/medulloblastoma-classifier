@@ -212,8 +212,18 @@ We'll make a stacked bar plot to examine the relationship between cell type labe
 ```{r}
 stacked_barplot <- tenx_results_df |>
   # Make sure the predicted labels are ordered the same as the color palette
+  # and order the cell types a particular way
   dplyr::mutate(predicted_labels = factor(predicted_labels,
-                                          levels = names(subgroup_colors))) |>
+                                          levels = names(subgroup_colors)),
+                cell_type = factor(cell_type,
+                                   levels = c(
+                                     "malignant",
+                                     "macrophage_monocytes",
+                                     "lymphocytes",
+                                     "oligodendrocytes_astrocytes_other"
+                                   ))) |>
+  # Clean up the cell type labels just for display
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
   ggplot(
     aes(
       x = cell_type,
@@ -236,6 +246,8 @@ stacked_barplot
 ```
 It looks like non-malignant cells tend to be unclassified (i.e., because not enough relevant genes are not observed).
 
+Let's save the plot to file.
+
 ```{r}
 ggsave(plot = stacked_barplot,
        file = stacked_barplot_file,
@@ -243,7 +255,6 @@ ggsave(plot = stacked_barplot,
        height = 5,
        unit = "in")
 ```
-
 
 ## UMAPs
 
