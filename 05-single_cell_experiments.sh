@@ -52,3 +52,6 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/analyze_prop_observed_s
 
 # Extract UMAP and cluster information from objects
 Rscript "${scripts_dir}/extract_single_cell_cluster_umap.R"
+
+# Single-cell visualizations
+Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
