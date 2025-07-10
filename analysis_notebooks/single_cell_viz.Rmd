@@ -15,6 +15,7 @@ output:
 
 ```{r}
 library(ggplot2)
+library(ggridges)
 library(patchwork)
 ```
 
@@ -73,8 +74,10 @@ results_files <- c(no_filter_ktsp_results_file,
 #### Data
 
 ```{r}
-individual_cells_results_file <- here::here(plots_data_dir,
-                                            "single_cell_test_predictions.tsv")
+tenx_results_file <- here::here(plots_data_dir,
+                                "10x_single_cell_test_predictions.tsv")
+smartseq_results_file <- here::here(plots_data_dir,
+                                    "smartseq_single_cell_test_predictions.tsv")
 ```
 
 #### Plots
@@ -82,6 +85,8 @@ individual_cells_results_file <- here::here(plots_data_dir,
 ```{r}
 stacked_barplot_file <- here::here("plots",
                                    "10x_cell_type_subgroup_stacked_bar.pdf")
+ridgeplot_file <- here::here("plots",
+                             "10x_malignant_cell_quality_ridge.pdf")
 ```
 
 
@@ -149,6 +154,12 @@ smartseq_results_df <- smartseq_results_df |>
   dplyr::select(-cell_id)
 ```
 
+Write to file.
+
+```{r}
+readr::write_tsv(smartseq_results_df, file = smartseq_results_file)
+```
+
 ### 10X dataset
 
 For the 10X dataset, using a gene-based filtering strategy where at least 10% of the genes in rules was observed resulted in a small benefit, particularly for the kTSP model.
@@ -175,8 +186,12 @@ tenx_meta_df <- readr::read_tsv(tenx_metadata_file,
 # Join the cell type labels from UCSC Cell Browser with the UMAP coordinates
 # and cluster labels
 tenx_meta_df <- tenx_meta_df |>
-  # We want the cell type labels from UCSC Cell Browser only
-  dplyr::select(Cell, cell_type) |>
+  # We want the cell type labels and QC information from UCSC Cell Browser only
+  dplyr::select(Cell, 
+                cell_type, 
+                genes_per_cell = `genes per cell`, 
+                umis_per_cell = `UMIs per cell`, 
+                percent_mito = `percent of UMIs as mitochondria`) |>
   # Keep only the 10X data for this particular data frame and drop the samples
   # that we removed due to label ambiguity -- hence the inner join
   dplyr::inner_join(umap_cluster_df, by = c("Cell" = "cell_id")) |>
@@ -185,27 +200,25 @@ tenx_meta_df <- tenx_meta_df |>
 
 # Add this metadata to the results data frame
 tenx_results_df <- tenx_results_df |>
-  dplyr::left_join(tenx_meta_df, by = c("sample_accession", "cell_index"))
+  dplyr::left_join(tenx_meta_df, 
+                   by = c("sample_accession", "cell_index"))
 
 # Remove table of just metadata
 rm(tenx_meta_df)
 ```
 
-### Combine results from studies and save
-
-Combine the results from the two studies into one data frame we can write to file.
+Write the 10x data for plotting to file.
 
 ```{r}
-# The cell type column will be NA for the Smart-seq2 dataset
-combined_results_df <- dplyr::bind_rows(tenx_results_df,
-                                        smartseq_results_df)
-readr::write_tsv(combined_results_df, file = individual_cells_results_file)
+readr::write_tsv(tenx_results_df, file = tenx_results_file)
 ```
 
-## 10X Stacked Barplots
+## 10X Cell Type exploration
 
 We are interested in what subgroup different cell types get labeled as using the different pair-based classifiers.
 We only have cell type labels for the 10X dataset.
+
+### Stacked barplot
 
 We'll make a stacked bar plot to examine the relationship between cell type label and predicted subgroup label.
 
@@ -254,6 +267,76 @@ ggsave(plot = stacked_barplot,
        width = 7,
        height = 5,
        unit = "in")
+```
+
+### Quality of malignant cells by predicted subgroup label
+
+Is there a difference in quality between malignant cells that are predicted to have different subgroup labels (including unclassified)>
+
+Create a long data frame that holds the QC metrics from UCSC Cell Browser.
+
+```{r}
+malignant_cell_qc_df <- tenx_results_df |>
+  # Only the malignant cells
+  dplyr::filter(cell_type == "malignant") |>
+  # Only retain the columns we need for plotting
+  dplyr::select(sample_accession,
+                cell_index,
+                predicted_labels,
+                model_type,
+                genes_per_cell,
+                umis_per_cell,
+                percent_mito) |>
+  # Long form so we can facet by the different QC measures
+  tidyr::pivot_longer(cols = c(genes_per_cell, percent_mito, umis_per_cell),
+                      names_to = "measure") |>
+  # Order the predicted labels in the same order of the palette for display
+  dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors))) |>
+  # Clean up the measure names for display
+  dplyr::mutate(measure = dplyr::case_when(
+    measure == "genes_per_cell" ~ "Genes Per Cell",
+    measure == "umis_per_cell" ~ "UMIs Per Cell",
+    measure == "percent_mito" ~ "% Mitochondrial"
+  ))
+
+```
+
+Make a ridge plot looking at the distribution of these measures, where density for each predicted subgroup is plotted separately, and rows are model type, columns are individual QC measures
+
+```{r}
+malignant_ridge_plot <- malignant_cell_qc_df |>
+  ggplot(
+    aes(
+      x = value,
+      y = predicted_labels,
+      fill = predicted_labels
+    )
+  ) +
+  geom_density_ridges(alpha = 0.5) +
+  theme_bw() +
+  facet_grid(rows = vars(model_type),
+             cols = vars(measure),
+             scales = "free_x") +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(x = "Value",
+       y = "Predicted Subgroup",
+       title = "Malignant Cell Quality") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+malignant_ridge_plot
+```
+It looks like malignant cells that are unclassified (i.e., because too few relevant genes are observed) tend to have fewer genes per cell and perhaps higher mitochondrial content.
+
+Taken together, this suggests that the pair-based classifiers -- and kTSP in particular -- do well at classification for cancerous cells of sufficient quality.
+
+```{r}
+ggsave(file = ridgeplot_file,
+       plot = malignant_ridge_plot,
+       width = 8.5,
+       height = 11,
+       units = "in")
 ```
 
 ## UMAPs
