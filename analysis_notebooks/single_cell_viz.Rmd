@@ -9,7 +9,18 @@ output:
     df_print: paged
 ---
 
+In this notebook, we will create visualizations for individual cell subgroup predictions in the 10X ([Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135)) and Smart-seq2 data ([Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6)).
+
+For the Smart-seq2 dataset, we will not use any filtering to remove cells with too few classifier-relevant genes observed, as we did not see that improve "accuracy" in `analyze_prop_observed_single_cells.Rmd`.
+
+For the 10X dataset, we will filter out cells that don't have more than 10% of informative genes observed.
+The 10X dataset additionally has metadata available from UCSC Cell Browser that includes cell type labels and QC measures.
+
 ## Setup
+
+```{r}
+set.seed(2025)
+```
 
 ### Libraries
 
@@ -83,10 +94,12 @@ smartseq_results_file <- here::here(plots_data_dir,
 #### Plots
 
 ```{r}
-stacked_barplot_file <- here::here("plots",
+stacked_barplot_file <- here::here(plots_dir,
                                    "10x_cell_type_subgroup_stacked_bar.pdf")
-ridgeplot_file <- here::here("plots",
+ridgeplot_file <- here::here(plots_dir,
                              "10x_malignant_cell_quality_ridge.pdf")
+umap_plots_file <- here::here(plots_dir,
+                              "single_cell_UMAPs_G3_G4_samples.pdf")
 ```
 
 
@@ -340,6 +353,75 @@ ggsave(file = ridgeplot_file,
 ```
 
 ## UMAPs
+
+For some samples, there's a mix of G3 and G4 predictions and the pseudobulk and individual cell levels.
+Let's make UMAPs with the cells colored by predicted subgroup label.
+
+```{r}
+# Samples with a mix of G3 and G4 cells
+samples_of_interest <- c("BCH825", "Med2312FH", "SJ625", "925", "1167", "1238")
+
+# Only need certain columns to make these plots
+cols_to_retain <- c("sample_accession",
+                    "cell_index",
+                    "predicted_labels",
+                    "model_type",
+                    "subgroup",
+                    "UMAP_1",
+                    "UMAP_2",
+                    "cluster")
+
+# Overwrite UMAP/cluster id df with one that contains relevant metadata (e.g.,
+# predicted subgroup)
+umap_cluster_df <- smartseq_results_df |>
+  dplyr::select(dplyr::all_of(cols_to_retain)) |>
+  dplyr::bind_rows(dplyr::select(tenx_results_df, 
+                                 dplyr::all_of(cols_to_retain)))
+
+# Now just the samples we're interested in and kTSP model only
+selected_sample_umap_df <- umap_cluster_df |>
+  dplyr::filter(sample_accession %in% samples_of_interest,
+                model_type == "kTSP (unw)")
+```
+
+Make a UMAP using labels from the unweighted kTSP model.
+
+```{r}
+umap_plots <- selected_sample_umap_df |>
+  # Order the predicted labels in the same order of the palette for display
+  dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors))) |>
+  # Randomly sort to help with viz
+  dplyr::sample_n(nrow(selected_sample_umap_df)) |>
+  ggplot(
+    aes(
+      x = UMAP_1,
+      y = UMAP_2,
+      color = predicted_labels
+    )
+  ) +
+  geom_point(alpha = 0.4) +
+  facet_wrap(vars(sample_accession), 
+             nrow = 2,
+             scales = "free") +
+  theme_bw() +
+  scale_color_manual(values = subgroup_colors) +
+  labs(x = "UMAP1",
+       y = "UMAP2",
+       color = "Predicted Subgroup")
+
+umap_plots
+```
+
+Save to file.
+
+```{r}
+ggsave(file = umap_plots_file,
+       plot = umap_plots,
+       width = 7,
+       height = 5,
+       units = "in")
+```
 
 ## Session Info
 
