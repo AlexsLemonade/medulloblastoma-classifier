@@ -190,10 +190,6 @@ bulk_genex_df_targeted <- bulk_genex_df[row.names(bulk_genex_df) %in% targeted_g
 
 n_targeted_genes_overlap <- nrow(bulk_genex_df_targeted)
 
-# Train and test MB subgroup models using targeted gene set
-
-### Can we use MM2S with this targeted gene set?
-
 # convert overlapping targeted gene set from ENSEMBL to ENTREZID for MM2S
 targeted_genes_df_ENTREZID <- bulk_genex_df_targeted |>
   tibble::rownames_to_column(var = "gene") |>
@@ -203,24 +199,7 @@ targeted_genes_df_ENTREZID <- bulk_genex_df_targeted |>
                      map_to = "ENTREZID",
                      ah_date = ah_date)
 
-# MM2S uses pathways defined by genes in HumanGMT$genesets
-# Only pathways with between 20-100 genes overlapping with expression data are scored
-n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
-                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
-  purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
-  sum() # = total number of pathways matching gene overlap criteria for scoring
-
-# MM2S assumes there are at least 24 pathways that get scored
-ifelse(n_mm2s_common_pathways >= 24,
-       "We can use MM2S!", "We cannot use MM2S.")
-
-# MM2S uses a pathway-based approach, and those pathways are pre-defined in `MM2S::HumanGMT$genesets`.
-# To return a GSVA score for a particular pathway, MM2S requires that between 20 and 100 genes overlap between the test data and the set of genes in that pathway.
-# MM2S later requires that there are at least 24 such pathways in the data.
-# However, with our targeted gene set, only n_mm2s_common_pathways pathways match the `20 <= overlapping genes <= 100` criteria.
-# MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
-
-# medullopackage also fails to run
+# Train and test MB subgroup models using targeted gene set
 
 ### Create kTSP, RF, and LASSO models
 
@@ -304,21 +283,26 @@ if (create_models) {
   # run train_and_write_random_model() until it succeeds 1000 times
   # tryCatch() allows the random gene set to fail and then tries the next random index
   # after 1000 successes, exit the while loop
+
   n_success <- 0
   random_index <- 0
+
   while(n_success < 1000) {
 
     random_index <- random_index + 1
 
     tryCatch(
       {
-        print(glue::glue("Trying random index ", random_index))
+
         train_and_write_random_model(random_index)
         n_success <- n_success + 1
-        print(glue::glue("Success! ", random_index))
+        print(glue::glue("Random index ", random_index, ": success"))
+
       },
       error = function(msg) {
-        print(glue::glue("Random index ", random_index, " failed"))
+
+        print(glue::glue("Random index ", random_index, ": failure"))
+
       }
     )
 
