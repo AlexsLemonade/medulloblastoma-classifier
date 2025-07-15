@@ -49,8 +49,6 @@ baseline_plot_df_filepath <- here::here(plots_data_dir, "baseline_plots_df.tsv")
 targeted_plot_df_filepath <- here::here(plots_data_dir, "targeted_plot_df.tsv")
 random_plot_df_filepath <- here::here(plots_data_dir, "random_plot_df.tsv")
 
-combined_plot_filepath <- here::here(plots_dir, "targeted_random_full_kappa_accuracy.pdf")
-
 # set subgroups analyzed in this notebook (canonical MB subgroups)
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
@@ -69,7 +67,6 @@ bulk_genex_df <- bulk_genex_df |>
 
 check_input_files(genex_df = bulk_genex_df,
                   metadata_df = bulk_metadata_df)
-
 
 ```
 
@@ -104,7 +101,7 @@ readr::write_tsv(x = targeted_plot_df,
 # random model metrics
 random_plot_df <- list.files(random_models_dir,
                              pattern = "*.rds",
-                             full.names = TRUE)
+                             full.names = TRUE) |>
   purrr::map(\(x) readr::read_rds(x) |>
                purrr::map(return_model_metrics,
                           model_types = model_types,
@@ -149,13 +146,23 @@ compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
 
 ```{r}
 
-compare_metrics_plot_df |> 
-  dplyr::filter(metric == "Kappa") |>
+kappa_wilcox_df <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa",
+                gene_set %in% c("Full", "Targeted")) |>
   dplyr::group_by(model_type, platform) |>
-  rstatix::wilcox_test(value ~ gene_set,
-                       p.adjust.method = "BH") |>
-  dplyr::filter(p.adj < 0.05) |>
-  dplyr::arrange(p.adj) |>
+  dplyr::arrange(repeat_index) # guarantee order for paired test
+  
+kappa_wilcox_test_df <- kappa_wilcox_df |>
+  rstatix::wilcox_test(value ~ gene_set, paired = TRUE)
+
+kappa_wilcox_effsize_df <- kappa_wilcox_df |>
+  rstatix::wilcox_effsize(value ~ gene_set, paired = TRUE)
+
+kappa_wilcox_test_df |>
+  dplyr::left_join(kappa_wilcox_effsize_df,
+                   by = c("model_type", "platform", ".y.", "group1", "group2", "n1", "n2")) |>
+  dplyr::filter(p < 0.05) |>
+  dplyr::arrange(p) |>
   knitr::kable()
 
 ```
@@ -164,13 +171,32 @@ compare_metrics_plot_df |>
 
 ```{r}
 
-compare_metrics_plot_df |> 
-  dplyr::filter(metric == "Balanced Accuracy") |>
+accuracy_wilcox_df <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                gene_set %in% c("Full", "Targeted")) |>
   dplyr::group_by(model_type, platform, subgroup) |>
-  rstatix::wilcox_test(value ~ gene_set,
-                       p.adjust.method = "BH") |>
-  dplyr::filter(p.adj < 0.05) |>
-  dplyr::arrange(p.adj) |>
+  dplyr::arrange(repeat_index) # guarantee order for paired test
+  
+accuracy_wilcox_test_df <- accuracy_wilcox_df |>
+  rstatix::wilcox_test(value ~ gene_set, paired = TRUE)
+
+# effect size can't handle when all the paired values have a difference of 0
+# to know which groups that fail condition applies to, look for NA p value from previous step
+
+accuracy_wilcox_effsize_df <- accuracy_wilcox_test_df |>
+  dplyr::filter(!is.na(p)) |>
+  dplyr::select(model_type, platform, subgroup) |>
+  dplyr::left_join(accuracy_wilcox_df,
+                   by = c("model_type", "platform", "subgroup")) |>
+  dplyr::group_by(model_type, platform, subgroup) |>
+  dplyr::arrange(repeat_index) |> # guarantee order for paired test
+  rstatix::wilcox_effsize(value ~ gene_set, paired = TRUE)
+
+accuracy_wilcox_test_df |>
+  dplyr::left_join(accuracy_wilcox_effsize_df,
+                   by = c("model_type", "platform", "subgroup", ".y.", "group1", "group2", "n1", "n2")) |>
+  dplyr::filter(p < 0.05) |>
+  dplyr::arrange(dplyr::desc(effsize)) |>
   knitr::kable()
 
 ```
