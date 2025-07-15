@@ -35,6 +35,7 @@ library(patchwork)
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
 models_dir <- here::here("models")
+random_models_dir <- here::here(models_dir, "targeted_gene_set_random")
 plots_dir <- here::here("plots")
 plots_data_dir <- here::here(plots_dir, "data")
 
@@ -43,7 +44,6 @@ bulk_metadata_filepath <- here::here(processed_data_dir, "bulk_metadata.tsv")
 
 baseline_filepath <- here::here(models_dir, "baseline.rds")
 targeted_filepath <- here::here(models_dir, "targeted_gene_set.rds")
-random_filepath <- here::here(models_dir, "random_gene_sets.rds")
 
 baseline_plot_df_filepath <- here::here(plots_data_dir, "baseline_plots_df.tsv")
 targeted_plot_df_filepath <- here::here(plots_data_dir, "targeted_plot_df.tsv")
@@ -78,7 +78,6 @@ check_input_files(genex_df = bulk_genex_df,
 ```{r}
 
 targeted_list <- readr::read_rds(targeted_filepath)
-random_list <- readr::read_rds(random_filepath)
 
 model_types <- c("ktsp_weighted", "ktsp_unweighted",
                  "rf_weighted", "rf_unweighted",
@@ -103,8 +102,10 @@ readr::write_tsv(x = targeted_plot_df,
                  file = targeted_plot_df_filepath)
 
 # random model metrics
-random_plot_df <- random_list |>
-  purrr::map(\(x) x |>
+random_plot_df <- list.files(random_models_dir,
+                             pattern = "*.rds",
+                             full.names = TRUE)
+  purrr::map(\(x) readr::read_rds(x) |>
                purrr::map(return_model_metrics,
                           model_types = model_types,
                           metadata_df = bulk_metadata_df,
@@ -244,6 +245,31 @@ combined_plot
 - Targeted gene sets may be useful for modeling, but would choose the full gene set if available
 - Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
 
+# Could we have used MM2S for this?
+
+```{r}
+
+# MM2S uses pathways defined by genes in HumanGMT$genesets
+# Only pathways with between 20-100 genes overlapping with expression data are scored
+n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
+                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
+  purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
+  sum() # = total number of pathways matching gene overlap criteria for scoring
+
+# MM2S assumes there are at least 24 pathways that get scored
+ifelse(n_mm2s_common_pathways >= 24,
+       "We can use MM2S!", "We cannot use MM2S.")
+
+# MM2S uses a pathway-based approach, and those pathways are pre-defined in `MM2S::HumanGMT$genesets`.
+# To return a GSVA score for a particular pathway, MM2S requires that between 20 and 100 genes overlap between the test data and the set of genes in that pathway.
+# MM2S later requires that there are at least 24 such pathways in the data.
+# However, with our targeted gene set, only n_mm2s_common_pathways pathways match the `20 <= overlapping genes <= 100` criteria.
+# MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
+
+# medullopackage also fails to run
+
+
+```
 # Session info
 
 ```{r session_info}
