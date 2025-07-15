@@ -366,35 +366,44 @@ samples_of_interest <- c("BCH825", "Med2312FH", "SJ625", "925", "1167", "1238")
 # Only need certain columns to make these plots
 cols_to_retain <- c("sample_accession",
                     "cell_index",
+                    "study",
                     "predicted_labels",
                     "model_type",
                     "subgroup",
                     "UMAP_1",
                     "UMAP_2",
-                    "cluster")
+                    "cluster",
+                    "cell_type")
 
 # Overwrite UMAP/cluster id df with one that contains relevant metadata (e.g.,
 # predicted subgroup)
 umap_cluster_df <- smartseq_results_df |>
-  dplyr::select(dplyr::all_of(cols_to_retain)) |>
+  dplyr::select(dplyr::any_of(cols_to_retain)) |>
   dplyr::bind_rows(dplyr::select(tenx_results_df, 
                                  dplyr::all_of(cols_to_retain)))
 
 # Now just the samples we're interested in and kTSP model only
 selected_sample_umap_df <- umap_cluster_df |>
   dplyr::filter(sample_accession %in% samples_of_interest,
-                model_type == "kTSP (unw)")
+                model_type == "kTSP (unw)") |>
+  # Add true subgroup to sample accession for display and reorder to match
+  # palette
+  dplyr::mutate(sample_accession = glue::glue("{sample_accession} ({subgroup})"),
+                predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors)))
+  
 ```
 
-Make a UMAP using labels from the unweighted kTSP model.
+
+Make UMAPs for Smart-seq2 dataset.
 
 ```{r}
-umap_plots <- selected_sample_umap_df |>
-  # Order the predicted labels in the same order of the palette for display
-  dplyr::mutate(predicted_labels = factor(predicted_labels,
-                                          levels = names(subgroup_colors))) |>
-  # Randomly sort to help with viz
-  dplyr::sample_n(nrow(selected_sample_umap_df)) |>
+smartseq_umap_plots <- selected_sample_umap_df |>
+  # Smart-seq2 study without labels!
+  dplyr::filter(study == "GSE119926") |>
+  # Randomly sort cells to help with viz
+  dplyr::sample_n(size = nrow(dplyr::filter(selected_sample_umap_df,
+                                            study == "GSE119926"))) |>
   ggplot(
     aes(
       x = UMAP_1,
@@ -402,16 +411,64 @@ umap_plots <- selected_sample_umap_df |>
       color = predicted_labels
     )
   ) +
-  geom_point(alpha = 0.4, shape = 16) +
-  facet_wrap(vars(sample_accession), 
-             nrow = 2,
-             scales = "free") +
+  geom_point(alpha = 0.5, shape = 16) +
+  facet_grid(cols = vars(sample_accession)) +
   theme_bw() +
   scale_color_manual(values = subgroup_colors) +
   labs(x = "UMAP1",
        y = "UMAP2",
-       color = "Predicted Subgroup")
+       color = "Predicted Subgroup (kTSP)",
+       title = "GSE119926 (Smart-seq2)") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.position = "none")
+```
 
+Make a UMAP for the 10X dataset.
+
+```{r}
+tenx_umap_plots <- selected_sample_umap_df |>
+  # 10X study we have cell type labels for
+  dplyr::filter(study == "GSE155446") |>
+  # Clean up cell type labels for display
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
+  # Order cell types a specific way
+  dplyr::mutate(cell_type = factor(cell_type,
+                                   levels = c(
+                                     "malignant",
+                                     "macrophage/monocytes",
+                                     "lymphocytes",
+                                     "oligodendrocytes/astrocytes/other"
+                                   ))) |>
+  # Randomly sort cells to help with viz
+  dplyr::sample_n(size = nrow(dplyr::filter(selected_sample_umap_df,
+                                            study == "GSE155446"))) |>
+  ggplot(
+    aes(
+      x = UMAP_1,
+      y = UMAP_2,
+      color = predicted_labels
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 16) +
+  facet_grid(rows = vars(sample_accession),
+             cols = vars(cell_type)) +
+  theme_bw() +
+  scale_color_manual(values = subgroup_colors) +
+  labs(x = "UMAP1",
+       y = "UMAP2",
+       color = "Predicted Subgroup (kTSP)",
+       title = "GSE155446 (10X)") +
+  theme(strip.text.x = element_text(size = 4.5),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+Combine into a single figure.
+
+```{r}
+umap_plots <- smartseq_umap_plots / tenx_umap_plots + 
+  plot_layout(guides = "collect",
+              heights = c(1, 2)) +
+  plot_annotation(tag_levels = "A")
 umap_plots
 ```
 
@@ -420,8 +477,8 @@ Save to file.
 ```{r}
 ggsave(file = umap_plots_file,
        plot = umap_plots,
-       width = 7,
-       height = 5,
+       width = 8.5,
+       height = 8.5,
        units = "in")
 ```
 
