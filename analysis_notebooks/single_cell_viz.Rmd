@@ -459,6 +459,7 @@ tenx_umap_plots <- selected_sample_umap_df |>
        color = "Predicted Subgroup (kTSP)",
        title = "GSE155446 (10X)") +
   theme(strip.text.x = element_text(size = 4.5),
+        axis.text.x = element_text(size = 6.5),
         plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
 
