@@ -208,13 +208,15 @@ accuracy_wilcox_test_df |>
 ```{r}
 
 kappa_plot_object <- compare_metrics_plot_df |>
-  dplyr::filter(metric == "Kappa") |>
+  dplyr::filter(metric == "Kappa",
+                gene_set %in% c("Full", "Targeted")) |>
   ggplot2::ggplot(ggplot2::aes(x = platform,
                                y = value,
                                color = gene_set)) +
   ggplot2::geom_boxplot() +
   ggplot2::facet_wrap(~ model_type,
                       nrow = 1) +
+  ggplot2::scale_y_continuous(limits = c(NA,1)) +
   ggplot2::labs(x = "Method",
                 y = "Kappa",
                 color = "Gene Set",
@@ -223,18 +225,23 @@ kappa_plot_object <- compare_metrics_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
+kappa_plot_object
+
 ```
 
-#### Balance accuracy
+#### Balanced accuracy
+
 ```{r}
 
 accuracy_plot_object <- compare_metrics_plot_df |>
-  dplyr::filter(metric == "Balanced Accuracy") |>
+  dplyr::filter(metric == "Balanced Accuracy",
+                gene_set %in% c("Full", "Targeted")) |>
   ggplot2::ggplot(ggplot2::aes(x = platform,
                                y = value,
                                color = gene_set)) +
   ggplot2::geom_boxplot() +
-  ggplot2::facet_grid(rows = dplyr::vars(subgroup), cols = dplyr::vars(model_type)) +
+  ggplot2::facet_grid(rows = dplyr::vars(subgroup),
+                      cols = dplyr::vars(model_type)) +
   ggplot2::labs(x = "Method",
                 y = "Balanced Accuracy",
                 color = "Gene Set",
@@ -243,33 +250,47 @@ accuracy_plot_object <- compare_metrics_plot_df |>
   ggplot2::theme(legend.position = "bottom",
                  legend.direction = "horizontal")
 
+accuracy_plot_object
+
 ```
 
-#### Combine plots
+#### Targeted permutation test
 
 ```{r}
 
-combined_plot <- kappa_plot_object / accuracy_plot_object +
-  plot_annotation(tag_levels = "a") +
-  plot_layout(guides = "collect", heights = c(1,4)) &
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
+targeted_dots_df <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa",
+                gene_set %in% c("Random", "Targeted")) |>
+  dplyr::group_by(repeat_index, model_type, platform) |>
+  dplyr::mutate(perm_pvalue = 1 - dplyr::percent_rank(value),
+                perm_pvalue_color = ifelse(perm_pvalue <= 0.05, "<= 0.05", "> 0.05")) |>
+  dplyr::filter(gene_set == "Targeted")
 
-ggplot2::ggsave(filename = combined_plot_filepath,
-                plot = combined_plot,
-                height = 7,
-                width = 7)
+targeted_perm_test_plot <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa",
+                gene_set == "Random") |>
+  dplyr::mutate(repeat_index = factor(repeat_index)) |>
+  ggplot2::ggplot(ggplot2::aes(x = value,
+                               y = repeat_index)) +
+  ggplot2::geom_violin() +
+  ggplot2::geom_point(data = targeted_dots_df,
+                      mapping = ggplot2::aes(x = value,
+                                             y = repeat_index,
+                                             color = perm_pvalue_color),
+                      shape = 16) +
+  ggplot2::facet_grid(cols = dplyr::vars(model_type),
+                      rows = dplyr::vars(platform)) +
+  ggplot2::scale_color_manual(values = c("<= 0.05" = "red", "> 0.05" = "black")) +
+  ggplot2::labs(x = "Kappa",
+                y = "Repeat",
+                title = "Targeted compared to random gene set Kappa distribution",
+                color = "Targeted Kappa\n(permutation p-value)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "bottom", legend.direction = "horizontal")
 
-combined_plot
+targeted_perm_test_plot
 
 ```
-
-# Interpretation
-
-- Full gene sets significantly outperform targeted gene sets
-- Random and targeted gene sets show overall similar performance
-- Targeted gene sets may be useful for modeling, but would choose the full gene set if available
-- Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
 
 # Could we have used MM2S for this?
 
@@ -296,6 +317,14 @@ ifelse(n_mm2s_common_pathways >= 24,
 
 
 ```
+
+# Interpretation
+
+- Full gene sets significantly outperform targeted gene sets
+- Random and targeted gene sets show overall similar performance
+- Targeted gene sets may be useful for modeling, but would choose the full gene set if available
+- Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
+
 # Session info
 
 ```{r session_info}
