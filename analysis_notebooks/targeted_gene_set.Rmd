@@ -1,5 +1,5 @@
 ---
-title: "Explore model accuracy using a targeted gene set"
+title: "Targeted gene set model performance"
 author: "Steven Foltz"
 date: "2025"
 output:
@@ -30,7 +30,6 @@ We will use the [Nanostring nCounter PanCancer IO 360 Panel](https://nanostring.
 source(here::here("utils/color_schemes.R"))
 source(here::here("utils/modeling.R"))
 source(here::here("utils/convert_gene_names.R"))
-library(patchwork)
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
@@ -69,6 +68,73 @@ check_input_files(genex_df = bulk_genex_df,
                   metadata_df = bulk_metadata_df)
 
 ```
+
+# How many genes in the targeted panel?
+
+```{r}
+
+# targeted genes (Nanostring IO 360 gene panel)
+targeted_genes_filepath <- file.path(processed_data_dir,
+                                     "NS_IO_360_v1.0_Genes.tsv")
+
+targeted_genes_df <- readr::read_tsv(file = targeted_genes_filepath,
+                                     show_col_types = FALSE)
+
+n_targeted_genes_original <- nrow(targeted_genes_df)
+
+# convert targeted gene set from SYMBOL to ENSEMBL
+targeted_genes_df <- targeted_genes_df |>
+  convert_gene_names(gene_column_before = "Gene",
+                     gene_column_after = "gene",
+                     map_from = "SYMBOL",
+                     map_to = "ENSEMBL",
+                     ah_date = "2022-10-30")
+
+# reduce bulk genex df to overlap with targeted genes
+bulk_genex_df_targeted <- bulk_genex_df[row.names(bulk_genex_df) %in% targeted_genes_df$gene, ]
+
+n_targeted_genes_overlap <- nrow(bulk_genex_df_targeted)
+
+```
+
+The original targeted gene set (Nanostring IO 360 gene panel) comprised `r n_targeted_genes_original` genes.
+After overlapping with our expression data, there were `r n_targeted_genes_overlap` genes remaining.
+
+# Could we have used MM2S for this?
+
+```{r}
+
+suppressMessages(library(MM2S))
+
+# convert overlapping targeted gene set from ENSEMBL to ENTREZID for MM2S
+targeted_genes_df_ENTREZID <- bulk_genex_df_targeted |>
+  tibble::rownames_to_column(var = "gene") |>
+  convert_gene_names(gene_column_before = "gene",
+                     gene_column_after = "gene",
+                     map_from = "ENSEMBL",
+                     map_to = "ENTREZID",
+                     ah_date = "2022-10-30")
+
+# MM2S uses pathways defined by genes in HumanGMT$genesets
+# Only pathways with between 20-100 genes overlapping with expression data are scored
+n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
+                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
+  purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
+  sum() # = total number of pathways matching gene overlap criteria for scoring
+
+# MM2S assumes there are at least 24 pathways that get scored
+ifelse(n_mm2s_common_pathways >= 24,
+       "We can use MM2S!", "We cannot use MM2S.")
+
+```
+
+MM2S uses a pathway-based approach, and those pathways are pre-defined in `MM2S::HumanGMT$genesets`.
+To return a GSVA score for a particular pathway, MM2S requires that between 20 and 100 genes overlap between the test data and the set of genes in that pathway.
+MM2S later requires that there are at least 24 such pathways in the data.
+However, with our targeted gene set, only `r n_mm2s_common_pathways` pathways match the `20 <= overlapping genes <= 100` criteria.
+MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
+
+medulloPackage also fails to run.
 
 # Gather targeted, random, and baseline data
 
@@ -110,11 +176,11 @@ random_plot_df <- list.files(random_models_dir,
                           platforms = c("Array", "RNA-seq")) |>
                purrr::list_rbind(names_to = "repeat_index") |>
                dplyr::mutate(model_type = dplyr::case_match(model_type,
-                                               "ktsp_weighted" ~ "kTSP (w)",
-                                               "ktsp_unweighted" ~ "kTSP (unw)",
-                                               "rf_weighted" ~ "RF (w)",
-                                               "rf_unweighted" ~ "RF (unw)",
-                                               "lasso" ~ "LASSO"))) |>
+                                                            "ktsp_weighted" ~ "kTSP (w)",
+                                                            "ktsp_unweighted" ~ "kTSP (unw)",
+                                                            "rf_weighted" ~ "RF (w)",
+                                                            "rf_unweighted" ~ "RF (unw)",
+                                                            "lasso" ~ "LASSO"))) |>
   purrr::list_rbind(names_to = "random_index")
 
 readr::write_tsv(x = random_plot_df,
@@ -128,7 +194,6 @@ baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
                                   "LASSO"))
 
 # combined dfs
-
 compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
                                               dplyr::mutate(gene_set = "Targeted"),
                                             random_plot_df |>
@@ -140,9 +205,9 @@ compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
 
 # Compare model performance
 
-### Statistical difference?
+## Statistical difference?
 
-#### Kappa
+### Kappa
 
 ```{r}
 
@@ -151,7 +216,7 @@ kappa_wilcox_df <- compare_metrics_plot_df |>
                 gene_set %in% c("Full", "Targeted")) |>
   dplyr::group_by(model_type, platform) |>
   dplyr::arrange(repeat_index) # guarantee order for paired test
-  
+
 kappa_wilcox_test_df <- kappa_wilcox_df |>
   rstatix::wilcox_test(value ~ gene_set, paired = TRUE)
 
@@ -162,12 +227,13 @@ kappa_wilcox_test_df |>
   dplyr::left_join(kappa_wilcox_effsize_df,
                    by = c("model_type", "platform", ".y.", "group1", "group2", "n1", "n2")) |>
   dplyr::filter(p < 0.05) |>
+  dplyr::select(-`.y.`) |>
   dplyr::arrange(p) |>
   knitr::kable()
 
 ```
 
-#### Balanced Accuracy
+### Balanced Accuracy
 
 ```{r}
 
@@ -176,12 +242,12 @@ accuracy_wilcox_df <- compare_metrics_plot_df |>
                 gene_set %in% c("Full", "Targeted")) |>
   dplyr::group_by(model_type, platform, subgroup) |>
   dplyr::arrange(repeat_index) # guarantee order for paired test
-  
+
 accuracy_wilcox_test_df <- accuracy_wilcox_df |>
   rstatix::wilcox_test(value ~ gene_set, paired = TRUE)
 
-# effect size can't handle when all the paired values have a difference of 0
-# to know which groups that fail condition applies to, look for NA p value from previous step
+# Effect size function can't handle it when all the paired values have a difference of 0.
+# To know which groups that fail condition applies to, look for NA p value from previous step
 
 accuracy_wilcox_effsize_df <- accuracy_wilcox_test_df |>
   dplyr::filter(!is.na(p)) |>
@@ -196,14 +262,15 @@ accuracy_wilcox_test_df |>
   dplyr::left_join(accuracy_wilcox_effsize_df,
                    by = c("model_type", "platform", "subgroup", ".y.", "group1", "group2", "n1", "n2")) |>
   dplyr::filter(p < 0.05) |>
-  dplyr::arrange(dplyr::desc(effsize)) |>
+  dplyr::select(-`.y.`) |>
+  dplyr::arrange(p) |>
   knitr::kable()
 
 ```
 
-### Visualize difference
+## Visualize difference
 
-#### Kappa
+### Kappa
 
 ```{r}
 
@@ -229,7 +296,7 @@ kappa_plot_object
 
 ```
 
-#### Balanced accuracy
+### Balanced accuracy
 
 ```{r}
 
@@ -254,7 +321,7 @@ accuracy_plot_object
 
 ```
 
-#### Targeted permutation test
+## Targeted permutation test
 
 ```{r}
 
@@ -292,38 +359,24 @@ targeted_perm_test_plot
 
 ```
 
-# Could we have used MM2S for this?
-
-```{r}
-
-# MM2S uses pathways defined by genes in HumanGMT$genesets
-# Only pathways with between 20-100 genes overlapping with expression data are scored
-n_mm2s_common_pathways <- purrr::map(MM2S::HumanGMT$genesets,
-                                     \(x) sum(x %in% targeted_genes_df_ENTREZID$gene)) |>
-  purrr::map_lgl(\(x) x >= 20 & x <= 100) |>
-  sum() # = total number of pathways matching gene overlap criteria for scoring
-
-# MM2S assumes there are at least 24 pathways that get scored
-ifelse(n_mm2s_common_pathways >= 24,
-       "We can use MM2S!", "We cannot use MM2S.")
-
-# MM2S uses a pathway-based approach, and those pathways are pre-defined in `MM2S::HumanGMT$genesets`.
-# To return a GSVA score for a particular pathway, MM2S requires that between 20 and 100 genes overlap between the test data and the set of genes in that pathway.
-# MM2S later requires that there are at least 24 such pathways in the data.
-# However, with our targeted gene set, only n_mm2s_common_pathways pathways match the `20 <= overlapping genes <= 100` criteria.
-# MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
-
-# medullopackage also fails to run
-
-
-```
-
 # Interpretation
 
-- Full gene sets significantly outperform targeted gene sets
+- Full gene sets significantly outperform targeted gene sets, especially in Array data
 - Random and targeted gene sets show overall similar performance
 - Targeted gene sets may be useful for modeling, but would choose the full gene set if available
 - Targeted gene sets cannot be used with existing methods MM2S and medulloPackage
+
+Returning to our two key questions:
+
+1. Given a targeted gene set of cancer-related genes, how does model performance compare between targeted gene set models and full gene set models?
+
+Full gene set models significantly outperform targeted gene set models.
+This difference is most striking when predicting MB subgroup labels from Array data.
+
+2. Does the identity of the genes in the targeted gene set matter? In other words, can a random gene set of the same size perform just as well as the targeted gene set?
+
+The identity of the genes used in the targeted gene set appears to not matter.
+The performance of targeted gene set models falls within the range of random gene sets of the same size.
 
 # Session info
 
