@@ -1,0 +1,492 @@
+---
+title: "Single-cell visualizations"
+author: "Jaclyn Taroni"
+date: '2025'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+In this notebook, we will create visualizations for individual cell subgroup predictions in the 10X ([Riemondy, et al.](https://doi.org/10.1093/neuonc/noab135)) and Smart-seq2 data ([Hovestadt, et al.](https://www.nature.com/articles/s41586-019-1434-6)).
+
+For the Smart-seq2 dataset, we will not use any filtering to remove cells with too few classifier-relevant genes observed, as we did not see that improve "accuracy" in `analyze_prop_observed_single_cells.Rmd`.
+
+For the 10X dataset, we will filter out cells that have less than 10% of informative genes observed.
+The 10X dataset additionally has metadata available from UCSC Cell Browser that includes cell type labels and QC measures.
+
+## Setup
+
+```{r}
+set.seed(2025)
+```
+
+### Libraries
+
+```{r}
+library(ggplot2)
+library(ggridges)
+library(patchwork)
+```
+
+### Source
+
+We only need the color schemes.
+
+```{r}
+source(here::here("utils", "color_schemes.R"))
+```
+
+### Directories
+
+```{r}
+# Set up directories
+tenx_data_dir <- here::here("data", 
+                            "GSE155446")
+sc_results_dir <- here::here("results",
+                             "single_cells_filtered")
+plots_data_dir <- here::here("plots", "data")
+plots_dir <- here::here("plots")
+```
+
+### Input files
+
+```{r}
+# 10X metadata from UCSC Cell Browser
+tenx_metadata_file <- here::here(tenx_data_dir,
+                                 "meta.tsv")
+
+# Table with UMAP coords, cluster ID, etc.
+umap_cluster_file <- here::here(plots_data_dir,
+                                "single_cell_umap_coord_cluster.tsv")
+
+# We don't want to do any filtering for the Smart-seq2 dataset
+no_filter_rf_results_file <- here::here(sc_results_dir, 
+                                        "rf_0.tsv")
+no_filter_ktsp_results_file <- here::here(sc_results_dir, 
+                                          "ktsp_0_gene.tsv")
+
+# 0.1, gene-based filtering for the 10X dataset
+tenperc_rf_results_file <- here::here(sc_results_dir, 
+                                      "rf_0.1.tsv")
+tenperc_ktsp_results_file <- here::here(sc_results_dir, 
+                                        "ktsp_0.1_gene.tsv")
+
+# Put all together for convenience
+results_files <- c(no_filter_ktsp_results_file, 
+                   no_filter_rf_results_file,
+                   tenperc_ktsp_results_file, 
+                   tenperc_rf_results_file)
+```
+
+### Output files
+
+#### Data
+
+```{r}
+tenx_results_file <- here::here(plots_data_dir,
+                                "10x_single_cell_test_predictions.tsv")
+smartseq_results_file <- here::here(plots_data_dir,
+                                    "smartseq_single_cell_test_predictions.tsv")
+```
+
+#### Plots
+
+```{r}
+stacked_barplot_file <- here::here(plots_dir,
+                                   "10x_cell_type_subgroup_stacked_bar.pdf")
+ridgeplot_file <- here::here(plots_dir,
+                             "10x_malignant_cell_quality_ridge.pdf")
+umap_plots_file <- here::here(plots_dir,
+                              "single_cell_UMAPs_G3_G4_samples.pdf")
+```
+
+
+## Read in and wrangle data
+
+Read in all of the individual cell prediction files that we're going to use for plotting.
+
+```{r}
+# Create a data frame with all the results
+results_df <- results_files |> 
+  purrr::map(readr::read_tsv, 
+             progress = FALSE,
+             show_col_types = FALSE) |>
+  # Set names based on file names
+  purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
+  # Bind data frames together
+  dplyr::bind_rows(.id = "run") |>
+  # Use the file name to pull out the parameters that were used to generate the
+  # results into columns
+  dplyr::mutate(
+    prop_observed = stringr::word(run, 2, sep = "_"),
+    filtering_type = stringr::word(run, 3, sep = "_")
+  ) |>
+  # Drop identifier derived from file names
+  dplyr::select(-run)
+```
+
+Read in file that contains the UMAP coordinates and cluster labels for all individual cells in both datasets.
+
+```{r}
+umap_cluster_df <- readr::read_tsv(umap_cluster_file,
+                                   show_col_types = FALSE) |>
+  # Concatenate sample identifier and barcode for 10x data, which allows for
+  # joining with the metadata from UCSC Cell Browser
+  dplyr::mutate(cell_id = dplyr::case_when(
+    !is.na(barcode) ~ stringr::str_c(sample_accession, barcode, sep = "_"),
+    TRUE ~ NA
+  )) |>
+  dplyr::select(-barcode)
+```
+
+### Smart-seq2 dataset
+
+For the Smart-seq2 dataset, we observed no benefit to employing a filtering strategy, so we will move forward with results that have no filtering of cells in place.
+
+```{r}
+# Use no filtering strategy for Smart-seq2 dataset
+smartseq_results_df <- results_df |>
+  dplyr::filter(study == "GSE119926",
+                prop_observed == 0,
+                model_type == "RF (w)" | 
+                  # This filtering_type is just to avoid duplicates -- the
+                  # results between strategies with no filtering should be the
+                  # same
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+```
+
+Add the UMAP coordinates and cluster labels to the Smart-seq2 results
+
+```{r}
+smartseq_results_df <- smartseq_results_df |> 
+  dplyr::left_join(umap_cluster_df, by = c("sample_accession", "cell_index")) |>
+  # The cell_id column is all NA for this dataset because there are no barcodes
+  # so we can drop it
+  dplyr::select(-cell_id)
+```
+
+Write to file.
+
+```{r}
+readr::write_tsv(smartseq_results_df, file = smartseq_results_file)
+```
+
+### 10X dataset
+
+For the 10X dataset, using a gene-based filtering strategy where at least 10% of the genes in rules was observed resulted in a small benefit, particularly for the kTSP model.
+
+```{r}
+# For the 10x dataset, use 0.1 proportion observed using the gene-based strategy
+tenx_results_df <- results_df |> 
+  dplyr::filter(study == "GSE155446",
+                prop_observed == 0.1,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+
+# Remove larger, unfiltered data frame
+rm(results_df)
+```
+
+Combine the predicted results, cell type labels obtained from UCSC Cell Browser, UMAP coordinates, and cluster labels for the 10X dataset.
+
+```{r}
+# Read in metadata from UCSC Cell Browser
+tenx_meta_df <- readr::read_tsv(tenx_metadata_file,
+                                show_col_types = FALSE)
+
+# Join the cell type labels from UCSC Cell Browser with the UMAP coordinates
+# and cluster labels
+tenx_meta_df <- tenx_meta_df |>
+  # We want the cell type labels and QC information from UCSC Cell Browser only
+  dplyr::select(Cell, 
+                cell_type, 
+                genes_per_cell = `genes per cell`, 
+                umis_per_cell = `UMIs per cell`, 
+                percent_mito = `percent of UMIs as mitochondria`) |>
+  # Keep only the 10X data for this particular data frame and drop the samples
+  # that we removed due to label ambiguity -- hence the inner join
+  dplyr::inner_join(umap_cluster_df, by = c("Cell" = "cell_id")) |>
+  # Drop the cell identifier now that joining is complete
+  dplyr::select(-Cell)
+
+# Add this metadata to the results data frame
+tenx_results_df <- tenx_results_df |>
+  dplyr::left_join(tenx_meta_df, 
+                   by = c("sample_accession", "cell_index"))
+
+# Remove table of just metadata
+rm(tenx_meta_df)
+```
+
+Write the 10x data for plotting to file.
+
+```{r}
+readr::write_tsv(tenx_results_df, file = tenx_results_file)
+```
+
+## 10X Cell Type exploration
+
+We are interested in what subgroup different cell types get labeled as using the different pair-based classifiers.
+We only have cell type labels for the 10X dataset.
+
+### Stacked barplot
+
+We'll make a stacked bar plot to examine the relationship between cell type label and predicted subgroup label.
+
+```{r}
+stacked_barplot <- tenx_results_df |>
+  # Clean up the cell type labels just for display
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
+  # Make sure the predicted labels are ordered the same as the color palette
+  # and order the cell types a particular way
+  dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors)),
+                cell_type = factor(cell_type,
+                                   levels = c(
+                                     "malignant",
+                                     "macrophage/monocytes",
+                                     "lymphocytes",
+                                     "oligodendrocytes/astrocytes/other"
+                                   ))) |>
+  ggplot(
+    aes(
+      x = cell_type,
+      fill = predicted_labels
+    )
+  ) +
+  geom_bar() +
+  facet_grid(col = vars(subgroup),
+             row = vars(model_type)) +
+  theme_bw() +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(x = "Cell Type",
+       y = "Cell Count",
+       fill = "Predicted Label",
+       title = "GSE155446 (10X) Predicted Label by Cell Type") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+stacked_barplot
+```
+
+It looks like non-malignant cells tend to be unclassified (i.e., because not enough relevant genes are observed).
+
+Let's save the plot to file.
+
+```{r}
+ggsave(plot = stacked_barplot,
+       file = stacked_barplot_file,
+       width = 7,
+       height = 5,
+       unit = "in")
+```
+
+### Quality of malignant cells by predicted subgroup label
+
+Is there a difference in quality between malignant cells that are predicted to have different subgroup labels (including unclassified)?
+
+Create a long data frame that holds the QC metrics from UCSC Cell Browser.
+
+```{r}
+malignant_cell_qc_df <- tenx_results_df |>
+  # Only the malignant cells
+  dplyr::filter(cell_type == "malignant") |>
+  # Only retain the columns we need for plotting
+  dplyr::select(sample_accession,
+                cell_index,
+                predicted_labels,
+                model_type,
+                genes_per_cell,
+                umis_per_cell,
+                percent_mito) |>
+  # Long form so we can facet by the different QC measures
+  tidyr::pivot_longer(cols = c(genes_per_cell, percent_mito, umis_per_cell),
+                      names_to = "measure") |>
+  # Order the predicted labels in the same order of the palette for display
+  dplyr::mutate(predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors))) |>
+  # Clean up the measure names for display
+  dplyr::mutate(measure = dplyr::case_when(
+    measure == "genes_per_cell" ~ "Genes Per Cell",
+    measure == "umis_per_cell" ~ "UMIs Per Cell",
+    measure == "percent_mito" ~ "% Mitochondrial"
+  ))
+
+```
+
+Make a ridge plot looking at the distribution of these measures, where density for each predicted subgroup is plotted separately, and rows are model type, columns are individual QC measures
+
+```{r}
+malignant_ridge_plot <- malignant_cell_qc_df |>
+  ggplot(
+    aes(
+      x = value,
+      y = predicted_labels,
+      fill = predicted_labels
+    )
+  ) +
+  geom_density_ridges(alpha = 0.5) +
+  theme_bw() +
+  facet_grid(rows = vars(model_type),
+             cols = vars(measure),
+             scales = "free_x") +
+  scale_fill_manual(values = subgroup_colors) +
+  labs(x = "Value",
+       y = "Predicted Subgroup",
+       title = "Malignant Cell Quality") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+malignant_ridge_plot
+```
+
+
+It looks like malignant cells that are unclassified (i.e., because too few relevant genes are observed) tend to have fewer genes per cell and perhaps higher mitochondrial content.
+
+Taken together, this suggests that the pair-based classifiers -- and kTSP in particular -- do well at classification for cancerous cells of sufficient quality.
+
+```{r}
+ggsave(file = ridgeplot_file,
+       plot = malignant_ridge_plot,
+       width = 7,
+       height = 5,
+       units = "in")
+```
+
+## UMAPs
+
+For some samples, there's a mix of G3 and G4 predictions and the pseudobulk and individual cell levels.
+Let's make UMAPs with the cells colored by predicted subgroup label.
+
+```{r}
+# Samples with a mix of G3 and G4 cells
+samples_of_interest <- c("BCH825", "Med2312FH", "SJ625", "925", "1167", "1238")
+
+# Only need certain columns to make these plots
+cols_to_retain <- c("sample_accession",
+                    "cell_index",
+                    "study",
+                    "predicted_labels",
+                    "model_type",
+                    "subgroup",
+                    "UMAP_1",
+                    "UMAP_2",
+                    "cluster",
+                    "cell_type")
+
+# Overwrite UMAP/cluster id df with one that contains relevant metadata (e.g.,
+# predicted subgroup)
+umap_cluster_df <- smartseq_results_df |>
+  dplyr::select(dplyr::any_of(cols_to_retain)) |>
+  dplyr::bind_rows(dplyr::select(tenx_results_df, 
+                                 dplyr::all_of(cols_to_retain)))
+
+# Now just the samples we're interested in and kTSP model only
+selected_sample_umap_df <- umap_cluster_df |>
+  dplyr::filter(sample_accession %in% samples_of_interest,
+                model_type == "kTSP (unw)") |>
+  # Add true subgroup to sample accession for display and reorder to match
+  # palette
+  dplyr::mutate(sample_accession = glue::glue("{sample_accession} ({subgroup})"),
+                predicted_labels = factor(predicted_labels,
+                                          levels = names(subgroup_colors)))
+  
+```
+
+
+Make UMAPs for Smart-seq2 dataset.
+
+```{r}
+smartseq_umap_plots <- selected_sample_umap_df |>
+  # Smart-seq2 study without labels!
+  dplyr::filter(study == "GSE119926") |>
+  # Randomly sort cells to help with viz
+  dplyr::sample_n(size = nrow(dplyr::filter(selected_sample_umap_df,
+                                            study == "GSE119926"))) |>
+  ggplot(
+    aes(
+      x = UMAP_1,
+      y = UMAP_2,
+      color = predicted_labels
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 16) +
+  facet_grid(cols = vars(sample_accession)) +
+  theme_bw() +
+  scale_color_manual(values = subgroup_colors) +
+  labs(x = "UMAP1",
+       y = "UMAP2",
+       color = "Predicted Subgroup (kTSP)",
+       title = "GSE119926 (Smart-seq2)") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.position = "none")
+```
+
+Make a UMAP for the 10X dataset.
+
+```{r}
+tenx_umap_plots <- selected_sample_umap_df |>
+  # 10X study we have cell type labels for
+  dplyr::filter(study == "GSE155446") |>
+  # Clean up cell type labels for display
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "\n")) |>
+  # Order cell types a specific way
+  dplyr::mutate(cell_type = factor(cell_type,
+                                   levels = c(
+                                     "malignant",
+                                     "macrophage\nmonocytes",
+                                     "lymphocytes",
+                                     "oligodendrocytes\nastrocytes\nother"
+                                   ))) |>
+  # Randomly sort cells to help with viz
+  dplyr::sample_n(size = nrow(dplyr::filter(selected_sample_umap_df,
+                                            study == "GSE155446"))) |>
+  ggplot(
+    aes(
+      x = UMAP_1,
+      y = UMAP_2,
+      color = predicted_labels
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 16) +
+  facet_grid(rows = vars(sample_accession),
+             cols = vars(cell_type)) +
+  theme_bw() +
+  scale_color_manual(values = subgroup_colors) +
+  labs(x = "UMAP1",
+       y = "UMAP2",
+       color = "Predicted Subgroup (kTSP)",
+       title = "GSE155446 (10X)") +
+  theme(strip.text.x = element_text(size = 7.5),
+        axis.text.x = element_text(size = 6.5),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+Combine into a single figure.
+
+```{r, fig.width=8.5, fig.height=8.5}
+umap_plots <- smartseq_umap_plots / tenx_umap_plots + 
+  plot_layout(guides = "collect",
+              heights = c(1, 2)) +
+  plot_annotation(tag_levels = "A")
+umap_plots
+```
+
+Save to file.
+
+```{r}
+ggsave(file = umap_plots_file,
+       plot = umap_plots,
+       width = 8.5,
+       height = 8.5,
+       units = "in")
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
