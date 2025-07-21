@@ -342,6 +342,7 @@ malignant_ridge_plot <- malignant_cell_qc_df |>
 malignant_ridge_plot
 ```
 
+
 It looks like malignant cells that are unclassified (i.e., because too few relevant genes are observed) tend to have fewer genes per cell and perhaps higher mitochondrial content.
 
 Taken together, this suggests that the pair-based classifiers -- and kTSP in particular -- do well at classification for cancerous cells of sufficient quality.
