@@ -431,14 +431,14 @@ tenx_umap_plots <- selected_sample_umap_df |>
   # 10X study we have cell type labels for
   dplyr::filter(study == "GSE155446") |>
   # Clean up cell type labels for display
-  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "/")) |>
+  dplyr::mutate(cell_type = stringr::str_replace_all(cell_type, "_", "\n")) |>
   # Order cell types a specific way
   dplyr::mutate(cell_type = factor(cell_type,
                                    levels = c(
                                      "malignant",
-                                     "macrophage/monocytes",
+                                     "macrophage\nmonocytes",
                                      "lymphocytes",
-                                     "oligodendrocytes/astrocytes/other"
+                                     "oligodendrocytes\nastrocytes\nother"
                                    ))) |>
   # Randomly sort cells to help with viz
   dplyr::sample_n(size = nrow(dplyr::filter(selected_sample_umap_df,
@@ -459,14 +459,14 @@ tenx_umap_plots <- selected_sample_umap_df |>
        y = "UMAP2",
        color = "Predicted Subgroup (kTSP)",
        title = "GSE155446 (10X)") +
-  theme(strip.text.x = element_text(size = 4.5),
+  theme(strip.text.x = element_text(size = 7.5),
         axis.text.x = element_text(size = 6.5),
         plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
 
 Combine into a single figure.
 
-```{r}
+```{r, fig.width=8.5, fig.height=8.5}
 umap_plots <- smartseq_umap_plots / tenx_umap_plots + 
   plot_layout(guides = "collect",
               heights = c(1, 2)) +
