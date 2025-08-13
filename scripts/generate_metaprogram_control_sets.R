@@ -47,6 +47,12 @@ pick_hundred_genes <- function(gene,
   # Output: A vector of 100 genes (not in the program) that are closest in their
   #         average expression level to the query gene
   
+  # If you can't find the query gene, return NULL
+  
+  if (!(gene %in% names(gene_means))) {
+    return(NULL)
+  }
+  
   # Subtract gene of interest average expression from all average expression
   gene_diff <- gene_means - gene_means[gene]
   
@@ -93,3 +99,19 @@ gene_means <- rowMeans(pseudobulk_mat)
 
 #### Get control gene sets -----------------------------------------------------
 
+metaprogram_controls_df <- metaprogram_genes_list |> 
+  purrr::map(\(program) program |>
+               purrr::map(\(gene) 
+                          pick_hundred_genes(gene = gene,
+                                             program_genes = program,
+                                             gene_means = gene_means)
+               ) |>
+               purrr::flatten_chr() |>
+               unique()
+  ) |>
+  purrr::imap(\(x, y) data.frame(gene = x, metaprogram = y)) |>
+  dplyr::bind_rows()
+
+#### Write to file -------------------------------------------------------------
+
+readr::write_tsv(metaprogram_controls_df, file = opt$output_file)
