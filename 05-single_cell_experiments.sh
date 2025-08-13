@@ -15,6 +15,8 @@ predict_dir="predict"
 analysis_notebooks_dir="analysis_notebooks"
 scripts_dir="scripts"
 results_dir="results/single_cells_filtered"
+processed_data_dir="processed_data"
+sc_data_dir="${processed_data_dir}/single_cell"
 mkdir -p $results_dir
 
 # Run prediction on single-cell and pseudobulk data
@@ -55,3 +57,13 @@ Rscript "${scripts_dir}/extract_single_cell_cluster_umap.R"
 
 # Single-cell visualizations
 Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
+
+# Generate control lists for Hovestadt et al. G3/G4 metaprograms
+for study in GSE119926 GSE155446; do
+
+  Rscript "${scripts_dir}/generate_metaprogram_control_sets.R" \
+    --pseudobulk_input_file "${sc_data_dir}/${study}/${study}_pseudobulk_genex.tsv" \
+    --metaprogram_file "${processed_data_dir}/hovestadt-et-al-group-3-4-metaprogram-genes.tsv" \
+    --output_file "${sc_data_dir}/${study}/${study}_hovestadt-et-al-control-genes.tsv"
+
+done
