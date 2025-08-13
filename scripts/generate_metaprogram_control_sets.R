@@ -1,3 +1,12 @@
+# J. Taroni 2025
+#
+# For a set of metaprograms in a single-cell dataset, generate a control
+# list of genes
+#
+# For each gene in the metaprogram, find the 100 genes outside of the
+# metaprogram with the closest average pseudobulk expression across the whole
+# cohort
+
 library(optparse)
 
 #### Command line options ------------------------------------------------------
@@ -39,33 +48,33 @@ pick_hundred_genes <- function(gene,
   #
   # Input:
   #   gene: A gene symbol of a gene to be used as a query
-  #   program_genes: A vector of gene symbols in the program -- these will 
+  #   program_genes: A vector of gene symbols in the program -- these will
   #                  be removed from consideration
   #   gene_means: A named vector of gene mean values where the names are
   #               gene symbols
   #
   # Output: A vector of 100 genes (not in the program) that are closest in their
   #         average expression level to the query gene
-  
+
   # If you can't find the query gene, return NULL
-  
+
   if (!(gene %in% names(gene_means))) {
     return(NULL)
   }
-  
+
   # Subtract gene of interest average expression from all average expression
   gene_diff <- gene_means - gene_means[gene]
-  
+
   # Remove genes that are in the program
   gene_diff <- gene_diff[setdiff(names(gene_means), program_genes)]
-  
+
   # Closest 100 genes -- use the absolute value of the difference from the
   # query gene average expression level
   hundred_genes <- names(sort(abs(gene_diff), decreasing = FALSE))[1:100]
-  
+
   # Return closest 100 genes
   return(hundred_genes)
-  
+
 }
 
 #### Read in data --------------------------------------------------------------
@@ -85,7 +94,7 @@ pseudobulk_df <- convert_gene_names(genex_df = pseudobulk_df,
 #### Set up metaprogram data ---------------------------------------------------
 
 metaprogram_genes_list <- unique(metaprogram_df$metaprogram) |>
-  purrr::map(\(program) 
+  purrr::map(\(program)
               metaprogram_df |>
                 dplyr::filter(metaprogram == program) |>
                 dplyr::pull(gene)
@@ -99,9 +108,9 @@ gene_means <- rowMeans(pseudobulk_mat)
 
 #### Get control gene sets -----------------------------------------------------
 
-metaprogram_controls_df <- metaprogram_genes_list |> 
+metaprogram_controls_df <- metaprogram_genes_list |>
   purrr::map(\(program) program |>
-               purrr::map(\(gene) 
+               purrr::map(\(gene)
                           pick_hundred_genes(gene = gene,
                                              program_genes = program,
                                              gene_means = gene_means)
