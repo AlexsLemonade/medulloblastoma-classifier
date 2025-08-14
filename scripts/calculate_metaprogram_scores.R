@@ -35,14 +35,19 @@ dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
 
 #### Function ------------------------------------------------------------------
 
-calculate_metaprogram_score <- function(sce,
+calculate_metaprogram_score <- function(sce_filepath,
                                         sample_name,
                                         program_name,
                                         program_genes,
                                         control_genes) {
 
+  # Read in SingleCellExperiment object
+  sce <- readr::read_rds(sce_filepath)
+
   # Extract the data in the counts slot
   gene_exp <- SingleCellExperiment::counts(sce)
+
+  # TODO: Add gene conversion
 
   # Subset to program genes
   program_genes <- intersect(rownames(gene_exp), program_genes)
@@ -70,7 +75,7 @@ calculate_metaprogram_score <- function(sce,
 
 #### Set up samples ------------------------------------------------------------
 
-sce_files <- fs::dir_ls(path = fs::path(opt$sce_input_dir, "sce"),
+sce_files <- fs::dir_ls(path = fs::path(opt$sce_input_dir),
                         glob = "*_sce.rds")
 
 # Extract sample titles from the file names
@@ -89,4 +94,30 @@ if (any(duplicated(sce_sample_titles))) {
 
 }
 
+#### Read in program and control genes -----------------------------------------
+
+metaprogram_df <- readr::read_tsv(opt$metaprogram_file)
+control_genes_df <- readr::read_tsv(opt$controls_file)
+
+metaprograms <- unique(metaprogram_df$metaprogram)
+
+program <- metaprograms[1]
+
+program_genes <- metaprogram_df |>
+  dplyr::filter(metaprogram == program) |>
+  dplyr::pull(gene)
+
+control_genes <- control_genes_df |>
+  dplyr::filter(metaprogram == program) |>
+  dplyr::pull(gene)
+
+sce_results <- purrr::imap(sce_files,
+                           \(sce_file, sample_name)
+                           calculate_metaprogram_score(
+                             sce_filepath = sce_file,
+                             sample_name = sample_name,
+                             program_name = program,
+                             program_genes = program_genes,
+                             control_genes = control_genes
+                           ))
 
