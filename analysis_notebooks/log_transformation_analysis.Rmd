@@ -1,0 +1,142 @@
+---
+title: "Analyze results of log2 transformation experiment"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+```{r}
+library(ggplot2)
+
+results_dir <- here::here("results")
+plots_data_dir <- here::here("plots/data")
+
+# To get Kappa values from baseline bulk experiments
+baseline_predictions_filepath <- file.path(
+  plots_data_dir,
+  "baseline_plots_df.tsv"
+)
+
+# Used to extract Kappa values from the log2 transformation experiments
+transformation_results_filepath <- file.path(
+  results_dir,
+  "log2_transformation_prediction_results.rds"
+)
+```
+
+```{r}
+baseline_results_df <- readr::read_tsv(baseline_predictions_filepath,
+                                       progress = FALSE,
+                                       show_col_types = FALSE)
+transformation_results_list <- readr::read_rds(transformation_results_filepath)
+```
+
+```{r}
+# Grab just the values we need from the baseline results
+baseline_results_df <- baseline_results_df |>
+  dplyr::filter(repeat_index %in% c(6, 8, 10),
+                platform == "RNA-seq",
+                metric == "Kappa",
+                !(model_type %in% c("RF (unw)", "kTSP (w)")))
+```
+
+```{r}
+wrangle_kappa <- function(dataset) {
+  
+  # Only retain the parts of the list that have metrics in them
+  dataset_metrics <- dataset[-which(names(dataset) 
+                                    %in% c("dataset", "transformation"))]
+  
+  # Extract the Kappa values
+  kappa_values <- dataset_metrics |> 
+    purrr::map(\(x) x$cm$overall[["Kappa"]])
+  
+  # Return data frame of Kappa values for the relevant dataset-transformation
+  # combination
+  df <- data.frame(
+    study = dataset$dataset,
+    transformation = dataset$transformation,
+    model_type = names(kappa_values),
+    metric = "Kappa",
+    value = unlist(kappa_values)
+  )
+  rownames(df) <- NULL
+  
+  return(df)
+  
+}
+```
+
+```{r}
+transform_kappa_df <- transformation_results_list |>
+  purrr::map(\(x) wrangle_kappa(x)) |>
+  dplyr::bind_rows() |>
+  dplyr::mutate(model_type = dplyr::case_match(
+    model_type,
+    "ktsp_unweighted" ~ "kTSP (unw)",
+    "rf_weighted" ~ "RF (w)",
+    "medullopackage" ~ "medulloPackage",
+    "mm2s" ~ "MM2S",
+    "lasso" ~ "LASSO"
+  )
+)
+
+all_results_df <- baseline_results_df |>
+  # In the baseline results, only medulloPackage uses log2 transformed data
+  dplyr::mutate(transformation = dplyr::case_when(
+    model_type == "medulloPackage" ~ "log2",
+    TRUE ~ "untransformed"
+  )) |>
+  dplyr::select(
+    study,
+    transformation,
+    model_type,
+    metric,
+    value
+  ) |> 
+  dplyr::bind_rows(transform_kappa_df) |>
+  dplyr::mutate(platform = dplyr::case_when(
+    study %in% c("GSE119926", "GSE155446") ~ "pseudobulk",
+    TRUE ~ "bulk"
+  ))
+```
+
+
+```{r}
+all_results_df |>
+  dplyr::mutate(
+    study = factor(study,
+                   # Put pseudobulk last
+                   levels = c("GSE164677", "OpenPBTA", "St. Jude", 
+                              "GSE119926", "GSE155446")),
+    transformation = factor(transformation,
+                            levels = c("untransformed", "log2"))
+  ) |>
+  ggplot(aes(
+    x = study,
+    y = value,
+    fill = platform
+  )) +
+  geom_bar(stat = "identity") +
+  geom_text(
+    aes(label = round(value, 2)), 
+    vjust = 0,
+    size = 2.5
+  ) +
+  facet_grid(rows = vars(transformation),
+             cols = vars(model_type)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y = "Kappa",
+       x = "Study")
+```
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
