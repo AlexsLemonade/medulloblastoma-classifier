@@ -20,6 +20,11 @@ option_list <- list(
     help = "File path for TSV file that contains control gene lists"
   ),
   make_option(
+    opt_str = c("-p", "--platform"),
+    type = "character",
+    help = "What kind of scRNA-seq data? 10x or Smart-seq2"
+  ),
+  make_option(
     opt_str = c("-o", "--output_file"),
     type = "character",
     help = "File path for TSV file that contains metaprogram scores"
@@ -35,19 +40,46 @@ dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
 
 #### Function ------------------------------------------------------------------
 
+source(here::here("utils/convert_gene_names.R"))
+
 calculate_metaprogram_score <- function(sce_filepath,
                                         sample_name,
+                                        platform,
                                         program_name,
                                         program_genes,
                                         control_genes) {
 
+
   # Read in SingleCellExperiment object
   sce <- readr::read_rds(sce_filepath)
 
-  # Extract the data in the counts slot
-  gene_exp <- SingleCellExperiment::counts(sce)
+  # Extract the data to be used, depending on the platform
+  if (tolower(platform) == "smart-seq2") {
 
-  # TODO: Add gene conversion
+    # The counts slot for the Smart-seq2 data contains TPM
+    gene_exp <- SingleCellExperiment::counts(sce)
+    # That we will log2 transform
+    gene_exp <- log2(gene_exp + 1)
+
+  } else if (tolower(platform) == "10x") {
+
+    # Normalized, log transformed
+    gene_exp <- SingleCellExperiment::logcounts(sce)
+
+  } else {
+
+    stop("Unsupported platform!")
+
+  }
+
+  # Convert to gene
+  gene_exp <- gene_exp |>
+    tibble::rownames_to_column("gene") |>
+    convert_gene_names(gene_column_before = "gene",
+                       gene_column_after = "gene",
+                       map_from = "ENSEMBL",
+                       map_to = "SYMBOL") |>
+    tibble::column_to_rownames("gene")
 
   # Subset to program genes
   program_genes <- intersect(rownames(gene_exp), program_genes)
@@ -116,6 +148,7 @@ sce_results <- purrr::imap(sce_files,
                            calculate_metaprogram_score(
                              sce_filepath = sce_file,
                              sample_name = sample_name,
+                             platform = opt$platform,
                              program_name = program,
                              program_genes = program_genes,
                              control_genes = control_genes
