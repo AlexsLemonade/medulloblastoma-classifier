@@ -42,16 +42,20 @@ dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
 
 source(here::here("utils/convert_gene_names.R"))
 
-calculate_metaprogram_score <- function(sce_filepath,
-                                        sample_name,
-                                        platform,
-                                        program_name,
-                                        program_genes,
-                                        control_genes) {
-
-
-  # Read in SingleCellExperiment object
-  sce <- readr::read_rds(sce_filepath)
+process_gene_expression <- function(sce,
+                                    platform) {
+  # Given a SingleCellExperiment object, return a matrix of relative expression
+  # values that can be passed to calculate_metaprogram_score()
+  #
+  # Input:
+  #   sce: A SingleCellExperiment object
+  #   platform: 10X or Smart-seq2? How the data is handled upstream is different
+  #             between platforms, so how we calculate relative expression
+  #             changes. For 10X, grab what is in logcounts(); for Smart-seq2,
+  #             log2(TPM + 1) using the TPM in the counts slot.
+  #
+  # Returns: A mean-centered gene expression matrix -- "relative expression"
+  #          per Hovestadt et al. and Tirosh et al. -- rownames are gene symbols
 
   # Extract the data to be used, depending on the platform
   if (tolower(platform) == "smart-seq2") {
@@ -85,6 +89,32 @@ calculate_metaprogram_score <- function(sce_filepath,
   # Mean center as in Hovestadt et al. and Tirosh et al. to get "relative
   # expression"
   gene_exp <- t(scale(t(gene_exp), center = TRUE, scale = FALSE))
+
+  # Return relative expression matrix
+  return(gene_exp)
+
+}
+
+calculate_metaprogram_score <- function(gene_exp,
+                                        sample_name,
+                                        program_name,
+                                        program_genes,
+                                        control_genes) {
+  # Given a mean-centered gene expression matrix ("relative expression"), a set
+  # of metaprogram genes, and a set of control genes, calculate a per-cell
+  # metaprogram score, which is mean(program_genes) - mean(control_genes)
+  #
+  # Input:
+  #   gene_exp: A mean-centered gene expression matrix
+  #   sample_name: Sample identifier that will be used in the data frame that
+  #                is returned
+  #   program_name: The name of the metaprogram that will be used in the data
+  #                 frame that is returned
+  #   program_genes: A vector of gene symbols for genes in the metaprogram
+  #   control_genes: A vector of control gene symbols for the metaprogram
+  #
+  # Returns: A data.frame with sample_accession, cell_index, metaprogram, and
+  #          metaprogram_score
 
   # Subset to program genes
   program_genes <- intersect(rownames(gene_exp), program_genes)
@@ -126,12 +156,11 @@ metaprogram_wrapper <- function(program) {
 
   # Return a list of data frames with metaprogram scores for this program
   return(
-    purrr::imap(sce_files,
-                \(sce_file, sample_name)
+    purrr::imap(gene_exp_list,
+                \(gene_exp_mat, sample_name)
                 calculate_metaprogram_score(
-                  sce_filepath = sce_file,
+                  gene_exp = gene_exp_mat,
                   sample_name = sample_name,
-                  platform = opt$platform,
                   program_name = program,
                   program_genes = program_genes,
                   control_genes = control_genes
@@ -160,6 +189,13 @@ if (any(duplicated(sce_sample_titles))) {
 
 }
 
+#### Read in and prepare gene expression ---------------------------------------
+
+# Read in SingleCellExperiment objects and get relative gene expression
+gene_exp_list <- sce_files |>
+  purrr::map(readr::read_rds) |>
+  purrr::map(\(sce) process_gene_expression(sce, platform = opt$platform))
+
 #### Read in program and control genes -----------------------------------------
 
 metaprogram_df <- readr::read_tsv(opt$metaprogram_file)
@@ -171,5 +207,17 @@ metaprograms <- unique(metaprogram_df$metaprogram)
 
 #### Calculate scores ----------------------------------------------------------
 
-scores_list <- metaprograms |>
-  purrr::map(\(program) metaprogram_wrapper(program))
+scores_df <- metaprograms |>
+  # For each metaprogram, calculate scores for all samples
+  purrr::map(\(program) metaprogram_wrapper(program)) |>
+  # Bring list to one level
+  purrr::flatten() |>
+  # Bind rows together -- all data frames have the same format and contain
+  # the metaprogram name already
+  dplyr::bind_rows()
+
+# Remove rownames
+rownames(scores_df) <- NULL
+
+# Write to output file
+readr::write_tsv(scores_df, file = opt$output_file)
