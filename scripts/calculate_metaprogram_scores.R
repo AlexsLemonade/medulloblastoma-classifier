@@ -38,7 +38,7 @@ opt <- parse_args(OptionParser(option_list = option_list))
 dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
 
 
-#### Function ------------------------------------------------------------------
+#### Functions -----------------------------------------------------------------
 
 source(here::here("utils/convert_gene_names.R"))
 
@@ -72,14 +72,19 @@ calculate_metaprogram_score <- function(sce_filepath,
 
   }
 
-  # Convert to gene
+  # Convert to gene symbol
   gene_exp <- gene_exp |>
+    as.data.frame() |>
     tibble::rownames_to_column("gene") |>
     convert_gene_names(gene_column_before = "gene",
                        gene_column_after = "gene",
                        map_from = "ENSEMBL",
                        map_to = "SYMBOL") |>
     tibble::column_to_rownames("gene")
+
+  # Mean center as in Hovestadt et al. and Tirosh et al. to get "relative
+  # expression"
+  gene_exp <- t(scale(t(gene_exp), center = TRUE, scale = FALSE))
 
   # Subset to program genes
   program_genes <- intersect(rownames(gene_exp), program_genes)
@@ -89,8 +94,8 @@ calculate_metaprogram_score <- function(sce_filepath,
   # they are dataset-specific (derived from pseudobulk data)
   control_gene_exp <- gene_exp[control_genes, ]
 
-  # The score is the average expression of metaprogram genes minus the
-  # average expression of the control genes
+  # The score is the average relative expression of metaprogram genes minus the
+  # average relative expression of the control genes
   program_scores <- colMeans(program_gene_exp) - colMeans(control_gene_exp)
 
   # Return a data frame of the scores
@@ -103,6 +108,35 @@ calculate_metaprogram_score <- function(sce_filepath,
     )
   )
 
+}
+
+metaprogram_wrapper <- function(program) {
+  # A convenient wrapper to pass to purrr::map()
+  # Not intended to be used outside of this script
+
+  # Grab the program gene symbols
+  program_genes <- metaprogram_df |>
+    dplyr::filter(metaprogram == program) |>
+    dplyr::pull(gene)
+
+  # Grab the relevant control set gene symbols
+  control_genes <- control_genes_df |>
+    dplyr::filter(metaprogram == program) |>
+    dplyr::pull(gene)
+
+  # Return a list of data frames with metaprogram scores for this program
+  return(
+    purrr::imap(sce_files,
+                \(sce_file, sample_name)
+                calculate_metaprogram_score(
+                  sce_filepath = sce_file,
+                  sample_name = sample_name,
+                  platform = opt$platform,
+                  program_name = program,
+                  program_genes = program_genes,
+                  control_genes = control_genes
+                ))
+  )
 }
 
 #### Set up samples ------------------------------------------------------------
@@ -131,26 +165,11 @@ if (any(duplicated(sce_sample_titles))) {
 metaprogram_df <- readr::read_tsv(opt$metaprogram_file)
 control_genes_df <- readr::read_tsv(opt$controls_file)
 
+# The metaprogram names will be a vector of unique values in the metaprogram
+# column
 metaprograms <- unique(metaprogram_df$metaprogram)
 
-program <- metaprograms[1]
+#### Calculate scores ----------------------------------------------------------
 
-program_genes <- metaprogram_df |>
-  dplyr::filter(metaprogram == program) |>
-  dplyr::pull(gene)
-
-control_genes <- control_genes_df |>
-  dplyr::filter(metaprogram == program) |>
-  dplyr::pull(gene)
-
-sce_results <- purrr::imap(sce_files,
-                           \(sce_file, sample_name)
-                           calculate_metaprogram_score(
-                             sce_filepath = sce_file,
-                             sample_name = sample_name,
-                             platform = opt$platform,
-                             program_name = program,
-                             program_genes = program_genes,
-                             control_genes = control_genes
-                           ))
-
+scores_list <- metaprograms |>
+  purrr::map(\(program) metaprogram_wrapper(program))
