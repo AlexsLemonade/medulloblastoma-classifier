@@ -1,3 +1,26 @@
+# J. Taroni 2025
+#
+# For a set of SingleCellExperiment objects and metaprograms, generate a data
+# frame that contains the metaprogram scores for each program in every cell
+# in that set of SingleCellExperiment objects
+#
+# If 10X data, the normalized, log transformed data in the logcounts is used to
+# calculate the scores
+# If Smart-seq2, the log2(TPM + 1) is used to calculate the scores
+#
+# Use generate_metaprogram_control_sets.R to generate the control file passed
+# to this script!
+#
+# Example usage:
+#
+#   Rscript scripts/calculate_metaprogram_scores.R
+#     --sce_input_dir processed_data/single_cell/GSE155446/sce \
+#     --metaprogram_file processed_data/hovestadt-et-al-group-3-4-metaprogram-genes.tsv \
+#     --controls_file processed_data/single_cell/GSE155446/GSE155446_hovestadt-et-al-control-genes.tsv \
+#     --platform 10X \
+#     --output_file results/GSE155446_hovestadt-et-al-group-3-4-metaprogram-scores.tsv
+#
+
 library(optparse)
 
 #### Command line options ------------------------------------------------------
@@ -6,7 +29,7 @@ option_list <- list(
   make_option(
     opt_str = c("-i", "--sce_input_dir"),
     type = "character",
-    help = "Directory that contains RDS of SingleCellExperiment objects"
+    help = "Path to directory that contains RDS of SingleCellExperiment objects"
   ),
   make_option(
     opt_str = c("-m", "--metaprogram_file"),
