@@ -61,9 +61,19 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 # Generate control lists for Hovestadt et al. G3/G4 metaprograms
 for study in GSE119926 GSE155446; do
 
+  # Handle platform based on study
+  if [ ${study} = 'GSE119926' ]; then
+	  platform="Smart-seq2"
+  else
+	  platform="10x"
+  fi
+
+  echo ${platform}
+
   Rscript "${scripts_dir}/generate_metaprogram_control_sets.R" \
     --pseudobulk_input_file "${sc_data_dir}/${study}/${study}_pseudobulk_genex.tsv" \
     --metaprogram_file "${processed_data_dir}/hovestadt-et-al-group-3-4-metaprogram-genes.tsv" \
+    --platform "${platform}" \
     --output_file "${sc_data_dir}/${study}/${study}_hovestadt-et-al-control-genes.tsv"
 
 done
