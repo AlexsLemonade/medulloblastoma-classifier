@@ -24,6 +24,11 @@ option_list <- list(
     default = "processed_data/hovestadt-et-al-group-3-4-metaprogram-genes.tsv"
   ),
   make_option(
+    opt_str = c("-p", "--platform"),
+    type = "character",
+    help = "Which type of scRNA-seq data is it? 10X or Smart-seq2"
+  ),
+  make_option(
     opt_str = c("-o", "--output_file"),
     type = "character",
     help = "File path for TSV file that will be output with the results"
@@ -32,6 +37,10 @@ option_list <- list(
 
 # Parse options
 opt <- parse_args(OptionParser(option_list = option_list))
+
+# Error handling for platform
+stopifnot("Unsupported platform!" = (tolower(opt$platform)
+                                     %in% c("10x", "smart-seq2")))
 
 # Create output directory if it doesn't exist
 dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
@@ -103,7 +112,17 @@ metaprogram_genes_list <- unique(metaprogram_df$metaprogram) |>
 
 #### Matrices and vectors ------------------------------------------------------
 
-pseudobulk_mat <- log2(as.matrix(pseudobulk_df) + 1)
+# If TPM, just log2 transform
+if (tolower(opt$platform) == "smart-seq2") {
+  pseudobulk_mat <- log2(as.matrix(pseudobulk_df) + 1)
+} else if (tolower(opt$platform) == "10x") {
+  # If 10X counts, convert counts to CPM first
+  pseudobulk_mat <- edgeR::cpm(as.matrix(pseudobulk_df),
+                               normalized.lib.sizes = FALSE)
+  pseudobulk_mat <- log2(pseudobulk_mat + 1)
+}
+
+# Calculate gene_means
 gene_means <- rowMeans(pseudobulk_mat)
 
 #### Get control gene sets -----------------------------------------------------
