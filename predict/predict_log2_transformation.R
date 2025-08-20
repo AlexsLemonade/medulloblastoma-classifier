@@ -1,6 +1,14 @@
 # J. Taroni 2025
 #
 # Test classifiers performance on RNA-seq with and without log2-transformation
+#
+# This experiment was borne out of the observation that medulloPackage
+# performance was greatly impacted when we forgot to log2 transform the
+# pseudobulk data prior to prediction
+# (https://github.com/AlexsLemonade/medulloblastoma-classifier/issues/90).
+# This seems like an easy mistake for users to make, and therefore, a classifier
+# invariant to transformation would be beneficial.
+#
 # Only predicts on classifier-transformation pairs that are unseen in baseline
 # model training to save time
 #
@@ -276,6 +284,8 @@ for (single_repeat in seq_along(models_to_test)) {
 }
 
 #### Pseudobulk data ####
+# The pseudobulk data does not have all the features that are present in the
+# bulk data. As a result, LASSO prediction fails.
 
 # Smart-seq2 pseudobulk log transformed
 smartseq_log_result <- test_rnaseq_prediction(
