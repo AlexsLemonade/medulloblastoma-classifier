@@ -12,6 +12,8 @@ output:
 This notebook is to examine if methods are invariant to the input data being log2 transformed.
 The prediction on transformed data is performed in `predict/predict_log2_transformation.R`.
 
+Our hypothesis is that the pair-based models (i.e., kTSP and RF) will be uniquely high performing across conditions (i.e., be unaffected by transformation).
+
 ## Set up
 
 ### Libraries
