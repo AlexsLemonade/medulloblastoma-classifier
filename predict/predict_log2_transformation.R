@@ -284,6 +284,8 @@ for (single_repeat in seq_along(models_to_test)) {
 }
 
 #### Pseudobulk data ####
+# The pseudobulk data does not have all the features that are present in the
+# bulk data. As a result, LASSO prediction fails.
 
 # Smart-seq2 pseudobulk log transformed
 smartseq_log_result <- test_rnaseq_prediction(
