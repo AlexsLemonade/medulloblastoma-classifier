@@ -11,11 +11,17 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # Set up directories
+processed_data_dir="processed_data"
+sc_data_dir="${processed_data_dir}/single_cell"
 predict_dir="predict"
 analysis_notebooks_dir="analysis_notebooks"
 scripts_dir="scripts"
-results_dir="results/single_cells_filtered"
-mkdir -p $results_dir
+results_dir="results"
+filtered_results_dir="${results_dir}/single_cells_filtered"
+mkdir -p $filtered_results_dir
+
+# Set up file
+metaprogram_file="${processed_data_dir}/hovestadt-et-al-group-3-4-metaprogram-genes.tsv"
 
 # Run prediction on single-cell and pseudobulk data
 Rscript "${predict_dir}/predict_pseudobulk.R"
@@ -32,7 +38,7 @@ for prop_observed in 0 0.05 0.10 0.15 0.20 0.25 0.5; do
   for filtering_type in gene rule; do
 
     Rscript "${predict_dir}/predict_single_cells.R" \
-      --output_file "${results_dir}/ktsp_${prop_observed}_${filtering_type}.tsv" \
+      --output_file "${filtered_results_dir}/ktsp_${prop_observed}_${filtering_type}.tsv" \
       --model_type ktsp \
       --prop_observed ${prop_observed} \
       --ktsp_mode ${filtering_type}
@@ -41,7 +47,7 @@ for prop_observed in 0 0.05 0.10 0.15 0.20 0.25 0.5; do
 
   # Random forest models using gene filtering per proportion observed value
   Rscript "${predict_dir}/predict_single_cells.R" \
-    --output_file "${results_dir}/rf_${prop_observed}.tsv" \
+    --output_file "${filtered_results_dir}/rf_${prop_observed}.tsv" \
     --model_type rf \
     --prop_observed ${prop_observed}
 
@@ -55,3 +61,14 @@ Rscript "${scripts_dir}/extract_single_cell_cluster_umap.R"
 
 # Single-cell visualizations
 Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
+
+# Hovestadt et al. G3/G4 metaprograms
+for study in GSE119926 GSE155446; do
+
+  # Calculate AUCell scores
+  Rscript "${scripts_dir}/calculate_metaprogram_aucell.R" \
+    --sce_input_dir "${sc_data_dir}/${study}/sce" \
+    --metaprogram_file "${metaprogram_file}" \
+    --output_file "${results_dir}/${study}_hovestadt-et-al-group-3-4-metaprogram_aucell-scores.tsv"
+
+done
