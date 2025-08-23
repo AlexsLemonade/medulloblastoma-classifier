@@ -38,7 +38,6 @@ dir.create(dirname(opt$output_file), showWarnings = FALSE, recursive = TRUE)
 
 source(here::here("utils/convert_gene_names.R"))
 
-
 process_gene_expression <- function(sce) {
   # Given a SingleCellExperiment object with Ensembl gene identifiers,
   # return a matrix of the contents of the counts slot with genes converted to
@@ -116,21 +115,25 @@ gene_set_collection <- unique(gene_set_df$metaprogram) |>
 #### Calculate AUCell scores ---------------------------------------------------
 
 auc_df <- gene_exp_list |>
-  # Calculate AUCs
+  # Calculate rankings
   purrr::map(\(gene_exp_mat)
-             AUCell_run(exprsMat = gene_exp_mat,
-                        geneSets = gene_set_collection,
-                        # Make the default explicit -- it is appropriate
-                        # for both single-cell datasets used in this
-                        # project
-                        aucMaxRank = ceiling(nrow(gene_exp_mat) * 0.05))) |>
+             AUCell_buildRankings(gene_exp_mat,
+                                  plotStats = FALSE)) |>
+  # Calculate AUC
+  purrr::map(\(cell_rankings)
+             AUCell_calcAUC(rankings = cell_rankings,
+                            geneSets = gene_set_collection,
+                            # Make the default explicit -- it is appropriate
+                            # for both single-cell datasets used in this
+                            # project
+                            aucMaxRank = ceiling(nrow(cell_rankings) * 0.05))) |>
   # Extract the AUC matrix and transpose such that columns are gene sets
   purrr::map(\(auc_object)
              t(getAUC(auc_object))) |>
   # Add the row index as a column called cell index for downstream joining
   purrr::map(\(auc_matrix)
              auc_matrix |>
-               tibble::as.tibble() |>
+               tibble::as_tibble() |>
                tibble::rowid_to_column("cell_index")) |>
   # Create a data frame where the sample identifier (currently the list name)
   # becomes a column called sample_accession
