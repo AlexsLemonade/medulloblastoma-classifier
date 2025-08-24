@@ -1,0 +1,50 @@
+---
+title: "Plot AUCell scores for Hovestadt et al. G3/G4 metaprograms"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+```{r}
+plots_data_dir <- here::here("plots/data")
+results_dir <- here::here("results")
+
+# Individual cell predictions
+smartseq_predictions_file <- here::here(
+  plots_data_dir,
+  "smartseq_single_cell_test_predictions.tsv"
+)
+tenx_predictions_file <- here::here(
+  plots_data_dir,
+  "10x_single_cell_test_predictions.tsv"
+)
+
+# AUCell scores
+smartseq_aucell_file <- here::here(
+  results_dir,
+  "GSE119926_hovestadt-et-al-group-3-4-metaprogram_aucell-scores.tsv"
+)
+tenx_aucell_file <- here::here(
+  results_dir, 
+  "GSE155446_hovestadt-et-al-group-3-4-metaprogram_aucell-scores.tsv"
+)
+```
+
+```{r}
+smartseq_pred_df <- readr::read_tsv(smartseq_predictions_file)
+tenx_pred_df <- readr::read_tsv(tenx_predictions_file)
+smartseq_auc_df <- readr::read_tsv(smartseq_aucell_file)
+tenx_auc_df <- readr::read_tsv(tenx_aucell_file)
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
