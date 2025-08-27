@@ -115,6 +115,7 @@ smartseq_subgroup_plot <- smartseq_df |>
   theme_bw() +
   facet_grid(cols = vars(metaprogram)) +
   labs(
+    x = "True Sample Subgroup",
     y = "AUCell Score",
     title = "GSE119926 (Smart-seq2)"
   )
@@ -141,6 +142,7 @@ tenx_subgroup_plot <- tenx_df |>
   theme_bw() +
   facet_grid(cols = vars(metaprogram)) +
   labs(
+    x = "True Sample Subgroup",
     y = "AUCell Score",
     title = "GSE155446 (10X)"
   )
@@ -178,6 +180,7 @@ smartseq_predicted_label_plot <- smartseq_df |>
   theme_bw() +
   facet_grid(cols = vars(metaprogram)) +
   labs(
+    x = "Predicted Label",
     y = "AUCell Score",
     title = "GSE119926 (Smart-seq2)"
   ) + 
@@ -208,6 +211,7 @@ tenx_predicted_label_plot <- tenx_df |>
   theme_bw() +
   facet_grid(cols = vars(metaprogram)) +
   labs(
+    x = "Predicted Label",
     y = "AUCell Score",
     title = "GSE155446 (10X)"
   ) + 
@@ -218,6 +222,7 @@ smartseq_predicted_label_plot / tenx_predicted_label_plot
 ```
 
 
+---
 
 ```{r}
 # Samples with a mix of G3 and G4 cells
