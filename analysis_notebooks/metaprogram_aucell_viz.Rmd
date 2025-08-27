@@ -9,6 +9,11 @@ output:
     df_print: paged
 ---
 
+The purpose of this notebook is to visualize and analyze AUCell scores for the G3/G4 metaprograms introduced in [Hovestadt et al. 2019.](https://www.nature.com/articles/s41586-019-1434-6)
+These scores are calculated via `scripts/calculate_metaprogram_aucell.R`.
+Briefly, the 100 genes that are included in Table S2 from Hovestadt et al. 2019. are used as input to `AUCell`. 
+AUCell scores measure the proportion of genes in a gene set that are highly expressed (i.e., ranked in the top 5% of genes) in a cell.
+
 ## Setup
 
 ### Libraries
@@ -155,8 +160,10 @@ We see the expected pattern in the Smart-seq2 dataset.
 We see the expected pattern for the Group 3/4-C metaprogram in the 10X dataset as well.
 The results for the Group 3/4-B metaprogram are less clear cut -- it seems plausible that the sparsity of the 10X dataset comes into play here.
 
-
 ## Predicted labels
+
+If our classifier picks up on similar patterns as the metaprograms, we would expect the predicted labels to show a similar pattern to the true subgroup labels.
+Naively, this is what we might expect, as we know that individual cell labels typically match the true subgroup label for a sample.
 
 ```{r}
 smartseq_predicted_label_plot <- smartseq_df |>
@@ -221,55 +228,11 @@ tenx_predicted_label_plot <- tenx_df |>
 smartseq_predicted_label_plot / tenx_predicted_label_plot
 ```
 
+The predicted labels generally show the same trend as the true subgroup labels:
 
----
-
-```{r}
-# Samples with a mix of G3 and G4 cells
-samples_of_interest <- c("BCH825", "Med2312FH", "SJ625", "925", "1167", "1238")
-
-tenx_df |> 
-  dplyr::filter(sample_accession %in% samples_of_interest,
-                model_type == "kTSP (unw)") |>
-  dplyr::mutate(sample_accession = glue::glue("{sample_accession} ({subgroup})"),
-                predicted_labels = factor(predicted_labels,
-                                          levels = names(subgroup_colors))) |>
-  # Randomly order points (rows)
-  dplyr::slice(sample(1:dplyr::n())) |>
-  ggplot(
-    aes(
-      x = `Group 3/4-C`,
-      y = `Group 3/4-B`,
-      color = predicted_labels  # predicted subgroup
-    )
-  ) +
-  geom_point(alpha = 0.5) +
-  scale_color_manual(values = subgroup_colors) +
-  facet_wrap(vars(sample_accession)) +
-  theme_bw()
-```
-```{r}
-smartseq_df |> 
-  dplyr::filter(sample_accession %in% samples_of_interest,
-                model_type == "kTSP (unw)") |>
-  dplyr::mutate(sample_accession = glue::glue("{sample_accession} ({subgroup})"),
-                predicted_labels = factor(predicted_labels,
-                                          levels = names(subgroup_colors))) |>
-  # Randomly order points (rows)
-  dplyr::slice(sample(1:dplyr::n())) |>
-  ggplot(
-    aes(
-      x = `Group 3/4-C`,
-      y = `Group 3/4-B`,
-      color = predicted_labels  # predicted subgroup
-    )
-  ) +
-  geom_point(alpha = 0.5) +
-  scale_color_manual(values = subgroup_colors) +
-  facet_wrap(vars(sample_accession)) +
-  theme_bw()
-```
-
+- G3-labeled cells have higher Group 3/4-B metaprogram scores than G4-labeled cells in the Hovestadt et al. dataset, but we also see higher scores in SHH- and WNT-labeled cells.
+- This difference in Group 3/4-B scores is less clear cut in the Riemondy et al. (10X) dataset.
+- Both datasets show that G4-labeled cells have higher scores for the Group 3/4-C metaprogram.
 
 ## Session Info
 
