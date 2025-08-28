@@ -89,6 +89,8 @@ tenx_results_file <- here::here(plots_data_dir,
                                 "10x_single_cell_test_predictions.tsv")
 smartseq_results_file <- here::here(plots_data_dir,
                                     "smartseq_single_cell_test_predictions.tsv")
+malignant_qc_stats_file <- here::here(plots_data_dir,
+                                      "10x_malignant_cell_quality_stats.tsv")
 ```
 
 #### Plots
@@ -266,7 +268,7 @@ stacked_barplot <- tenx_results_df |>
        fill = "Predicted Label",
        title = "GSE155446 (10X) Predicted Label by Cell Type") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5, face = "bold"))
+        plot.title = element_text(hjust = 0.5))
 
 stacked_barplot
 ```
@@ -339,7 +341,7 @@ malignant_ridge_plot <- malignant_cell_qc_df |>
        y = "Predicted Subgroup",
        title = "Malignant Cell Quality") +
   theme(legend.position = "none",
-        plot.title = element_text(hjust = 0.5, face = "bold"))
+        plot.title = element_text(hjust = 0.5))
 
 malignant_ridge_plot
 ```
@@ -355,6 +357,53 @@ ggsave(file = ridgeplot_file,
        width = 7,
        height = 5,
        units = "in")
+```
+
+#### Stats
+
+Are the differences in quality between classified and unclassified malignant cells statistically significant?
+
+```{r}
+# Add a new column tracking whether or not something is classified to use for
+# statistical test
+malignant_cell_qc_df <- malignant_cell_qc_df |>
+  dplyr::mutate(classification = dplyr::if_else(
+    predicted_labels == "Unclassified", "Unclassified", "Classified")
+  )
+
+# Hold data frames returned by rstatix::wilcox_text in a list
+stats_list <- list()
+
+# For each model type-measure pair
+for (which_model in unique(malignant_cell_qc_df$model_type)) {
+  for (measure_type in unique(malignant_cell_qc_df$measure)) {
+    # Perform a Mann Whitney test comparing classified and unclassified cells
+    stats_list[[glue::glue("{which_model}_{measure_type}")]] <- 
+      malignant_cell_qc_df |>
+      dplyr::filter(model_type == which_model,
+                    measure == measure_type) |> 
+      rstatix::wilcox_test(value ~ classification)
+  }
+}
+
+# Get back in one data frame
+stats_df <- stats_list |>
+  dplyr::bind_rows(.id = "model_measure") |> 
+  dplyr::mutate(p_adj = p.adjust(p, method = "bonferroni")) |>
+  tidyr::separate(model_measure, 
+                  into = c("model_type", "measure"),
+                  sep = "_") 
+
+stats_df |>
+  knitr::kable()
+```
+
+Yes, all comparisons are statistically significant.
+
+Write to file.
+
+```{r}
+readr::write_tsv(stats_df, file = malignant_qc_stats_file)
 ```
 
 ## UMAPs
@@ -422,7 +471,7 @@ smartseq_umap_plots <- selected_sample_umap_df |>
        y = "UMAP2",
        color = "Predicted Subgroup (kTSP)",
        title = "GSE119926 (Smart-seq2)") +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+  theme(plot.title = element_text(hjust = 0.5),
         legend.position = "none")
 ```
 
@@ -463,7 +512,7 @@ tenx_umap_plots <- selected_sample_umap_df |>
        title = "GSE155446 (10X)") +
   theme(strip.text.x = element_text(size = 7.5),
         axis.text.x = element_text(size = 6.5),
-        plot.title = element_text(hjust = 0.5, face = "bold"))
+        plot.title = element_text(hjust = 0.5))
 ```
 
 Combine into a single figure.
@@ -472,7 +521,7 @@ Combine into a single figure.
 umap_plots <- smartseq_umap_plots / tenx_umap_plots + 
   plot_layout(guides = "collect",
               heights = c(1, 2)) +
-  plot_annotation(tag_levels = "A")
+  plot_annotation(tag_levels = "a")
 umap_plots
 ```
 
