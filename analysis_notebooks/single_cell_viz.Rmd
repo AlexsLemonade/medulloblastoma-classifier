@@ -327,7 +327,9 @@ malignant_ridge_plot <- malignant_cell_qc_df |>
       fill = predicted_labels
     )
   ) +
-  geom_density_ridges(alpha = 0.5) +
+  geom_density_ridges(alpha = 0.5,
+                      quantile_lines = TRUE, 
+                      quantile_fun = median) +
   theme_bw() +
   facet_grid(rows = vars(model_type),
              cols = vars(measure),
