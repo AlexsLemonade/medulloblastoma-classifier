@@ -327,13 +327,19 @@ accuracy_plot_object
 
 ## Targeted permutation test
 
+We want to compare the observed Kappa values against the null distribution of Kappa values (generated using random gene sets).
+Observed Kappa values on the far extremes of the null distribution can be considered "significant" if their permutation test p-value is below a given threshold (e.g. < 0.05).
+The permutation test p-value is the probability of observing a given Kappa value or something more extreme.
+The function `dplyr::percent_rank()` of a variable returns the proportion of values that are less than the observed value (so the percent rank of the max value is 1 without any ties).
+The permutation test p-value is then `1 - percent_rank()`.
+
 ```{r}
 
 targeted_dots_df <- compare_metrics_plot_df |>
   dplyr::filter(metric == "Kappa",
                 gene_set %in% c("Random", "Targeted")) |>
   dplyr::group_by(repeat_index, model_type, platform) |>
-  dplyr::mutate(perm_pvalue = 1 - dplyr::percent_rank(value),
+  dplyr::mutate(perm_pvalue = 1 - dplyr::percent_rank(value), # see explanatory note above
                 perm_pvalue_color = ifelse(perm_pvalue <= 0.05, "<= 0.05", "> 0.05")) |>
   dplyr::filter(gene_set == "Targeted")
 
