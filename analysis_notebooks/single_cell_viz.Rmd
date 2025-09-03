@@ -371,31 +371,20 @@ malignant_cell_qc_df <- malignant_cell_qc_df |>
     predicted_labels == "Unclassified", "Unclassified", "Classified")
   )
 
-# Hold data frames returned by rstatix::wilcox_text in a list
-stats_list <- list()
+# Test for differences for each model type-measure pair
+stats_df <- malignant_cell_qc_df |>
+  dplyr::group_by(model_type, measure) |>
+  rstatix::wilcox_test(value ~ classification,
+                       p.adjust.method = "bonferroni")
 
-# For each model type-measure pair
-for (which_model in unique(malignant_cell_qc_df$model_type)) {
-  for (measure_type in unique(malignant_cell_qc_df$measure)) {
-    # Perform a Mann Whitney test comparing classified and unclassified cells
-    stats_list[[glue::glue("{which_model}_{measure_type}")]] <- 
-      malignant_cell_qc_df |>
-      dplyr::filter(model_type == which_model,
-                    measure == measure_type) |> 
-      rstatix::wilcox_test(value ~ classification)
-  }
-}
+# Add effect size information
+effect_size_df <- malignant_cell_qc_df |>
+  dplyr::group_by(model_type, measure) |>
+  rstatix::wilcox_effsize(value ~ classification)
+stats_df <- stats_df |>
+  dplyr::inner_join(effect_size_df)
 
-# Get back in one data frame
-stats_df <- stats_list |>
-  dplyr::bind_rows(.id = "model_measure") |> 
-  dplyr::mutate(p_adj = p.adjust(p, method = "bonferroni")) |>
-  tidyr::separate(model_measure, 
-                  into = c("model_type", "measure"),
-                  sep = "_") 
-
-stats_df |>
-  knitr::kable()
+stats_df
 ```
 
 Yes, all comparisons are statistically significant.
