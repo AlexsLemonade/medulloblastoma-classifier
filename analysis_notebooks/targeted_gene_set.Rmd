@@ -100,7 +100,9 @@ n_targeted_genes_overlap <- nrow(bulk_genex_df_targeted)
 The original targeted gene set (Nanostring IO 360 gene panel) comprised `r n_targeted_genes_original` genes.
 After overlapping with our expression data, there were `r n_targeted_genes_overlap` genes remaining.
 
-# Could we have used MM2S for this?
+# Could we have used MM2S or medulloPackage for this?
+
+## MM2S 
 
 ```{r}
 
@@ -133,6 +135,8 @@ To return a GSVA score for a particular pathway, MM2S requires that between 20 a
 MM2S later requires that there are at least 24 such pathways in the data.
 However, with our targeted gene set, only `r n_mm2s_common_pathways` pathways match the `20 <= overlapping genes <= 100` criteria.
 MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and `NorthcottFeatures` inside `MM2S::MM2S.human`, resulting in invalid column selection in `HumanTestGSVA <- HumanTestGSVA[, NorthcottFeatures, drop = FALSE]`.
+
+## medulloPackage
 
 medulloPackage also fails to run.
 
