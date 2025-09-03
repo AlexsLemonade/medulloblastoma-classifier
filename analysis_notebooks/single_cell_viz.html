@@ -2884,9 +2884,9 @@ for all individual cells in both datasets.</p>
 <div id="smart-seq2-dataset" class="section level3">
 <h3>Smart-seq2 dataset</h3>
 <p>For the Smart-seq2 dataset, we observed no benefit to employing a
-filtering strategy, so we will move forward with results that have no
-filtering of cells in place.</p>
-<pre class="r"><code># Use no filtering strategy for Smart-seq2 dataset
+more aggressive filtering strategy, so we will move forward with results
+that have filtering &gt; 0 in place.</p>
+<pre class="r"><code># Use filter &gt; 0 strategy for Smart-seq2 dataset
 smartseq_results_df &lt;- results_df |&gt;
   dplyr::filter(study == &quot;GSE119926&quot;,
                 prop_observed == 0,
