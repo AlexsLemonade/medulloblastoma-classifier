@@ -237,6 +237,12 @@ kappa_wilcox_test_df |>
 
 ```
 
+- kTSP and RF models show significantly higher Kappa values in Array data using the full gene set compared to the targeted gene set.
+- kTSP model performance also favors the full gene set in RNA-seq data but is not significant.
+-RF models show slightly worse performance with the full gene set compared to the targeted gene set. 
+- LASSO models showed no significant difference between full and targeted gene sets using either Array or RNA-seq.
+- Low-performing RNA-seq outliers from the full gene set may impact overall interpretation of results.
+
 ### Balanced Accuracy
 
 ```{r}
