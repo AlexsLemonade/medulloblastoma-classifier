@@ -1,0 +1,215 @@
+---
+title: "Analyze results of log2 transformation experiment"
+author: "Jaclyn Taroni"
+date: "2025"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+This notebook is to examine if methods are invariant to the input data being log2 transformed.
+The prediction on transformed data is performed in `predict/predict_log2_transformation.R`.
+
+Our hypothesis is that the pair-based models (i.e., kTSP and RF) will be uniquely high performing across conditions (i.e., be unaffected by transformation).
+
+## Set up
+
+### Libraries
+
+```{r}
+library(ggplot2)
+```
+
+### Functions
+
+```{r}
+wrangle_kappa <- function(dataset) {
+  # For a dataset-transformation pair with 1 or more models associated with it, 
+  # return a data frame that reports the Kappa values
+  
+  # Only retain the parts of the list that have metrics in them
+  dataset_metrics <- dataset[-which(names(dataset) 
+                                    %in% c("dataset", "transformation"))]
+  
+  # Extract the Kappa values
+  kappa_values <- dataset_metrics |> 
+    purrr::map(\(x) x$cm$overall[["Kappa"]])
+  
+  # Return data frame of Kappa values for the relevant dataset-transformation
+  # combination
+  df <- data.frame(
+    study = dataset$dataset,
+    transformation = dataset$transformation,
+    model_type = names(kappa_values),
+    metric = "Kappa",
+    value = unlist(kappa_values)
+  )
+  # Otherwise rownames will be names(kappa_values)
+  rownames(df) <- NULL
+  return(df)
+  
+}
+```
+
+### Directories and files 
+
+```{r}
+results_dir <- here::here("results")
+plots_dir <- here::here("plots")
+plots_data_dir <- here::here("plots/data")
+
+# To get Kappa values from baseline bulk experiments
+baseline_predictions_filepath <- file.path(
+  plots_data_dir,
+  "baseline_plots_df.tsv"
+)
+
+# Used to extract Kappa values from the log2 transformation experiments
+transformation_results_filepath <- file.path(
+  results_dir,
+  "log2_transformation_prediction_results.rds"
+)
+
+# Output files
+kappa_df_filepath <- file.path(plots_data_dir,
+                               "transformation_experiment_kappa_df.tsv")
+kappa_plot_filepath <- file.path(plots_dir,
+                                 "transformation_experiment_kappa_barplot.pdf")
+```
+
+## Read in data
+
+### Baseline results
+
+For most models, we've already tested predicting on bulk TPM data during baseline model training/testing.
+For medulloPackage, we've already tested predicting on log2(TPM + 1) in baseline model training/testing.
+We will read those results in here and plot them alongside results generated in `predict/predict_log2_transformation.R`.
+
+```{r}
+baseline_results_df <- readr::read_tsv(baseline_predictions_filepath,
+                                       progress = FALSE,
+                                       show_col_types = FALSE)
+
+# Grab just the values we need from the baseline results
+baseline_results_df <- baseline_results_df |>
+  # Same indices as in predict/predict_log2_transformation.R
+  dplyr::filter(repeat_index %in% c(6, 8, 10), 
+                platform == "RNA-seq",
+                metric == "Kappa",
+                # These models were not considered in the transformation
+                # experiment
+                !(model_type %in% c("RF (unw)", "kTSP (w)"))) |>
+  # In the baseline results, only medulloPackage uses log2 transformed data
+  dplyr::mutate(transformation = dplyr::case_when(
+    model_type == "medulloPackage" ~ "log2",
+    TRUE ~ "untransformed"
+  )) |>
+  # Only select the columns we'll have in the transformation metrics data frame
+  dplyr::select(
+    study,
+    transformation,
+    model_type,
+    metric,
+    value
+  )
+```
+
+### Transformation experiment
+
+In `predict/predict_log2_transformation.R`, we generated an RDS file that contains the test results and confusion matrices for various dataset-transformation pairs.
+We need to read that in and extract the Kappa values for plotting.
+
+```{r}
+transformation_results_list <- readr::read_rds(transformation_results_filepath)
+
+# Create a data frame of Kappa values
+transform_kappa_df <- transformation_results_list |>
+  purrr::map(\(x) wrangle_kappa(x)) |>
+  dplyr::bind_rows() |>
+  dplyr::mutate(model_type = dplyr::case_match(
+    model_type,
+    "ktsp_unweighted" ~ "kTSP (unw)",
+    "rf_weighted" ~ "RF (w)",
+    "medullopackage" ~ "medulloPackage",
+    "mm2s" ~ "MM2S",
+    "lasso" ~ "LASSO"
+  )
+)
+```
+
+### Combine results
+
+Combine the results from the baseline models and the transformation experiment and save to file.
+
+```{r}
+all_results_df <- baseline_results_df |> 
+  dplyr::bind_rows(transform_kappa_df) |>
+  # Keep track of bulk vs. pseudobulk
+  dplyr::mutate(platform = dplyr::case_when(
+    study %in% c("GSE119926", "GSE155446") ~ "pseudobulk",
+    TRUE ~ "bulk"
+  )) |> 
+  # Order variables for plotting
+  dplyr::mutate(
+    # Put pseudobulk last
+    study = factor(study,
+                   levels = c("GSE164677", "OpenPBTA", "St. Jude", 
+                              "GSE119926", "GSE155446")),
+    # Put untransformed first, as that is what the bulk of the methods expect
+    transformation = factor(transformation,
+                            levels = c("untransformed", "log2"))
+  )
+
+readr::write_tsv(all_results_df, file = kappa_df_filepath)
+```
+
+## Plotting
+
+Create a bar plot with labels above the bar.
+
+```{r}
+bar_plot <- all_results_df |>
+  ggplot(aes(
+    x = study,
+    y = value,
+    fill = platform
+  )) +
+  geom_bar(stat = "identity") +
+  geom_text(
+    aes(label = round(value, 2)), 
+    vjust = 0,
+    size = 2
+  ) +
+  facet_grid(rows = vars(transformation),
+             cols = vars(model_type)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text.x = element_text(size = 7.5)) +
+  labs(x = "Study", 
+       y = "Kappa")
+
+bar_plot
+```
+
+The pair-based models (kTSP and RF) do not change in performance based on transformation.
+This is what we would expect based on how the rules for classification work!
+MM2S is also almost exactly the same performance, but it does not do as well as other models in general.
+We see a slight dip in performance in the LASSO model when applied to log2 transformed data.
+LASSO also does not work on pseudobulk data.
+We see a drastic change in medulloPackage's performance when data is not log2 transformed.
+
+```{r}
+ggsave(bar_plot,
+       filename = kappa_plot_filepath,
+       width = 7,
+       height = 5)
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
