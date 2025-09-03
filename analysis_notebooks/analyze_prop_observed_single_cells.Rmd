@@ -100,6 +100,7 @@ make_stacked_labels_plot <- function(df,
 ```{r}
 results_dir <- here::here("results", "single_cells_filtered")
 plots_dir <- here::here("plots")
+plots_data_dir <- here::here(plots_dir, "data")
 
 # All results files
 results_files <- fs::dir_ls(
@@ -108,6 +109,14 @@ results_files <- fs::dir_ls(
 )
 
 # Output
+per_sample_stats_file <- here::here(
+  plots_data_dir,
+  "individual_cell_classification_filtering_stats_per_sample.tsv"
+)
+individual_cell_results_file <- here::here(
+  plots_data_dir,
+  "individual_cell_predictions_for_stacked_barplot.tsv"
+)
 pointrange_plot_file <- here::here(plots_dir, 
                                    "single_cells_rules_based_prop_observed.pdf")
 stacked_plot_file <- here::here(plots_dir,
@@ -211,6 +220,13 @@ per_sample_stats_df <- results_df |>
 rm(per_sample_accuracy_df)
 ```
 
+Write to file.
+
+```{r}
+readr::write_tsv(per_sample_stats_df, file = per_sample_stats_file)
+```
+
+
 ## Plotting
 
 ### Statistics
@@ -269,13 +285,14 @@ tenx_object <- per_sample_stats_df |>
         axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))
 
 combined_stats_plot <- smartseq_object + tenx_object + 
+  plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect") & 
   theme(legend.position = "bottom")
 
 combined_stats_plot
 ```
 
-It doesn't seem like filtering improves things for the Smart-seq2 dataset.
+It doesn't seem like filtering more cells out improves things for the Smart-seq2 dataset.
 For the 10X dataset, we see minor improvements in the accuracy of the predicted cell labels for classified cells as we increase the threshold
 However, the results suggest that the RF classifier struggles with SHH and WNT predictions.
 This may suggest that the kTSP classifier is a better fit for 10X application while the RF model performs better in the Smart-seq2 dataset.
@@ -291,30 +308,49 @@ ggsave(plot = combined_stats_plot,
 ### Stacked bar plot of labels
 
 Let's make plots that look at the percent of cells in a sample classified with each label.
-For the Smart-seq2 dataset, let's use values that represent _no filtering_, since it doesn't seem to matter very much.
+For the Smart-seq2 dataset, let's use values that represent _filtering > 0_ (at least one gene is observed), since it doesn't seem to matter very much.
 For the 10X dataset, let's pick `prop_observed == 0.1` and gene filtering strategy for kTSP, which seems to be somewhat balanced between making improvements in accuracy and having many unclassified cells.
+We'll display filter > 0 for the 10X dataset as a matter of comparison as well.
 
 ```{r}
 # No filtering for Smart-seq2
-smartseq_stacked_object <- results_df |>
+smartseq_df <- results_df |>
   dplyr::filter(study == "GSE119926",
                 prop_observed == 0,
                 model_type == "RF (w)" | 
-                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+smartseq_stacked_object <- smartseq_df |>
   make_stacked_labels_plot(plot_title = "GSE119926 (Smart-seq2)",
-                           plot_subtitle = "No Filtering") +
+                           plot_subtitle = "Filter > 0") +
   theme(legend.position = "none")
 
+# No filtering for 10X dataset
+tenx_unfiltered_df <- results_df |>
+  dplyr::filter(study == "GSE155446",
+                prop_observed == 0,
+                model_type == "RF (w)" | 
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+tenx_unfiltered_stacked_object <- tenx_unfiltered_df |>
+  make_stacked_labels_plot(plot_title = "GSE155446 (10X)",
+                           plot_subtitle = "Filter > 0") +
+  theme(legend.position = "none",
+        strip.text.y = element_text(size = 5))
+
 # Prop_observed == 0.1 and gene filtering for kTSP for 10x dataset
-tenx_stacked_object <- results_df |>
+tenx_filtered_df <- results_df |>
   dplyr::filter(study == "GSE155446",
                 prop_observed == 0.1,
                 model_type == "RF (w)" | 
-                  model_type == "kTSP (unw)" & filtering_type == "gene") |>
+                  model_type == "kTSP (unw)" & filtering_type == "gene")
+tenx_filtered_stacked_object <- tenx_filtered_df |>
   make_stacked_labels_plot(plot_title = "GSE155446 (10X)",
-                           plot_subtitle = "0.1 Filtering")
+                           plot_subtitle = "Filter > 0.1") +
+  theme(strip.text.y = element_text(size = 5))
 
-combined_stacked_plot <- smartseq_stacked_object + tenx_stacked_object
+combined_stacked_plot <- smartseq_stacked_object + 
+  tenx_unfiltered_stacked_object + 
+  tenx_filtered_stacked_object +
+  plot_annotation(tag_levels = "a")
 
 combined_stacked_plot
 ```
@@ -327,6 +363,17 @@ ggsave(plot = combined_stacked_plot,
        height = 8.5,
        width = 11,
        units = "in")
+```
+
+Save the underlying data to `plots/data`.
+
+```{r}
+stacked_barplot_df <- dplyr::bind_rows(
+  smartseq_df,
+  tenx_unfiltered_df,
+  tenx_filtered_df
+)
+readr::write_tsv(stacked_barplot_df, file = individual_cell_results_file)
 ```
 
 ## Session Info
