@@ -149,7 +149,7 @@ train_and_write_random_model <- function(random_index) {
 
 }
 
-# set subgroups analyzed in this notebook (canonical MB subgroups)
+# set subgroups (canonical MB subgroups)
 mb_subgroups <- c("G3", "G4", "SHH", "WNT")
 
 # Read in essential data
