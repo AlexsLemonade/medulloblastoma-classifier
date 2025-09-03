@@ -160,7 +160,7 @@ rf_smartseq_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
                  plot.subtitle = ggplot2::element_text(hjust = 0.5),
-                 strip.text.y = ggplot2::element_text(size = 7))
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
   dplyr::filter(study == "GSE155446") |>
@@ -182,7 +182,7 @@ rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
                  plot.subtitle = ggplot2::element_text(hjust = 0.5),
-                 strip.text.y = ggplot2::element_text(size = 3))
+                 strip.text.y = ggplot2::element_text(angle = 0))
   
 rf_smartseq_barplot_object + 
   rf_10x_barplot_object + 
@@ -217,7 +217,7 @@ ktsp_smartseq_points_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
                  plot.subtitle = ggplot2::element_text(hjust = 0.5),
-                 strip.text.y = ggplot2::element_text(size = 7))
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
   dplyr::filter(study == "GSE155446") |>
@@ -242,7 +242,7 @@ ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
                  plot.subtitle = ggplot2::element_text(hjust = 0.5),
-                 strip.text.y = ggplot2::element_text(size = 3))
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 ktsp_smartseq_points_object + 
   ktsp_10x_points_object + 
