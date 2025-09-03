@@ -145,10 +145,10 @@ umap_cluster_df <- readr::read_tsv(umap_cluster_file,
 
 ### Smart-seq2 dataset
 
-For the Smart-seq2 dataset, we observed no benefit to employing a filtering strategy, so we will move forward with results that have no filtering of cells in place.
+For the Smart-seq2 dataset, we observed no benefit to employing a more aggressive filtering strategy, so we will move forward with results that have filtering > 0 in place.
 
 ```{r}
-# Use no filtering strategy for Smart-seq2 dataset
+# Use filter > 0 strategy for Smart-seq2 dataset
 smartseq_results_df <- results_df |>
   dplyr::filter(study == "GSE119926",
                 prop_observed == 0,
