@@ -26,10 +26,15 @@ We will use the [Nanostring nCounter PanCancer IO 360 Panel](https://nanostring.
 
 ```{r setup}
 
+# collect random model metrics? takes significant time if TRUE
+# automatically happens if random_plot_df_filepath file does not exist
+collect_random_model_metrics <- FALSE
+
 # Source code and libraries
 source(here::here("utils/color_schemes.R"))
 source(here::here("utils/modeling.R"))
 source(here::here("utils/convert_gene_names.R"))
+library(patchwork)
 
 # Define directories and input/output file paths
 processed_data_dir <- here::here("processed_data")
@@ -169,6 +174,10 @@ readr::write_tsv(x = targeted_plot_df,
                  file = targeted_plot_df_filepath)
 
 # random model metrics
+# run collection of random model metrics (set TRUE in setup chunk) if random models have changed since last rendering
+# or runs automatically if random_plot_df_filepath does not exist
+if (collect_random_model_metrics | !file.exists(random_plot_df_filepath)) {
+
 random_plot_df <- list.files(random_models_dir,
                              pattern = "*.rds",
                              full.names = TRUE) |>
@@ -190,6 +199,12 @@ random_plot_df <- list.files(random_models_dir,
 readr::write_tsv(x = random_plot_df,
                  file = random_plot_df_filepath)
 
+} else {
+  
+  random_plot_df <- readr::read_tsv(file = random_plot_df_filepath)
+  
+}
+
 # baseline model metrics
 baseline_plot_df <- readr::read_tsv(file = baseline_plot_df_filepath,
                                     show_col_types = FALSE) |>
@@ -209,9 +224,51 @@ compare_metrics_plot_df <- dplyr::bind_rows(targeted_plot_df |>
 
 # Compare model performance
 
-## Statistical difference?
+## Kappa
 
-### Kappa
+```{r}
+
+pd <- ggplot2::position_jitterdodge(jitter.height = 0,
+                                    jitter.width = 0, 
+                                    dodge.width = 0.25)
+
+kappa_plot_object <- compare_metrics_plot_df |>
+  dplyr::filter(metric == "Kappa",
+                gene_set %in% c("Full", "Targeted")) |>
+  dplyr::mutate(pairing = stringr::str_c(repeat_index, platform)) |>
+  ggplot2::ggplot(ggplot2::aes(x = gene_set,
+                               y = value)) +
+  ggplot2::geom_boxplot(outlier.shape = NA) +
+  ggplot2::geom_line(ggplot2::aes(fill = gene_set,
+                                  group = pairing),
+                     color = "black",
+                     position = pd) +
+  ggplot2::geom_point(ggplot2::aes(color = gene_set,
+                                   group = pairing),
+                      position = pd,
+                      show.legend = FALSE,
+                      size = 2,
+                      shape = 16) +
+  ggplot2::scale_y_continuous(limits = c(NA,1)) +
+  ggplot2::facet_grid(platform ~ model_type) +
+  ggplot2::labs(x = "Gene set",
+                y = "Kappa",
+                title = "Kappa comparison across gene sets") +
+  ggplot2::theme_bw()
+
+kappa_plot_object
+
+```
+
+Interpretation:
+
+- kTSP and RF models show significantly higher Kappa values in Array data using the full gene set compared to the targeted gene set.
+- kTSP model performance also favors the full gene set in RNA-seq data but is not significant.
+- RF models show slightly worse performance with the full gene set compared to the targeted gene set. 
+- LASSO models showed no significant difference between full and targeted gene sets using either Array or RNA-seq.
+- Low-performing RNA-seq outliers from the full gene set may impact overall interpretation of results.
+
+Metrics table: 
 
 ```{r}
 
@@ -230,20 +287,72 @@ kappa_wilcox_effsize_df <- kappa_wilcox_df |>
 kappa_wilcox_test_df |>
   dplyr::left_join(kappa_wilcox_effsize_df,
                    by = c("model_type", "platform", ".y.", "group1", "group2", "n1", "n2")) |>
-  dplyr::filter(p < 0.05) |>
+  dplyr::mutate(p_adj = p.adjust(p, method = "BH")) |>
+  #dplyr::filter(p_adj < 0.05) |>
   dplyr::select(-`.y.`) |>
-  dplyr::arrange(p) |>
+  dplyr::arrange(p_adj) |>
   knitr::kable()
 
 ```
 
-- kTSP and RF models show significantly higher Kappa values in Array data using the full gene set compared to the targeted gene set.
-- kTSP model performance also favors the full gene set in RNA-seq data but is not significant.
--RF models show slightly worse performance with the full gene set compared to the targeted gene set. 
-- LASSO models showed no significant difference between full and targeted gene sets using either Array or RNA-seq.
-- Low-performing RNA-seq outliers from the full gene set may impact overall interpretation of results.
+## Balanced accuracy
 
-### Balanced Accuracy
+```{r, fig.height=12, fig.width=8}
+
+balanced_accuracy_plot_object_list <- c("Array", "RNA-seq") |>
+  purrr::map(\(x) {
+    compare_metrics_plot_df |>
+      dplyr::filter(platform == x,
+                    metric == "Balanced Accuracy",
+                    gene_set %in% c("Full", "Targeted")) |>
+      dplyr::mutate(pairing = stringr::str_c(repeat_index, platform)) |>
+      ggplot2::ggplot(ggplot2::aes(x = gene_set,
+                                   y = value)) +
+      ggplot2::geom_boxplot(outlier.shape = NA) +
+      ggplot2::geom_line(ggplot2::aes(fill = gene_set,
+                                      group = pairing),
+                         color = "black",
+                         position = pd) +
+      ggplot2::geom_point(ggplot2::aes(color = gene_set,
+                                       group = pairing),
+                          position = pd,
+                          show.legend = FALSE,
+                          size = 2,
+                          shape = 16) +
+      ggplot2::scale_y_continuous(limits = c(NA,1)) +
+      ggplot2::facet_grid(rows = dplyr::vars(subgroup),
+                          cols = dplyr::vars(model_type),
+                          scales = "free") +
+      ggplot2::labs(x = "Gene set",
+                    y = "Balanced Accuracy",
+                    title = stringr::str_c(x, " data")) +
+      ggplot2::theme_bw()
+  }
+  ) |>
+  setNames(c("Array", "RNA-seq"))
+
+balanced_accuracy_plot_object_list[["Array"]] / balanced_accuracy_plot_object_list[["RNA-seq"]] +
+  plot_annotation(title = "Balanced accuracy comparison across gene sets and subtype",
+                  tag_levels = "A")
+
+```
+
+Overall interpretion:
+
+- Models trained on full gene sets show higher balanced accuracy across MB subtypes than targeted gene sets, except where accuracy is already close to 1
+
+Array data:
+
+- kTSP (unw) models show significantly higher balanced accuracy with full gene sets (vs. targeted gene sets) across all four MB subtypes
+- kTSP (w) shows full > targeted in G3, G4, and SHH but not WNT which has near perfect accuracy with both full and targeted
+- RF (unw) shows significant difference for SHH and WNT while RF (w) shows significant difference for G3 and G4
+
+RNA-seq data:
+
+- Variability in accuracy across all model types makes significant differences between gene sets harder to observe
+- Only kTSP (unw) (G3) and, unexpectedly, LASSO (WNT) show significant difference after p-value correction
+
+Metrics table:
 
 ```{r}
 
@@ -271,71 +380,20 @@ accuracy_wilcox_effsize_df <- accuracy_wilcox_test_df |>
 accuracy_wilcox_test_df |>
   dplyr::left_join(accuracy_wilcox_effsize_df,
                    by = c("model_type", "platform", "subgroup", ".y.", "group1", "group2", "n1", "n2")) |>
-  dplyr::filter(p < 0.05) |>
+  dplyr::mutate(p_adj = p.adjust(p, method = "BH")) |>
+  #dplyr::filter(p_adj < 0.05) |>
   dplyr::select(-`.y.`) |>
-  dplyr::arrange(p) |>
+  dplyr::arrange(p_adj) |>
   knitr::kable()
 
 ```
 
-## Visualize difference
-
-### Kappa
-
-```{r}
-
-kappa_plot_object <- compare_metrics_plot_df |>
-  dplyr::filter(metric == "Kappa",
-                gene_set %in% c("Full", "Targeted")) |>
-  ggplot2::ggplot(ggplot2::aes(x = platform,
-                               y = value,
-                               color = gene_set)) +
-  ggplot2::geom_boxplot() +
-  ggplot2::facet_wrap(~ model_type,
-                      nrow = 1) +
-  ggplot2::scale_y_continuous(limits = c(NA,1)) +
-  ggplot2::labs(x = "Method",
-                y = "Kappa",
-                color = "Gene Set",
-                title = "Kappa comparison across gene sets") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
-
-kappa_plot_object
-
-```
-
-### Balanced accuracy
-
-```{r}
-
-accuracy_plot_object <- compare_metrics_plot_df |>
-  dplyr::filter(metric == "Balanced Accuracy",
-                gene_set %in% c("Full", "Targeted")) |>
-  ggplot2::ggplot(ggplot2::aes(x = platform,
-                               y = value,
-                               color = gene_set)) +
-  ggplot2::geom_boxplot() +
-  ggplot2::facet_grid(rows = dplyr::vars(subgroup),
-                      cols = dplyr::vars(model_type)) +
-  ggplot2::labs(x = "Method",
-                y = "Balanced Accuracy",
-                color = "Gene Set",
-                title = "Balanced accuracy comparison across gene sets") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(legend.position = "bottom",
-                 legend.direction = "horizontal")
-
-accuracy_plot_object
-
-```
 
 ## Targeted permutation test
 
 We want to compare the observed Kappa values against the null distribution of Kappa values (generated using random gene sets).
 Observed Kappa values on the far extremes of the null distribution can be considered "significant" if their permutation test p-value is below a given threshold (e.g. < 0.05).
-The permutation test p-value is the probability of observing a given Kappa value or something more extreme.
+The permutation test p-value is the probability of observing a given Kappa value or something more extreme under the null distribution.
 The function `dplyr::percent_rank()` of a variable returns the proportion of values that are less than the observed value (so the percent rank of the max value is 1 without any ties).
 The permutation test p-value is then `1 - percent_rank()`.
 
@@ -375,6 +433,10 @@ targeted_perm_test_plot
 
 ```
 
+Across all models and data types, only 3 out of 100 targeted gene set Kappa values were observed in the extreme upper tail (> 95%) of the random (null) distribution.
+Those three were all in RF (unw) models trained on RNA-seq data.
+The overall observation is that targeted gene set Kappa values fall within the null distribution of Kappa values returned by random gene sets, meaning there is overall no difference in using targeted and random gene sets of the same size.
+
 # Interpretation
 
 - Full gene sets significantly outperform targeted gene sets, especially in Array data
@@ -391,7 +453,7 @@ This difference is most striking when predicting MB subgroup labels from Array d
 
 2. Does the identity of the genes in the targeted gene set matter? In other words, can a random gene set of the same size perform just as well as the targeted gene set?
 
-The identity of the genes used in the targeted gene set appears to not matter.
+The identity of the genes used in the targeted gene set appears not to matter.
 The performance of targeted gene set models falls within the range of random gene sets of the same size.
 
 # Session info
