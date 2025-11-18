@@ -628,18 +628,8 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-59",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "methods",
-        "stats",
-        "utils"
-      ],
-      "Hash": "26570ae748e78cb2b0f56019dd2ba354"
+      "Version": "7.3-58.3",
+      "Source": "Repository"
     },
     "MM2S": {
       "Package": "MM2S",
