@@ -2430,33 +2430,8 @@
     },
     "igraph": {
       "Package": "igraph",
-      "Version": "2.0.3",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "RemoteType": "standard",
-      "RemotePkgRef": "igraph",
-      "RemoteRef": "igraph",
-      "RemoteRepos": "https://cloud.r-project.org",
-      "RemoteReposName": "CRAN",
-      "RemotePkgPlatform": "aarch64-apple-darwin20",
-      "RemoteSha": "2.0.3",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "cli",
-        "cpp11",
-        "grDevices",
-        "graphics",
-        "lifecycle",
-        "magrittr",
-        "methods",
-        "pkgconfig",
-        "rlang",
-        "stats",
-        "utils",
-        "vctrs"
-      ],
-      "Hash": "c3b7d801d722e26e4cd888e042bf9af5"
+      "Version": "1.4.2",
+      "Source": "Repository"
     },
     "interactiveDisplayBase": {
       "Package": "interactiveDisplayBase",
