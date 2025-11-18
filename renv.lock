@@ -1701,26 +1701,8 @@
     },
     "dplyr": {
       "Package": "dplyr",
-      "Version": "1.1.2",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "R6",
-        "cli",
-        "generics",
-        "glue",
-        "lifecycle",
-        "magrittr",
-        "methods",
-        "pillar",
-        "rlang",
-        "tibble",
-        "tidyselect",
-        "utils",
-        "vctrs"
-      ],
-      "Hash": "dea6970ff715ca541c387de363ff405e"
+      "Version": "1.1.1",
+      "Source": "Repository"
     },
     "dqrng": {
       "Package": "dqrng",
