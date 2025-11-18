@@ -270,7 +270,14 @@
     "Cairo": {
       "Package": "Cairo",
       "Version": "1.6-0",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics"
+      ],
+      "Hash": "60aada7beac23aa3e9b219485d6b2da8"
     },
     "DBI": {
       "Package": "DBI",
@@ -615,7 +622,17 @@
     "MASS": {
       "Package": "MASS",
       "Version": "7.3-58.3",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "9586b552d57f5516fe4d25398c1bacd6"
     },
     "MM2S": {
       "Package": "MM2S",
@@ -992,6 +1009,32 @@
       ],
       "Hash": "4215e703af8f32ea5c1d5015a479ea09"
     },
+    "SingleR": {
+      "Package": "SingleR",
+      "Version": "2.0.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/SingleR",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "f36aaf5",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "BiocNeighbors",
+        "BiocParallel",
+        "BiocSingular",
+        "DelayedArray",
+        "DelayedMatrixStats",
+        "Matrix",
+        "Rcpp",
+        "S4Vectors",
+        "SummarizedExperiment",
+        "beachmat",
+        "methods",
+        "parallel",
+        "stats",
+        "utils"
+      ],
+      "Hash": "fa89d8c66027e5e424acddcbf2e457ad"
+    },
     "SparseM": {
       "Package": "SparseM",
       "Version": "1.81",
@@ -1053,7 +1096,14 @@
     "XML": {
       "Package": "XML",
       "Version": "3.99-0.14",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "methods",
+        "utils"
+      ],
+      "Hash": "e5c8af79df616c135b21eaeb1dc6bc5c"
     },
     "XVector": {
       "Package": "XVector",
@@ -1542,7 +1592,9 @@
     "cpp11": {
       "Package": "cpp11",
       "Version": "0.4.3",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "ed588261931ee3be2c700d22e94a29ab"
     },
     "crayon": {
       "Package": "crayon",
@@ -1688,7 +1740,25 @@
     "dplyr": {
       "Package": "dplyr",
       "Version": "1.1.1",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "R6",
+        "cli",
+        "generics",
+        "glue",
+        "lifecycle",
+        "magrittr",
+        "methods",
+        "pillar",
+        "rlang",
+        "tibble",
+        "tidyselect",
+        "utils",
+        "vctrs"
+      ],
+      "Hash": "eb5742d256a0d9306d85ea68756d8187"
     },
     "dqrng": {
       "Package": "dqrng",
@@ -1887,7 +1957,13 @@
     "fs": {
       "Package": "fs",
       "Version": "1.6.1",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "methods"
+      ],
+      "Hash": "f4dcd23b67e33d851d2079f703e8b985"
     },
     "futile.logger": {
       "Package": "futile.logger",
@@ -2431,7 +2507,22 @@
     "igraph": {
       "Package": "igraph",
       "Version": "1.4.2",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "Matrix",
+        "R",
+        "cpp11",
+        "grDevices",
+        "graphics",
+        "magrittr",
+        "methods",
+        "pkgconfig",
+        "rlang",
+        "stats",
+        "utils"
+      ],
+      "Hash": "3e476b375c746d899fd53a7281d78191"
     },
     "interactiveDisplayBase": {
       "Package": "interactiveDisplayBase",
@@ -4319,7 +4410,13 @@
     "xfun": {
       "Package": "xfun",
       "Version": "0.38",
-      "Source": "Repository"
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "stats",
+        "tools"
+      ],
+      "Hash": "1ed71215d45e85562d3b1b29a068ccec"
     },
     "xml2": {
       "Package": "xml2",
