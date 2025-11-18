@@ -4411,14 +4411,8 @@
     },
     "xfun": {
       "Package": "xfun",
-      "Version": "0.39",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "stats",
-        "tools"
-      ],
-      "Hash": "8f56e9acb54fb525e66464d57ab58bcb"
+      "Version": "0.38",
+      "Source": "Repository"
     },
     "xml2": {
       "Package": "xml2",
