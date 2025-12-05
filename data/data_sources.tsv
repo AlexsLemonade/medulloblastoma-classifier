@@ -34,4 +34,4 @@ GENCODE	url	https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_31
 GSE155446	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/GSE155446_human_cell_metadata.csv.gz
 GSE155446	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/GSE155446_human_raw_counts.csv.gz
 GSE155446	url	https://d3vp0195ukgw56.cloudfront.net/mbbrowser/human/All-cells/meta.tsv
-PanglaoDB	url	https://panglaodb.se/markers/PanglaoDB_markers_27_Mar_2020.tsv.gz
+PanglaoDB	url	https://raw.githubusercontent.com/AlexsLemonade/scpca-nf/refs/heads/main/references/PanglaoDB_markers_2020-03-27.tsv

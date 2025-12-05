@@ -179,7 +179,7 @@ d93113b0f20fa45de9dbd4df891be142 data/GSE60862/GSE60862/metadata_GSE60862.tsv
 6bd1964894e016ca41d66051e6a28566 data/GSE60862/GSE60862/GSE60862.tsv
 9ed2fa92d31d51f17fc048b98158a5e1 data/GSE60862/README.md
 b62634d9eccbb548499ce384605fe47a data/GSE60862/LICENSE.TXT
-815ac2cb71af6e37abbebf9fcccc9002 data/data_sources.tsv
+ec4bf473557afe78dd6f0a52883e7502 data/data_sources.tsv
 1f3c8bfa55ba38db2edde1a206f90bf1 data/OpenPBTA/pbta-gene-expression-rsem-tpm.stranded.rds
 f207a129a5442f4ed3c3b63a46ec9fde data/OpenPBTA/pbta-gene-expression-rsem-tpm.polya.rds
 d75303b0b255b76eb63de076957bdefc data/OpenPBTA/pbta-histologies.tsv
@@ -293,4 +293,4 @@ b62634d9eccbb548499ce384605fe47a data/GSE3526/LICENSE.TXT
 36ac72cfbb20de8f59dc5c5df3063555 data/GSE3526/GSE3526/metadata_GSE3526.tsv
 afee7e3dc5904126d36649a385c2ddcd data/GENCODE/GENCODE_gene_lengths.tsv
 0aac86e8a6c9e5fa5afe2a286325da81 data/GENCODE/gencode.v31.annotation.gtf.gz
-facbd5a4b9cd6d910d9fb3361adc3ea1 data/PanglaoDB/PanglaoDB_markers_27_Mar_2020.tsv.gz
+76118caaba7cda4f9bd367663eadc626 data/PanglaoDB/PanglaoDB_markers_2020-03-27.tsv
