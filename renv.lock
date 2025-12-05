@@ -3,6 +3,30 @@
     "Version": "4.2.3",
     "Repositories": [
       {
+        "Name": "BioCcontainers",
+        "URL": "https://bioconductor.org/packages/3.16/container-binaries/bioconductor_docker"
+      },
+      {
+        "Name": "BioCsoft",
+        "URL": "https://bioconductor.org/packages/3.16/bioc"
+      },
+      {
+        "Name": "BioCann",
+        "URL": "https://bioconductor.org/packages/3.16/data/annotation"
+      },
+      {
+        "Name": "BioCexp",
+        "URL": "https://bioconductor.org/packages/3.16/data/experiment"
+      },
+      {
+        "Name": "BioCworkflows",
+        "URL": "https://bioconductor.org/packages/3.16/workflows"
+      },
+      {
+        "Name": "BioCbooks",
+        "URL": "https://bioconductor.org/packages/3.16/books"
+      },
+      {
         "Name": "CRAN",
         "URL": "https://packagemanager.posit.co/cran/2023-04-20"
       }
@@ -35,6 +59,23 @@
         "utils"
       ],
       "Hash": "14966d2e5ffaa621945cc2b9a115f377"
+    },
+    "AnnotationFilter": {
+      "Package": "AnnotationFilter",
+      "Version": "1.22.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/AnnotationFilter",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "c9fea4a",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "GenomicRanges",
+        "R",
+        "lazyeval",
+        "methods",
+        "utils"
+      ],
+      "Hash": "a75bb950463d121b4ac6209c182677ed"
     },
     "AnnotationHub": {
       "Package": "AnnotationHub",
@@ -352,6 +393,27 @@
         "sparseMatrixStats"
       ],
       "Hash": "c452254402b273ade2caf8519985bc4b"
+    },
+    "ExperimentHub": {
+      "Package": "ExperimentHub",
+      "Version": "2.6.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/ExperimentHub",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "557ba29",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "AnnotationHub",
+        "BiocFileCache",
+        "BiocGenerics",
+        "BiocManager",
+        "S4Vectors",
+        "curl",
+        "methods",
+        "rappdirs",
+        "utils"
+      ],
+      "Hash": "a5e2e197693608ea872a7a3d04de919c"
     },
     "FNN": {
       "Package": "FNN",
@@ -708,6 +770,19 @@
         "data.table"
       ],
       "Hash": "40a55bd0b44719941d103291ac5e9d74"
+    },
+    "ProtGenerics": {
+      "Package": "ProtGenerics",
+      "Version": "1.30.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/ProtGenerics",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "fcd566b",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "methods"
+      ],
+      "Hash": "f097f63d746eff6c10b80338a930034d"
     },
     "R.methodsS3": {
       "Package": "R.methodsS3",
@@ -1464,6 +1539,26 @@
       ],
       "Hash": "528692344d5a174552e3bf7acdfbaebd"
     },
+    "celldex": {
+      "Package": "celldex",
+      "Version": "1.8.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/celldex",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "9b8a161",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "AnnotationDbi",
+        "AnnotationHub",
+        "DelayedArray",
+        "DelayedMatrixStats",
+        "ExperimentHub",
+        "S4Vectors",
+        "SummarizedExperiment",
+        "utils"
+      ],
+      "Hash": "0abc74e1bbb8ef34416c1ee3cc54a98f"
+    },
     "cellranger": {
       "Package": "cellranger",
       "Version": "1.1.0",
@@ -1845,6 +1940,36 @@
         "rlang"
       ],
       "Hash": "bb0eec2fe32e88d9e2836c2f73ea2077"
+    },
+    "ensembldb": {
+      "Package": "ensembldb",
+      "Version": "2.22.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/ensembldb",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "4dda178",
+      "git_last_commit_date": "2022-11-01",
+      "Requirements": [
+        "AnnotationDbi",
+        "AnnotationFilter",
+        "Biobase",
+        "BiocGenerics",
+        "Biostrings",
+        "DBI",
+        "GenomeInfoDb",
+        "GenomicFeatures",
+        "GenomicRanges",
+        "IRanges",
+        "ProtGenerics",
+        "R",
+        "RSQLite",
+        "Rsamtools",
+        "S4Vectors",
+        "curl",
+        "methods",
+        "rtracklayer"
+      ],
+      "Hash": "abad22ca000751e019923890dfb9820e"
     },
     "estimate": {
       "Package": "estimate",
@@ -2842,7 +2967,6 @@
       "RemoteRef": "v0.1.1",
       "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c",
       "Requirements": [
-        "R",
         "caret",
         "dplyr",
         "e1071",
@@ -2850,7 +2974,7 @@
         "plyr",
         "reshape2"
       ],
-      "Hash": "fef6bd9b86183aa8618a881ce51f2c47"
+      "Hash": "0a580407340c0ccdb07b204ae0f5c8a7"
     },
     "memoise": {
       "Package": "memoise",
@@ -3434,7 +3558,7 @@
     },
     "recipes": {
       "Package": "recipes",
-      "Version": "1.0.6",
+      "Version": "1.0.5",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -3463,7 +3587,7 @@
         "vctrs",
         "withr"
       ],
-      "Hash": "eb53ffc9674dc9a52c3a7e22d96d3f56"
+      "Hash": "a3ad6802b18da51f9d38ac7ae8949166"
     },
     "rematch": {
       "Package": "rematch",
