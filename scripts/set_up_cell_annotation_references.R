@@ -1,10 +1,12 @@
 # J. Taroni
 # 2025
 #
-# Extract celldex reference for use with SingleR and train SingleR model for
-# use in annotating Smart-seq2 dataset
+# Extract celldex reference for use with SingleR and train SingleR model and
+# extract ENSG identifiers for oligodendrocyte markers from PanglaoDB
+# for use in annotating Smart-seq2 dataset
 #
-# USAGE: Rscript extract_ref_and_train_singler.R
+#
+# USAGE: Rscript set_up_cell_annotation_references.R
 
 #### Directories and files -----------------------------------------------------
 
