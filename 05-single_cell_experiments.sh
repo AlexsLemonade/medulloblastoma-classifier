@@ -55,3 +55,6 @@ Rscript "${scripts_dir}/extract_single_cell_cluster_umap.R"
 
 # Single-cell visualizations
 Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
+
+# Set up cell type annotation references
+Rscript "${scripts_dir}/set_up_cell_annotation_references.R"
