@@ -1,0 +1,305 @@
+---
+title: "Labeling non-malignant cells in the Hovestadt et al. Smart-seq2 dataset"
+author: "Jaclyn Taroni"
+date: '2025'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+---
+
+We do not have author-derived cell type labels for the [Hovestadt, et al. 2019.](https://www.nature.com/articles/s41586-019-1434-6) Smart-seq2 dataset.
+Based on [Extended Data Figure 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC6754173/figure/F9/), we expect a small number of immune cells and oligodendrocytes to be present in the dataset, with the overwhelming majority of cells being malignant cells.
+To address the question of labeling non-malignant cells, we took two approaches in `scripts/classify_singler_aucell.R`:
+
+- Used SingleR ([Aran et al. 2019.](https://doi.org/10.1038/s41590-018-0276-y)) with [the `BlueprintEncodeData`](https://bioconductor.org/packages/release/data/experiment/vignettes/celldex/inst/doc/userguide.html#32_BlueprintENCODE) as a reference with the goal of identifying immune cells.
+- Used AUCell ([Aibar et al. 2017.](https://doi.org/10.1038/nmeth.4463)) with PanglaoDB ([Franzén et al. 2019.](https://academic.oup.com/database/article/doi/10.1093/database/baz046/5427041)) marker genes for oligodendrocytes with the goal of identifying oligodendrocytes. 
+We use AUCell's automated thresholding to make oligodendrocyte assignments.
+
+You can see how the references were prepared in `scripts/set_up_annotation_references.R`.
+
+A lot of this code was adapted from Childhood Cancer Data Lab training material on merging `SingleCellExperiment` objects.
+
+## Set up
+
+### Libraries
+
+```{r}
+suppressMessages(library(SingleCellExperiment))
+library(patchwork)
+```
+
+### Color scheme
+
+```{r}
+source(here::here("utils/color_schemes.R"))
+```
+
+### Functions
+
+```{r}
+# Adapted from https://github.com/AlexsLemonade/training-modules/blob/32c765735b1e3a9c9df390d12af362a74f527d8f/scRNA-seq-advanced/02-dataset_integration.Rmd#L358-L412
+#' Custom function to format an SCE before merging
+#'
+#' @param sce SCE object to format
+#' @param sample_name Name of the sample
+#' @param shared_genes Vector of shared genes across all SCE objects
+#'
+#' @returns An updated SCE object ready for merging
+format_sce <- function(
+  sce, 
+  sample_name, 
+  shared_genes
+) {
+  
+  ### Remove the single-sample reduced dimensions 
+  # We do this first since it makes the object a lot smaller for the rest of this code!
+  reducedDims(sce) <- NULL
+  
+  ### Add dedicated sample indicator column to the colData slot
+  # Recall, the `sce$` shortcut points to the colData
+  sce$sample <- sample_name
+
+  ### Ensure objects have the same genes in the same order
+  # Use the shared_genes vector to index genes to the intersection
+  # Doing this both subsets to just those genes, and reorders!
+  sce <- sce[shared_genes, ]
+
+  ### Ensure cell ids are identifiable and fully unique 
+  # Update the SCE object column names (cell ids) by prepending the `sample_name`
+  colnames(sce) <- glue::glue("{sample_name}-{colnames(sce)}")
+  
+  ### Finally, we can return the formatted SCE object
+  return(sce)  
+}
+```
+
+### Files and directories
+
+```{r}
+# Directories
+processed_data_dir <- here::here("processed_data")
+single_cell_data_dir <- here::here(processed_data_dir, "single_cell")
+smartseq_data_dir <- here::here(single_cell_data_dir, "GSE119926/sce")
+
+# Grab all the SingleCellExperiment files
+sce_files <- fs::dir_ls(path = smartseq_data_dir,
+                        glob = "*_sce.rds")
+
+# Extract sample titles from the file names
+sce_sample_titles <- stringr::word(names(sce_files), start = -1, sep = "/") |>
+  stringr::str_remove_all("\\_sce.rds")
+
+# Fail if there are any sample title collisions
+if (any(duplicated(sce_sample_titles))) {
+
+  stop("Duplicate single-cell sample title detected!")
+
+} else {
+
+  # Name the vector using the sample title
+  names(sce_files) <- sce_sample_titles
+
+}
+
+# Pseudobulk metadata file
+pseudobulk_meta_file <- fs::path(
+  single_cell_data_dir, 
+  "pseudobulk_metadata.tsv"
+)
+```
+
+## Read in and process data
+
+Read in metadata.
+
+```{r}
+metadata_df <- readr::read_tsv(pseudobulk_meta_file)
+```
+
+Read in `SingleCellExperiment` objects and format for merging.
+
+```{r}
+# Read in SingleCellExperiment objects into a list
+sce_list <- sce_files |>
+  purrr::map(readr::read_rds)
+
+# Get all the shared genes
+shared_genes <- sce_list |>
+  # get rownames (genes) for each SCE in sce_list
+  purrr::map(rownames) |>
+  # reduce to the _intersection_ among lists
+  purrr::reduce(intersect)
+
+# Process all the SingleCellExperiment in the list to prepare for merging
+sce_list_formatted <- purrr::map2(
+  sce_list,
+  sce_sample_titles,
+  \(sce, sample_name) format_sce(sce, sample_name, shared_genes) 
+)
+```
+
+### Merge objects and log2-transform the TPM
+
+```{r}
+# Merge (not integrated!!!)
+merged_sce <- do.call(cbind, sce_list_formatted)
+
+# Log2 transform TPM to populate logcounts slot -- this is otherwise 
+# scater::logNormCounts applied to TPM because of the processing that happens in
+# 02-gather-data.R
+logcounts(merged_sce) <- log2(counts(merged_sce) + 1)
+```
+
+Remove large objects from the environment because we no longer need them.
+
+```{r}
+# Remove sce_list and sce_list_formatted
+rm(sce_list)
+rm(sce_list_formatted)
+```
+
+## Dimensionality reduction
+
+### HVGs and PCA
+
+```{r}
+# Adapted from https://github.com/AlexsLemonade/training-modules/blob/32c765735b1e3a9c9df390d12af362a74f527d8f/scRNA-seq-advanced/02-dataset_integration.Rmd
+# Specify the number of high variance genes to use
+num_genes <- 2000
+
+# Calculate variation for each gene
+gene_variance <- scran::modelGeneVar(merged_sce,
+                                     # specify the grouping column:
+                                     block = merged_sce$sample)
+
+# Get the top `num_genes` high-variance genes to use for dimension reduction
+hv_genes <- scran::getTopHVGs(gene_variance,
+                              n = num_genes)
+
+# Use batchelor to calculate PCA for merged_sce, considering only
+#  the high-variance genes
+# We'll need to include the argument `preserve.single = TRUE` to get
+#  a single matrix with all samples and not separate matrices for each sample
+merged_pca <- batchelor::multiBatchPCA(merged_sce,
+                                       subset.row = hv_genes,
+                                       batch = merged_sce$sample,
+                                       preserve.single = TRUE)
+```
+
+### UMAP
+
+```{r}
+# Adapted from https://github.com/AlexsLemonade/training-modules/blob/32c765735b1e3a9c9df390d12af362a74f527d8f/scRNA-seq-advanced/02-dataset_integration.Rmd
+# Add PCA results to merged object
+reducedDim(merged_sce, "PCA") <- merged_pca[[1]]
+
+# Run UMAP
+merged_sce <- scater::runUMAP(merged_sce)
+```
+
+#### Plotting
+
+To facilitate plotting, we're going to add the true subgroup labels to the `colData`.
+
+```{r}
+# Extract colData and wrangle
+coldata_df <- colData(merged_sce) |>
+  as.data.frame() |>
+  tibble::rownames_to_column("id") |>
+  dplyr::mutate(title = stringr::str_extract(id, "[^-]+"))
+
+# Add in relevant metadata from pseudobulk metadata
+coldata_df <- coldata_df |>
+  dplyr::left_join(
+    dplyr::select(metadata_df,
+                  title,
+                  is_PDX,
+                  subgroup,
+                  subtype),
+    by = "title"
+  )
+
+# Add back in
+colData(merged_sce) <- DataFrame(
+  coldata_df,
+  row.names = rownames(coldata_df)
+)
+```
+
+Plot a UMAP colored by true subgroup labels.
+
+```{r}
+# UMAPs scaled together when calculated from the merged SCE
+subgroup_umap <- scater::plotUMAP(
+  merged_sce,
+  color_by = "subgroup",
+  # Some styling to help us see the points:
+  point_size = 0.5,
+  point_alpha = 0.2
+) +
+  ggplot2::scale_color_manual(values = subgroup_colors) + 
+  ggplot2::guides(color = ggplot2::guide_legend(
+    override.aes = list(size = 3, 
+                        alpha = 1))
+  ) +
+  ggplot2::ggtitle("Subgroup")
+```
+
+Plot UMAP coloring cells based on whether or not something got called an oligodendrocyte using AUCell methodology.
+
+```{r}
+oligodendrocyte_umap <- scater::plotUMAP(
+  merged_sce,
+  color_by = "oligodendrocyte_assignment",
+  # Some styling to help us see the points:
+  point_size = 0.5,
+  point_alpha = 0.2
+) +
+  ggplot2::guides(color = ggplot2::guide_legend(
+    override.aes = list(size = 3, 
+                        alpha = 1))
+  ) +
+  ggplot2::ggtitle("Oligodendrocyte Assignment")
+```
+
+Make a bar plot counting the number of SingleR annotations.
+
+```{r}
+singler_barplot <- coldata_df |> 
+  ggplot2::ggplot(
+    ggplot2::aes(
+      x = pruned.labels
+    )
+  ) + 
+  ggplot2::geom_bar(stat = "count") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(
+      angle = 90, vjust = 0.5, hjust = 1
+    )
+  ) +
+  ggplot2::ggtitle("SingleR Assignment") +
+  ggplot2::xlab("Cell Type Label")
+```
+
+Compile figure.
+
+```{r}
+(subgroup_umap + oligodendrocyte_umap) / singler_barplot
+```
+
+## Takeaways
+
+We do not see any immune cells in the SingleR annotations.
+We also don't see a coherent group of oligodendrocytes separate from the tumor cells.
+In reviewing these results, I thought it might be possible that non-malignant cells were removed from the data on GEO.
+If we look at the description a sample on GEO, it typically says "N high quality malignant cells." 
+Here's an example: <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM3905423>
+Therefore, I think it's safe to assume that all cells in this dataset are malignant cells.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
