@@ -58,3 +58,6 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 
 # Set up cell type annotation references
 Rscript "${scripts_dir}/set_up_cell_annotation_references.R"
+
+# Add annotation information to Smart-seq2 dataset
+Rscript "${scripts_dir}/classify_singler_aucell.R"
