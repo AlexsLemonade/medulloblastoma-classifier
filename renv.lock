@@ -12,6 +12,33 @@
     "Version": "3.16"
   },
   "Packages": {
+    "AUCell": {
+      "Package": "AUCell",
+      "Version": "1.20.2",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/AUCell",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "1822d37",
+      "git_last_commit_date": "2022-12-01",
+      "Requirements": [
+        "BiocGenerics",
+        "DelayedArray",
+        "DelayedMatrixStats",
+        "GSEABase",
+        "Matrix",
+        "R.utils",
+        "SummarizedExperiment",
+        "data.table",
+        "grDevices",
+        "graphics",
+        "methods",
+        "mixtools",
+        "shiny",
+        "stats",
+        "utils"
+      ],
+      "Hash": "3a969a747168fcce41baaea46f6fe5f7"
+    },
     "AnnotationDbi": {
       "Package": "AnnotationDbi",
       "Version": "1.60.2",
@@ -2766,6 +2793,20 @@
       ],
       "Hash": "a4269a09a9b865579b2635c77e572374"
     },
+    "kernlab": {
+      "Package": "kernlab",
+      "Version": "0.9-32",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "methods",
+        "stats"
+      ],
+      "Hash": "d7d6a7cb690ac73eeced99e1ed9d6cdb"
+    },
     "kknn": {
       "Package": "kknn",
       "Version": "1.3.1",
@@ -3103,6 +3144,23 @@
         "Rcpp"
       ],
       "Hash": "587ce77fd3c7bada7eadb2d18b62930d"
+    },
+    "mixtools": {
+      "Package": "mixtools",
+      "Version": "2.0.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "MASS",
+        "R",
+        "kernlab",
+        "plotly",
+        "scales",
+        "segmented",
+        "stats",
+        "survival"
+      ],
+      "Hash": "2b9414057d7f3725130e2f743ea05a2f"
     },
     "modelr": {
       "Package": "modelr",
@@ -4155,6 +4213,17 @@
         "utils"
       ],
       "Hash": "050b9dcf85319811406e1e087816c1d0"
+    },
+    "segmented": {
+      "Package": "segmented",
+      "Version": "1.6-4",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "MASS",
+        "nlme"
+      ],
+      "Hash": "afd0d39d61c3e80ef254b7d3162fdfee"
     },
     "selectr": {
       "Package": "selectr",
