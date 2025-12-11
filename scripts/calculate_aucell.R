@@ -100,7 +100,7 @@ sce_list <- sce_files |>
   purrr::map(readr::read_rds)
 
 # GeneSetCollection
-genesets <- readr::read_rds(opt$genesets_file)
+genesets <- readr::read_rds(opt$geneset_file)
 
 # Data frame of AUCell scores for all genesets from all samples
 auc_df <- sce_list |>
