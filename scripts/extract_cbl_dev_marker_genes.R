@@ -5,6 +5,10 @@
 # data https://doi.org/10.1038/s41593-021-00872-y
 # Downloaded from UCSC Cell Browser: https://cells.ucsc.edu/?ds=cbl-dev
 #
+# Converts marker genes from Joshi et al. 2024 G3/G4 sc multi-omic paper
+# (https://doi.org/10.1101/2024.02.09.579680) to Ensembl gene identifiers and
+# saves as a GSEABase::GeneSetCollection for use with AUCell
+#
 # Usage: Rscript extract_cbl_dev_marker_genes.R
 
 #### Set up --------------------------------------------------------------------
@@ -17,13 +21,28 @@ library(SingleCellExperiment)
 # Aldinger et al. 2021. data as a Seurat object
 srt_file <- here::here("data/CellBrowser/seurat.rds")
 
+# Joshi et al. 2024. UBC lineage and retinal lineage gene sets
+# these were obtained from the supplemental material: https://www.biorxiv.org/content/10.1101/2024.02.09.579680v1.supplementary-material
+# Specifically, Table S6
+joshi_ubc_file <- here::here(
+  "processed_data/single_cell/joshi_et_al_gc_ubc_lineage_gene_sets.tsv"
+)
+joshi_ret_file <- here::here(
+  "processed_data/single_cell/joshi_et_al_retinal_lineage_gene_sets.tsv"
+)
+
 # Output files
-markers_file <- here::here(
+aldinger_markers_file <- here::here(
   "processed_data/single_cell/aldinger_cbl_dev_marker_genes.tsv"
 )
 # GSEABase::GeneSet version for use with AUCell
-markers_genesets_files <- here::here(
+aldinger_markers_genesets_file <- here::here(
   "processed_data/single_cell/aldinger_cbl_dev_genesets.rds"
+)
+
+# GSEABase::GeneSetCollection version of Joshi et al.
+joshi_markers_genesets_file <- here::here(
+  "processed_data/single_cell/joshi_genesets.rds"
 )
 
 #### Functions -----------------------------------------------------------------
@@ -60,7 +79,7 @@ extract_top_n_markers <- function(marker_dframe,
   return(marker_df)
 }
 
-#### Read in, convert, and normalize data --------------------------------------
+#### Read in, convert, and normalize Aldinger et al. data ----------------------
 
 # Read in Seurat object
 srt <- readr::read_rds(srt_file)
@@ -79,7 +98,7 @@ sce <- scater::logNormCounts(sce,
 # data to make a bit smaller
 reducedDim(sce) <- NULL
 
-#### Find marker genes ---------------------------------------------------------
+#### Find Aldinger et al. marker genes -----------------------------------------
 
 # Calculate marker genes for cell type vs. all other cell type
 markers <- scran::findMarkers(
@@ -110,4 +129,35 @@ geneset_collection <- names(markers) |>
   GSEABase::GeneSetCollection()
 
 # Save GeneSetCollection to file
-readr::write_rds(geneset_collection, file = markers_genesets_files)
+readr::write_rds(geneset_collection, file = aldinger_markers_genesets_file)
+
+#### Gene id conversion and format change for Joshi et al. data ----------------
+
+# Read in data frames of gene symbols
+joshi_ubc_df <- readr::read_tsv(joshi_ubc_file)
+joshi_ret_df <- readr::read_tsv(joshi_ret_file)
+
+# Bind together into one data frame
+joshi_df <- joshi_ret_df |>
+  dplyr::bind_rows(joshi_ubc_df)
+
+# Convert gene symbols to Ensembl gene identifiers
+joshi_df <- convert_gene_names(joshi_df,
+                               gene_column_before = "gene_symbol",
+                               gene_column_after = "gene",
+                               map_from = "SYMBOL",
+                               map_to = "ENSEMBL")
+
+# Convert to GSEABase::GeneSetCollection
+joshi_geneset_collection <- unique(joshi_df$cell_type) |>
+  purrr::map(
+  \(geneset) joshi_df |>
+    dplyr::filter(cell_type == geneset) |>
+    dplyr::pull(gene) |>
+    GSEABase::GeneSet(setName = geneset,
+                      geneIdType = GSEABase::ENSEMBLIdentifier())
+  ) |>
+  GSEABase::GeneSetCollection()
+
+# Write to file
+readr::write_rds(joshi_geneset_collection, file = joshi_markers_genesets_file)
