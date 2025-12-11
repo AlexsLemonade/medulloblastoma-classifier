@@ -58,7 +58,7 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 
 # Extract marker genes from Aldinger et al. 2021. human cerebellar development
 # cell types
-Rscript "${scripts_dir}/extract_cbl_dev_marker_genes.R"
+Rscript "${scripts_dir}/prepare_marker_gene_sets.R"
 
 # Calculate AUCell scores for human cerebellar development cell type markers
 Rscripts "${scripts_dir}/calculate_cbl_dev_aucell.R"
