@@ -9,7 +9,7 @@
 # (https://doi.org/10.1101/2024.02.09.579680) to Ensembl gene identifiers and
 # saves as a GSEABase::GeneSetCollection for use with AUCell
 #
-# Usage: Rscript extract_cbl_dev_marker_genes.R
+# Usage: Rscript prepare_marker_gene_sets.R
 
 #### Set up --------------------------------------------------------------------
 
@@ -115,7 +115,7 @@ markers_df <- markers |>
   dplyr::bind_rows()
 
 # Write table to file
-readr::write_tsv(markers_df, markers_file)
+readr::write_tsv(markers_df, aldinger_markers_file)
 
 # Create GSEABase::GeneSetCollection version
 geneset_collection <- names(markers) |>
