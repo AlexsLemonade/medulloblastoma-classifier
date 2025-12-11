@@ -14,6 +14,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 predict_dir="predict"
 analysis_notebooks_dir="analysis_notebooks"
 scripts_dir="scripts"
+processed_data_dir="processed_data/single_cell"
+plots_data_dir="plots/data"
 results_dir="results/single_cells_filtered"
 mkdir -p $results_dir
 
@@ -60,6 +62,13 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 # cell types
 Rscript "${scripts_dir}/prepare_marker_gene_sets.R"
 
-# Calculate AUCell scores for human cerebellar development cell type markers
-Rscripts "${scripts_dir}/calculate_cbl_dev_aucell.R"
+# Calculate AUCell scores for Aldinger et al. human cerebellar development cell
+# type markers
+Rscript "${scripts_dir}/calculate_aucell.R" \
+  --geneset_file "${processed_data_dir}/aldinger_cbl_dev_genesets.rds" \
+  --output_file "${plots_data_dir}/individual_cells_aldinger_aucell_scores.tsv"
 
+# Calculate AUCell scores for Joshi et al. genesets
+Rscript "${scripts_dir}/calculate_aucell.R" \
+  --geneset_file "${processed_data_dir}/joshi_genesets.rds" \
+  --output_file "${plots_data_dir}/individual_cells_joshi_aucell_scores.tsv"
