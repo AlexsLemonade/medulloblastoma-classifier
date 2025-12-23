@@ -55,3 +55,7 @@ Rscript "${scripts_dir}/extract_single_cell_cluster_umap.R"
 
 # Single-cell visualizations
 Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
+
+# Extract marker genes from Aldinger et al. 2021. human cerebellar development
+# cell types
+Rscript "${scripts_dir}/extract_cbl_dev_marker_genes.R"
