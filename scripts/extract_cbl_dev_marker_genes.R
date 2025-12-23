@@ -17,9 +17,13 @@ library(SingleCellExperiment)
 # Aldinger et al. 2021. data as a Seurat object
 srt_file <- here::here("data/CellBrowser/seurat.rds")
 
-# Output file
+# Output files
 markers_file <- here::here(
   "processed_data/single_cell/aldinger_cbl_dev_marker_genes.tsv"
+)
+# GSEABase::GeneSet version for use with AUCell
+markers_genesets_files <- here::here(
+  "processed_data/single_cell/aldinger_cbl_dev_genesets.rds"
 )
 
 #### Functions -----------------------------------------------------------------
@@ -91,5 +95,19 @@ markers_df <- markers |>
     ) |>
   dplyr::bind_rows()
 
-# Write to file
+# Write table to file
 readr::write_tsv(markers_df, markers_file)
+
+# Create GSEABase::GeneSetCollection version
+geneset_collection <- names(markers) |>
+  purrr::map(
+    \(geneset) markers_df |>
+      dplyr::filter(cell_type == geneset) |>
+      dplyr::pull(gene) |>
+      GSEABase::GeneSet(setName = geneset,
+                        geneIdType = GSEABase::ENSEMBLIdentifier())
+  ) |>
+  GSEABase::GeneSetCollection()
+
+# Save GeneSetCollection to file
+readr::write_rds(geneset_collection, file = markers_genesets_files)
