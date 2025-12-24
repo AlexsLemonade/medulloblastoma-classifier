@@ -2995,7 +2995,8 @@ compare_metrics_plot_df &lt;- dplyr::bind_rows(targeted_plot_df |&gt;
 <h2>Kappa</h2>
 <pre class="r"><code>pd &lt;- ggplot2::position_jitterdodge(jitter.height = 0,
                                     jitter.width = 0, 
-                                    dodge.width = 0.25)
+                                    dodge.width = 0.25,
+                                    seed = 1)
 
 kappa_plot_object &lt;- compare_metrics_plot_df |&gt;
   dplyr::filter(metric == &quot;Kappa&quot;,
