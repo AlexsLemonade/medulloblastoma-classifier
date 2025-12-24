@@ -2906,7 +2906,11 @@ fails to run because an <code>NA</code> value is introduced to
 </div>
 <div id="medullopackage" class="section level2">
 <h2>medulloPackage</h2>
-<p>medulloPackage also fails to run.</p>
+<p>medulloPackage also fails to run because the pre-defined set of gene
+pairs used in <code>medulloPackage::classify()</code> (accessed via
+<code>library(medulloPackage); get(utils::data(&quot;bestFeaturesNew&quot;))</code>)
+does not overlap with gene pairs available in the targeted gene set used
+in this experiment.</p>
 </div>
 </div>
 <div id="gather-targeted-random-and-baseline-data" class="section level1">

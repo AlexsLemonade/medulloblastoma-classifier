@@ -143,7 +143,7 @@ MM2S fails to run because an `NA` value is introduced to `FeatureSelection` and 
 
 ## medulloPackage
 
-medulloPackage also fails to run.
+medulloPackage also fails to run because the pre-defined set of gene pairs used in `medulloPackage::classify()` (accessed via `library(medulloPackage); get(utils::data("bestFeaturesNew"))`) does not overlap with gene pairs available in the targeted gene set used in this experiment.
 
 # Gather targeted, random, and baseline data
 
