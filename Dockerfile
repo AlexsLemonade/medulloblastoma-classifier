@@ -9,6 +9,9 @@ ENV RENV_DOCKER=TRUE
 # set environment variables to install conda
 ENV PATH="/opt/conda/bin:${PATH}"
 
+# Set an environment variable to tell reticulate where to find Python
+ENV RETICULATE_PYTHON="/opt/conda/bin/python"
+
 # Install conda via miniforge
 # adapted from https://github.com/conda-forge/miniforge-images/blob/master/ubuntu/Dockerfile
 RUN curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" -o /tmp/miniforge.sh \
