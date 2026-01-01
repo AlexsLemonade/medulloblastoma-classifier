@@ -35,5 +35,6 @@ GSE155446	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/
 GSE155446	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155446/suppl/GSE155446_human_raw_counts.csv.gz
 GSE155446	url	https://d3vp0195ukgw56.cloudfront.net/mbbrowser/human/All-cells/meta.tsv
 CellBrowser	url	https://cells.ucsc.edu/cbl-dev/seurat.rds
-GSE253557	url	https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8023nnn/GSM8023165/suppl/GSM8023165_Combined_RNA_counts.tar.gz
+GSE253557	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253557/suppl/GSE253557_RAW.tar
 GSE253557	url	https://www.biorxiv.org/content/biorxiv/early/2024/02/10/2024.02.09.579680/DC1/embed/media-1.xlsx
+GSE253557	url	https://ftp.ncbi.nlm.nih.gov/geo/series/GSE253nnn/GSE253557/matrix/GSE253557_series_matrix.txt.gz
