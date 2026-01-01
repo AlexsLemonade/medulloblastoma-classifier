@@ -12,6 +12,8 @@ GSE119926_dir <- here::here(single_cell_data_dir, "GSE119926")
 GSE119926_sce_dir <- here::here(GSE119926_dir, "sce")
 GSE155446_dir <- here::here(single_cell_data_dir, "GSE155446")
 GSE155446_sce_dir <- here::here(GSE155446_dir, "sce")
+GSE253557_dir <- here::here(single_cell_data_dir, "GSE253557")
+GSE253557_sce_dir <- here::here(GSE253557_dir, "sce")
 utils_dir <- here::here("utils")
 
 source(here::here(utils_dir, "convert_gene_names.R"))
@@ -19,7 +21,8 @@ source(here::here(utils_dir, "single-cell.R"))
 source(here::here(utils_dir, "TPM_conversion.R"))
 
 purrr::map(c(GSE119926_sce_dir,
-             GSE155446_sce_dir),
+             GSE155446_sce_dir,
+             GSE253557_sce_dir),
            function(dir) dir.create(dir,
                                     showWarnings = FALSE,
                                     recursive = TRUE))
@@ -348,3 +351,50 @@ for (sample_iter in seq_along(GSE155446_sample_accession_ids)) {
 # save GSE155446 pseudobulk df object
 readr::write_tsv(GSE155446_pseudobulk_df,
                  GSE155446_pseudobulk_genex_df_output_filepath)
+
+# GSE253557
+# we will not be generating pseudobulk for this experiment but we formatted the
+# metadata the same way as the existing datasets
+GSE253557_pseudobulk_metadata <- pseudobulk_metadata |>
+  dplyr::filter(study == "GSE253557")
+
+# grab the names of the individual expression files
+GSE253557_sample_accession_ids <- GSE253557_pseudobulk_metadata$sample_accession
+GSE253557_sample_titles <- GSE253557_pseudobulk_metadata$title
+
+# Create SingleCellExperiment objects
+for (sample_iter in seq_along(GSE253557_sample_accession_ids)) {
+
+  sample_acc <- GSE253557_sample_accession_ids[sample_iter]
+  sample_title <- GSE253557_sample_titles[sample_iter]
+
+  cellranger_filepath <- here::here(
+    data_dir,
+    "GSE253557",
+    stringr::str_c(sample_acc, "_", sample_title, "_counts.tar.gz")
+  )
+
+  # Uncompress
+  untar(cellranger_filepath,
+        exdir = here::here(data_dir, "GSE253557"))
+
+  # Read in CellRanger output
+  sce <- DropletUtils::read10xCounts(here::here(
+    data_dir,
+    "GSE253557",
+    sample_title
+  ))
+
+  # define output file names for SCE objects
+  sce_output_filepath = here::here(GSE253557_sce_dir,
+                                   stringr::str_c(sample_title, "_sce.rds"))
+
+ sce |>
+    # calculate UMAP results
+    add_sce_umap() |>
+    # perform clustering
+    perform_graph_clustering() |>
+    # write to file
+    readr::write_rds(file = sce_output_filepath)
+
+}
