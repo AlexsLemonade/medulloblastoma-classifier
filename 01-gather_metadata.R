@@ -17,6 +17,8 @@ openpbta_metadata_input_filename <- here::here(data_dir, "OpenPBTA", "pbta-histo
 sj_metadata_input_filename <- here::here(data_dir, "stjudecloud", "SAMPLE_INFO.txt")
 GSE119926_metadata_input_filename <- here::here(data_dir, "GSE119926", "GSE119926_series_matrix.txt.gz")
 GSE155446_metadata_input_filename <- here::here(data_dir, "GSE155446", "GSE155446_human_cell_metadata.csv.gz")
+GSE253557_metadata_input_file <- here::here(data_dir, "GSE253557", "media-1.xlsx")
+GSE253557_series_mat_input_file <- here::here(data_dir, "GSE253557", "GSE253557_series_matrix.txt.gz")
 
 # output file names
 bulk_metadata_output_filename <- here::here(processed_data_dir,
@@ -241,6 +243,43 @@ GSE155446_metadata <- readr::read_csv(GSE155446_metadata_input_filename,
                 sample_accession != "934-repeat") |>
   clean_mb_subgroups()
 
+
+################################################################################
+# GSE253557
+################################################################################
+
+# Supplementary Table 3 from bioRxiv material
+GSE253557_metadata <- readxl::read_xlsx(GSE253557_metadata_input_file,
+                                        sheet = "S3",
+                                        skip = 2)
+
+# Series matrix file from GEO
+GSE253557_series_mat_df <- GEOquery::getGEO(
+  filename = GSE253557_series_mat_input_file
+) |>
+  as.data.frame() |>
+  dplyr::select(geo_accession, title) |>
+  # Remove _10xRNA from the sample identifiers to make it possible to match
+  # with the supplementary material
+  dplyr::mutate(title = stringr::str_remove(title, "_10xRNA"))
+
+# Combine the two and format the same way as the other two scRNA-seq datasets
+GSE253557_metadata <- GSE253557_metadata |>
+  dplyr::inner_join(GSE253557_series_mat_df,
+                    by = c("Sample" = "title")) |>
+  dplyr::select(sample_accession = geo_accession,
+                title = Sample,
+                subgroup = Subgroup,
+                subtype = Subtype) |>
+  dplyr::mutate(
+    study = "GSE253557",
+    is_duplicate = FALSE,
+    platform = "Pseudo-bulk",
+    is_PDX = FALSE,
+    subtype = stringr::str_replace(subtype, "G34_", "Subtype ")
+  ) |>
+  clean_mb_subgroups()
+
 ################################################################################
 # combine bulk metadata and write to file
 ################################################################################
@@ -259,6 +298,7 @@ dplyr::bind_rows(GSE124814_metadata,
 ################################################################################
 
 dplyr::bind_rows(GSE119926_metadata,
-                 GSE155446_metadata) |>
+                 GSE155446_metadata,
+                 GSE253557_metadata) |>
   dplyr::filter(!is_duplicate) |>
   readr::write_tsv(file = pseudobulk_metadata_output_filename)
