@@ -58,7 +58,7 @@ jobs:
 
       # set up Docker build
       - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3
 
       # Set up Docker metadata
       - name: Docker metadata
