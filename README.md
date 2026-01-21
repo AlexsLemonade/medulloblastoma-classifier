@@ -8,19 +8,19 @@ If a method applies additional transformations, that is captured in the next tab
 | Dataset type | Baseline normalization/processing |
 |--------------|-----------------------------------|
 | Microarray | [refine.bio processed with Single Channel Array Normalization](https://docs.refine.bio/en/latest/main_text.html#microarray-pipelines), quantile normalization is skipped |
-| Bulk RNA-seq | TPM | 
+| Bulk RNA-seq | TPM |
 | Smart-seq2 scRNA-seq | TPM |
-| 10X scRNA-seq | Counts | 
+| 10X scRNA-seq | Counts |
 
 This table summarizes the models used in this work, the packages from which they originate, and any transformations applied to the input gene expression measures.
 
 | Model | Package | Additional transformations (if applicable) |
 |-------|---------|-------|
-| k-Top Scoring Pairs (kTSP) | [`multiclassPairs`](https://cran.r-project.org/web/packages/multiclassPairs/index.html) | N/A |  
-| Random Forest (RF) | [`multiclassPairs`](https://cran.r-project.org/web/packages/multiclassPairs/index.html) | N/A | 
+| k-Top Scoring Pairs (kTSP) | [`multiclassPairs`](https://cran.r-project.org/web/packages/multiclassPairs/index.html) | N/A |
+| Random Forest (RF) | [`multiclassPairs`](https://cran.r-project.org/web/packages/multiclassPairs/index.html) | N/A |
 | MM2S ([Gendoo and Haibe-Kains. 2016.](https://doi.org/10.1186/s13029-016-0053-y)) | [`MM2S`](https://cran.r-project.org/src/contrib/Archive/MM2S/) | N/A |
 | medulloPackage ([Rathi et al. 2020.](https://doi.org/10.1371/journal.pcbi.1008263)) | [`medulloPackage`](https://github.com/d3b-center/medullo-classifier-package/) | All RNA-seq data is log2-transformed |
-| LASSO Logistic Regression | [`glmnet`](https://cran.r-project.org/web/packages/glmnet/index.html) | Each sample is scaled to sum to 1 | 
+| LASSO Logistic Regression | [`glmnet`](https://cran.r-project.org/web/packages/glmnet/index.html) | Each sample is scaled to sum to 1 |
 
 
 ## Internal development guidelines
@@ -56,8 +56,6 @@ docker run \
 Be sure to replace `{PASSWORD}`, including the curly braces, with a password of your choice.
 
 You can then access the RStudio at <http://localhost:8787> using the username `rstudio` and the password you just set.
-
-For Apple Silicon users, include the `--platform linux/amd64` tag in the `docker pull` and `docker run` commands.
 
 #### Managing R packages with renv
 
