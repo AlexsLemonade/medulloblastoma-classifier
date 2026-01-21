@@ -12,7 +12,8 @@ repos:
           (?x)(
               \.html$|
               conda-lock\.yml$|
-              \.png$
+              \.png$|
+              \.pdf$
           )
       - name: Large file size limit
         id: check-added-large-files
