@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:3.16
+FROM bioconductor/bioconductor_docker:3.22
 
 # set a name for the conda environment
 ARG ENV_NAME=medulloblastoma-classifier
@@ -50,7 +50,7 @@ RUN Rscript -e "options(warn = 2); BiocManager::install( \
     configure.args = '--disable-threading', \
     force = TRUE, \
     update = FALSE, \
-    version = 3.16)"
+    version = 3.22)"
 
 # Copy over renv lockfile
 WORKDIR /usr/local/renv
