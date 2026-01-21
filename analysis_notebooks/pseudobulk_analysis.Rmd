@@ -159,7 +159,8 @@ rf_smartseq_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
-                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5),
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
   dplyr::filter(study == "GSE155446") |>
@@ -180,7 +181,8 @@ rf_10x_barplot_object <- rf_pseudobulk_plot_df |>
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
-                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5),
+                 strip.text.y = ggplot2::element_text(angle = 0))
   
 rf_smartseq_barplot_object + 
   rf_10x_barplot_object + 
@@ -214,7 +216,8 @@ ktsp_smartseq_points_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
-                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5),
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
   dplyr::filter(study == "GSE155446") |>
@@ -238,7 +241,8 @@ ktsp_10x_points_object <- ktsp_pseudobulk_plot_df |>
   ggplot2::theme_bw() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5,
                                                     size = 12),
-                 plot.subtitle = ggplot2::element_text(hjust = 0.5))
+                 plot.subtitle = ggplot2::element_text(hjust = 0.5),
+                 strip.text.y = ggplot2::element_text(angle = 0))
 
 ktsp_smartseq_points_object + 
   ktsp_10x_points_object + 
@@ -249,11 +253,12 @@ ktsp_smartseq_points_object +
 
 ```{r}
 combined_rule_based_plots <- 
-  (rf_smartseq_barplot_object + 
-     ktsp_smartseq_points_object + 
-     rf_10x_barplot_object + 
-     ktsp_10x_points_object) + 
-  plot_layout(guides = "collect")
+  (ktsp_smartseq_points_object + 
+     rf_smartseq_barplot_object + 
+     ktsp_10x_points_object + 
+     rf_10x_barplot_object) + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "a")
 
 ggplot2::ggsave(file = rule_based_plot_filepath,
                 plot = combined_rule_based_plots,
@@ -351,7 +356,8 @@ mp_10x_cm_object <- mp_10x_perf$table |>
 Combine the confusion matrix plots into one multipanel plot.
 
 ```{r}
-confusion_matrix_plot <- (mp_smartseq_cm_object / mp_10x_cm_object)
+confusion_matrix_plot <- (mp_smartseq_cm_object / mp_10x_cm_object) +
+  plot_annotation(tag_levels = "a")
 confusion_matrix_plot
 ```
 
