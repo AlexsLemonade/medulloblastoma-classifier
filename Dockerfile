@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:3.16
+FROM bioconductor/bioconductor_docker:3.22
 
 # set a name for the conda environment
 ARG ENV_NAME=medulloblastoma-classifier
@@ -45,12 +45,12 @@ RUN Rscript -e "install.packages('renv')"
 # https://support.bioconductor.org/p/122925/#124701
 # https://github.com/bmbolstad/preprocessCore/issues/1#issuecomment-326756305
 # put this last with force = TRUE to ensure it is properly installed
-RUN Rscript -e "options(warn = 2); BiocManager::install( \
-    'preprocessCore', \
-    configure.args = '--disable-threading', \
-    force = TRUE, \
-    update = FALSE, \
-    version = 3.16)"
+# RUN Rscript -e "options(warn = 2); BiocManager::install( \
+#     'preprocessCore', \
+#     configure.args = '--disable-threading', \
+#     force = TRUE, \
+#     update = FALSE, \
+#     version = 3.22)"
 
 # Copy over renv lockfile
 WORKDIR /usr/local/renv

@@ -31,7 +31,15 @@ jobs:
   build:
     # The type of runner that the job will run on
     name: Build and push Docker image
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: linux/amd64
+          runner: ubuntu-latest
+        - platform: linux/arm64
+          runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       packages: write
       contents: read
@@ -43,6 +51,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Enable QEMU
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       # set up Docker build
       - name: Set up Docker Buildx
@@ -63,5 +75,5 @@ jobs:
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           cache-from: type=gha
