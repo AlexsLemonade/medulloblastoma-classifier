@@ -99,6 +99,6 @@ jobs:
       - name: Create and push manifest list
         run: |
           docker buildx imagetools create \
-            -t ghcr.io/AlexsLemonade/medulloblastoma-classifier:latest \
-            ghcr.io/AlexsLemonade/medulloblastoma-classifier:latest-amd64 \
-            ghcr.io/AlexsLemonade/medulloblastoma-classifier:latest-arm64
+            -t ghcr.io/alexslemonade/medulloblastoma-classifier:latest \
+            ghcr.io/alexslemonade/medulloblastoma-classifier:latest-amd64 \
+            ghcr.io/alexslemonade/medulloblastoma-classifier:latest-arm64
