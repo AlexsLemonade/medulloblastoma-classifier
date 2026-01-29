@@ -66,7 +66,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/AlexsLemonade/medulloblastoma-classifier
-          tags: type=raw,value=latest
+          tags: |
+            type=raw,value=latest
+            type=raw,value=latest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
 
       # Build Docker image and push to GHCR when event is push or manually triggered
       - name: Build Docker image
