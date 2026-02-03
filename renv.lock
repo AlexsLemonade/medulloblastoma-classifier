@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.5.1",
+    "Version": "4.5.2",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -5405,6 +5405,7 @@
       "biocViews": "AlternativeSplicing, BatchEffect, Bayesian, BiomedicalInformatics, CellBiology, ChIPSeq, Clustering, Coverage, DifferentialExpression, DifferentialMethylation, DifferentialSplicing, DNAMethylation, Epigenetics, FunctionalGenomics, GeneExpression, GeneSetEnrichment, Genetics, Genetics, ImmunoOncology, MultipleComparison, Normalization, Pathways, Proteomics, QualityControl, Regression, RNASeq, SAGE, Sequencing, SingleCell, SystemsBiology, TimeCourse, Transcription, Transcriptomics",
       "NeedsCompilation": "yes",
       "Repository": "https://bioc-release.r-universe.dev",
+      "RemoteType": "bioconductor",
       "RemoteUrl": "https://github.com/bioc/edgeR",
       "RemoteRef": "RELEASE_3_22",
       "RemoteSha": "af0343acbb3998d2d2bb3e3d259bbee17a2c8a7e"
@@ -5430,7 +5431,7 @@
       "LazyData": "yes",
       "NeedsCompilation": "no",
       "URL": "https://r-forge.r-project.org/projects/estimate/",
-      "Repository": "http://r-forge.r-project.org",
+      "Repository": "R-Forge",
       "Repository/R-Forge/Project": "estimate",
       "Repository/R-Forge/Revision": "21",
       "Repository/R-Forge/DateTimeStamp": "2016-10-04 21:13:08"
@@ -8403,11 +8404,7 @@
       "RemoteRepo": "medullo-classifier-package",
       "RemoteUsername": "d3b-center",
       "RemoteRef": "v0.1.1",
-      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c",
-      "NeedsCompilation": "no",
-      "Depends": [
-        "R (>= 3.5.0)"
-      ]
+      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c"
     },
     "memoise": {
       "Package": "memoise",
@@ -11053,10 +11050,11 @@
       "biocViews": "Annotation,Visualization,DataImport",
       "Config/pak/sysreqs": "make libbz2-dev liblzma-dev libxml2-dev libssl-dev xz-utils zlib1g-dev",
       "Repository": "https://bioc-release.r-universe.dev",
+      "NeedsCompilation": "yes",
+      "RemoteType": "bioconductor",
       "RemoteUrl": "https://github.com/bioc/rtracklayer",
       "RemoteRef": "RELEASE_3_22",
-      "RemoteSha": "873c7111e8befb0e5761618280100a4de0cc5f3e",
-      "NeedsCompilation": "yes"
+      "RemoteSha": "873c7111e8befb0e5761618280100a4de0cc5f3e"
     },
     "rvest": {
       "Package": "rvest",
