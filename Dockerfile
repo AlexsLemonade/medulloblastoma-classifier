@@ -66,8 +66,9 @@ ENV RENV_CONFIG_CACHE_ENABLED=FALSE
   
 # Restore from renv.lock file and clean up to reduce image size
 # Install estimate and MM2S separately, then exclude from renv::restore()
-RUN Rscript -e 'install.packages(c("estimate", "MM2S"))' \
-  && Rscript -e 'renv::restore(exclude = c("estimate", "MM2S"))' \
+#RUN Rscript -e 'install.packages(c("estimate", "MM2S"))' \
+  #&& Rscript -e 'renv::restore(exclude = c("estimate", "MM2S"))' \
+RUN Rscript -e 'renv::restore(exclude = c("estimate", "MM2S"))' \ 
   && rm -rf ~/.cache/R/renv \
   && rm -rf /tmp/downloaded_packages \
   && rm -rf /tmp/Rtmp*
