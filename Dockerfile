@@ -59,7 +59,7 @@ COPY renv.lock renv.lock
 ENV RENV_CONFIG_CACHE_ENABLED=FALSE
 
 # Restore from renv.lock file and clean up to reduce image size
-RUN Rscript -e 'renv::restore(exclude = c("MM2S", "estimate"))' \
+RUN Rscript -e 'renv::restore(exclude = c("MM2S"))' \
   && Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/MM2S/MM2S_1.0.6.tar.gz")' \
   && rm -rf ~/.cache/R/renv \
   && rm -rf /tmp/downloaded_packages \
