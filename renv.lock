@@ -1,30 +1,10 @@
 {
   "R": {
-    "Version": "4.5.1",
+    "Version": "4.5.2",
     "Repositories": [
       {
         "Name": "CRAN",
-        "URL": "https://cloud.r-project.org"
-      },
-      {
-        "Name": "BioCsoft",
-        "URL": "https://bioconductor.org/packages/3.22/bioc"
-      },
-      {
-        "Name": "BioCann",
-        "URL": "https://bioconductor.org/packages/3.22/data/annotation"
-      },
-      {
-        "Name": "BioCexp",
-        "URL": "https://bioconductor.org/packages/3.22/data/experiment"
-      },
-      {
-        "Name": "BioCworkflows",
-        "URL": "https://bioconductor.org/packages/3.22/workflows"
-      },
-      {
-        "Name": "BioCbooks",
-        "URL": "https://bioconductor.org/packages/3.22/books"
+        "URL": "https://p3m.dev/cran/__linux__/noble/latest"
       }
     ]
   },
@@ -1103,40 +1083,35 @@
     },
     "GSVA": {
       "Package": "GSVA",
-      "Version": "2.4.4",
+      "Version": "1.48.0",
       "Source": "Bioconductor",
-      "Title": "Gene Set Variation Analysis for Microarray and RNA-Seq Data",
-      "Authors@R": "c(person(\"Robert\", \"Castelo\", role=c(\"aut\", \"cre\"), comment=c(ORCID=\"0000-0003-2229-4508\"), email=\"robert.castelo@upf.edu\"), person(\"Justin\", \"Guinney\", role=\"aut\", email=\"jguinney@gmail.com\"), person(\"Alexey\", \"Sergushichev\", role=\"ctb\", email=\"alsergbox@gmail.com\"), person(\"Pablo Sebastian\", \"Rodriguez\", role=\"ctb\", email=\"pablo.rodriguez.bio2@gmail.com\"), person(\"Axel\", \"Klenk\", role=\"ctb\", email=\"axel.klenk@gmail.com\"), person(\"Chan Zuckerberg Initiative (CZI)\", role=\"fnd\"), person(\"Spanish Ministry of Science, Innovation and Universities (MCIU)\", role=\"fnd\"))",
+      "Title": "Gene Set Variation Analysis for microarray and RNA-seq data",
+      "Authors@R": "c(person(\"Robert\", \"Castelo\", role=c(\"aut\", \"cre\"), email=\"robert.castelo@upf.edu\"), person(\"Justin\", \"Guinney\", role=\"aut\", email=\"jguinney@gmail.com\"), person(\"Alexey\", \"Sergushichev\", role=\"ctb\", email=\"alsergbox@gmail.com\"), person(\"Pablo Sebastian\", \"Rodriguez\", role=\"ctb\", email=\"pablosebastian.rodriguez@upf.edu\"))",
       "Depends": [
-        "R (>= 4.0.0)"
+        "R (>= 3.5.0)"
       ],
       "Imports": [
         "methods",
         "stats",
         "utils",
         "graphics",
-        "parallel",
-        "BiocGenerics",
-        "MatrixGenerics",
         "S4Vectors",
-        "S4Arrays",
-        "HDF5Array",
-        "SparseArray",
-        "DelayedArray",
         "IRanges",
         "Biobase",
         "SummarizedExperiment",
         "GSEABase",
         "Matrix (>= 1.5-0)",
+        "parallel",
         "BiocParallel",
         "SingleCellExperiment",
-        "BiocSingular",
-        "SpatialExperiment",
         "sparseMatrixStats",
-        "cli",
-        "memuse"
+        "DelayedArray",
+        "DelayedMatrixStats",
+        "HDF5Array",
+        "BiocSingular"
       ],
       "Suggests": [
+        "BiocGenerics",
         "RUnit",
         "BiocStyle",
         "knitr",
@@ -1147,12 +1122,6 @@
         "genefilter",
         "edgeR",
         "GSVAdata",
-        "sva",
-        "TENxPBMCData",
-        "TENxVisiumData",
-        "scuttle",
-        "scran",
-        "igraph",
         "shiny",
         "shinydashboard",
         "ggplot2",
@@ -1163,26 +1132,74 @@
         "shinybusy",
         "shinyjs"
       ],
-      "LinkingTo": [
-        "cli"
-      ],
       "Description": "Gene Set Variation Analysis (GSVA) is a non-parametric, unsupervised method for estimating variation of gene set enrichment through the samples of a expression data set. GSVA performs a change in coordinate systems, transforming the data from a gene by sample matrix to a gene-set by sample matrix, thereby allowing the evaluation of pathway enrichment for each sample. This new matrix of GSVA enrichment scores facilitates applying standard analytical methods like functional enrichment, survival analysis, clustering, CNV-pathway analysis or cross-tissue pathway analysis, in a pathway-centric manner.",
-      "License": "Artistic-2.0",
+      "License": "GPL (>= 2)",
       "VignetteBuilder": "knitr",
       "URL": "https://github.com/rcastelo/GSVA",
       "BugReports": "https://github.com/rcastelo/GSVA/issues",
-      "Encoding": "UTF-8",
+      "Encoding": "latin1",
       "biocViews": "FunctionalGenomics, Microarray, RNASeq, Pathways, GeneSetEnrichment",
-      "Roxygen": "list(markdown = TRUE)",
-      "RoxygenNote": "7.3.3",
       "git_url": "https://git.bioconductor.org/packages/GSVA",
-      "git_branch": "RELEASE_3_22",
-      "git_last_commit": "e48e822",
-      "git_last_commit_date": "2025-12-14",
-      "Repository": "Bioconductor 3.22",
+      "git_branch": "RELEASE_3_17",
+      "git_last_commit": "8819055",
+      "git_last_commit_date": "2023-04-25",
       "NeedsCompilation": "yes",
-      "Author": "Robert Castelo [aut, cre] (ORCID: <https://orcid.org/0000-0003-2229-4508>), Justin Guinney [aut], Alexey Sergushichev [ctb], Pablo Sebastian Rodriguez [ctb], Axel Klenk [ctb], Chan Zuckerberg Initiative (CZI) [fnd], Spanish Ministry of Science, Innovation and Universities (MCIU) [fnd]",
+      "Author": "Robert Castelo [aut, cre], Justin Guinney [aut], Alexey Sergushichev [ctb], Pablo Sebastian Rodriguez [ctb]",
       "Maintainer": "Robert Castelo <robert.castelo@upf.edu>"
+    },
+    "GenomeInfoDb": {
+      "Package": "GenomeInfoDb",
+      "Version": "1.46.2",
+      "Source": "Bioconductor",
+      "Title": "Utilities for manipulating chromosome names, including modifying them to follow a particular naming style",
+      "Description": "Contains data and functions that define and allow translation between different chromosome sequence naming conventions (e.g., \"chr1\" versus \"1\"), including a function that attempts to place sequence names in their natural, rather than lexicographic, order.",
+      "biocViews": "Genetics, DataRepresentation, Annotation, GenomeAnnotation",
+      "URL": "https://bioconductor.org/packages/GenomeInfoDb",
+      "Video": "http://youtu.be/wdEjCYSXa7w",
+      "BugReports": "https://github.com/Bioconductor/GenomeInfoDb/issues",
+      "License": "Artistic-2.0",
+      "Encoding": "UTF-8",
+      "Authors@R": "c( person(\"Sonali\", \"Arora\", role=\"aut\"), person(\"Martin\", \"Morgan\", role=\"aut\"), person(\"Marc\", \"Carlson\", role=\"aut\"), person(\"Hervé\", \"Pagès\", role=c(\"aut\", \"cre\"), email=\"hpages.on.github@gmail.com\"), person(\"Prisca Chidimma\", \"Maduka\", role=\"ctb\"), person(\"Atuhurira Kirabo\", \"Kakopo\", role=\"ctb\"), person(\"Haleema\", \"Khan\", role=\"ctb\", comment=\"vignette translation from Sweave to Rmarkdown / HTML\"), person(\"Emmanuel Chigozie\", \"Elendu\", role=\"ctb\"))",
+      "Depends": [
+        "R (>= 4.0.0)",
+        "methods",
+        "BiocGenerics (>= 0.53.2)",
+        "S4Vectors (>= 0.47.6)",
+        "IRanges (>= 2.41.1)",
+        "Seqinfo (>= 0.99.2)"
+      ],
+      "Imports": [
+        "stats",
+        "utils",
+        "UCSC.utils"
+      ],
+      "Suggests": [
+        "GenomeInfoDbData",
+        "R.utils",
+        "data.table",
+        "GenomicRanges",
+        "Rsamtools",
+        "GenomicAlignments",
+        "BSgenome",
+        "GenomicFeatures",
+        "TxDb.Dmelanogaster.UCSC.dm3.ensGene",
+        "BSgenome.Scerevisiae.UCSC.sacCer2",
+        "BSgenome.Celegans.UCSC.ce2",
+        "BSgenome.Hsapiens.NCBI.GRCh38",
+        "RUnit",
+        "BiocStyle",
+        "knitr"
+      ],
+      "VignetteBuilder": "knitr",
+      "Collate": "utils.R fetch_table_dump_from_Ensembl_FTP.R list_ftp_dir.R NCBI-utils.R UCSC-utils.R Ensembl-utils.R getChromInfoFromNCBI.R getChromInfoFromUCSC.R getChromInfoFromEnsembl.R loadTaxonomyDb.R mapGenomeBuilds.R seqlevelsStyle.R seqlevels-wrappers.R zzz.R",
+      "git_url": "https://git.bioconductor.org/packages/GenomeInfoDb",
+      "git_branch": "RELEASE_3_22",
+      "git_last_commit": "149c9ca",
+      "git_last_commit_date": "2025-12-03",
+      "Repository": "Bioconductor 3.22",
+      "NeedsCompilation": "no",
+      "Author": "Sonali Arora [aut], Martin Morgan [aut], Marc Carlson [aut], Hervé Pagès [aut, cre], Prisca Chidimma Maduka [ctb], Atuhurira Kirabo Kakopo [ctb], Haleema Khan [ctb] (vignette translation from Sweave to Rmarkdown / HTML), Emmanuel Chigozie Elendu [ctb]",
+      "Maintainer": "Hervé Pagès <hpages.on.github@gmail.com>"
     },
     "GenomicAlignments": {
       "Package": "GenomicAlignments",
@@ -3074,53 +3091,6 @@
       "Author": "Roger Koenker [cre, aut], Pin Tian Ng [ctb] (Contributions to Sparse QR code), Yousef Saad [ctb] (author of sparskit2), Ben Shaby [ctb] (author of chol2csr), Martin Maechler [ctb] (chol() tweaks; S4, <https://orcid.org/0000-0002-8685-9910>)",
       "Repository": "CRAN"
     },
-    "SpatialExperiment": {
-      "Package": "SpatialExperiment",
-      "Version": "1.20.0",
-      "Source": "Bioconductor",
-      "Title": "S4 Class for Spatially Resolved -omics Data",
-      "Description": "Defines an S4 class for storing data from spatial -omics experiments.  The class extends SingleCellExperiment to  support storage and retrieval of additional information from spot-based and  molecule-based platforms, including spatial coordinates, images, and  image metadata. A specialized constructor function is included for data  from the 10x Genomics Visium platform.",
-      "Authors@R": "c( person(\"Dario\", \"Righelli\", role=c(\"aut\", \"cre\"),  email=\"dario.righelli@gmail.com\", comment=c(ORCID=\"0000-0003-1504-3583\")), person(\"Davide\", \"Risso\", role=c(\"aut\"),  email=\"risso.davide@gmail.com\", comment=c(ORCID=\"0000-0001-8508-5012\")), person(\"Helena L.\", \"Crowell\", role=c(\"aut\"),  email=\"helena.crowell@cnag.eu\", comment=c(ORCID=\"0000-0002-4801-1767\")),  person(\"Lukas M.\", \"Weber\", role=c(\"aut\"),  email=\"lmweb012@gmail.com\", comment=c(ORCID=\"0000-0002-3282-1730\")),  person(\"Nicholas J.\", \"Eagles\", role=c(\"ctb\"), email=\"nickeagles77@gmail.com\"))",
-      "URL": "https://github.com/drighelli/SpatialExperiment",
-      "BugReports": "https://github.com/drighelli/SpatialExperiment/issues",
-      "License": "GPL-3",
-      "Encoding": "UTF-8",
-      "biocViews": "DataRepresentation, DataImport, Infrastructure, ImmunoOncology, GeneExpression, Transcriptomics, SingleCell, Spatial",
-      "Depends": [
-        "R (>= 4.1.0)",
-        "methods",
-        "SingleCellExperiment"
-      ],
-      "Imports": [
-        "rjson",
-        "grDevices",
-        "magick",
-        "utils",
-        "S4Vectors",
-        "SummarizedExperiment",
-        "BiocGenerics",
-        "BiocFileCache"
-      ],
-      "Suggests": [
-        "knitr",
-        "rmarkdown",
-        "testthat",
-        "BiocStyle",
-        "BumpyMatrix",
-        "DropletUtils",
-        "VisiumIO"
-      ],
-      "VignetteBuilder": "knitr",
-      "RoxygenNote": "7.3.1",
-      "git_url": "https://git.bioconductor.org/packages/SpatialExperiment",
-      "git_branch": "RELEASE_3_22",
-      "git_last_commit": "dfdda19",
-      "git_last_commit_date": "2025-10-29",
-      "Repository": "Bioconductor 3.22",
-      "NeedsCompilation": "no",
-      "Author": "Dario Righelli [aut, cre] (ORCID: <https://orcid.org/0000-0003-1504-3583>), Davide Risso [aut] (ORCID: <https://orcid.org/0000-0001-8508-5012>), Helena L. Crowell [aut] (ORCID: <https://orcid.org/0000-0002-4801-1767>), Lukas M. Weber [aut] (ORCID: <https://orcid.org/0000-0002-3282-1730>), Nicholas J. Eagles [ctb]",
-      "Maintainer": "Dario Righelli <dario.righelli@gmail.com>"
-    },
     "SummarizedExperiment": {
       "Package": "SummarizedExperiment",
       "Version": "1.40.0",
@@ -3248,6 +3218,45 @@
       "Author": "Joshua Ulrich [cre, aut], Ethan B. Smith [ctb]",
       "Maintainer": "Joshua Ulrich <josh.m.ulrich@gmail.com>",
       "Repository": "CRAN"
+    },
+    "UCSC.utils": {
+      "Package": "UCSC.utils",
+      "Version": "1.6.1",
+      "Source": "Bioconductor",
+      "Title": "Low-level utilities to retrieve data from the UCSC Genome Browser",
+      "Description": "A set of low-level utilities to retrieve data from the UCSC Genome Browser. Most functions in the package access the data via the UCSC REST API but some of them query the UCSC MySQL server directly. Note that the primary purpose of the package is to support higher-level functionalities implemented in downstream packages like GenomeInfoDb or txdbmaker.",
+      "biocViews": "Infrastructure, GenomeAssembly, Annotation, GenomeAnnotation, DataImport",
+      "URL": "https://bioconductor.org/packages/UCSC.utils",
+      "BugReports": "https://github.com/Bioconductor/UCSC.utils/issues",
+      "License": "Artistic-2.0",
+      "Encoding": "UTF-8",
+      "Authors@R": "person(\"Hervé\", \"Pagès\", role=c(\"aut\", \"cre\"), email=\"hpages.on.github@gmail.com\")",
+      "Imports": [
+        "methods",
+        "stats",
+        "httr",
+        "jsonlite",
+        "S4Vectors (>= 0.47.6)"
+      ],
+      "Suggests": [
+        "DBI",
+        "RMariaDB",
+        "GenomeInfoDb",
+        "testthat",
+        "knitr",
+        "rmarkdown",
+        "BiocStyle"
+      ],
+      "VignetteBuilder": "knitr",
+      "Collate": "00utils.R UCSC.api.url.R REST_API.R list_UCSC_genomes.R get_UCSC_chrom_sizes.R list_UCSC_tracks.R fetch_UCSC_track_data.R UCSC_dbselect.R zzz.R",
+      "git_url": "https://git.bioconductor.org/packages/UCSC.utils",
+      "git_branch": "RELEASE_3_22",
+      "git_last_commit": "625d554",
+      "git_last_commit_date": "2025-12-08",
+      "Repository": "Bioconductor 3.22",
+      "NeedsCompilation": "no",
+      "Author": "Hervé Pagès [aut, cre]",
+      "Maintainer": "Hervé Pagès <hpages.on.github@gmail.com>"
     },
     "UpSetR": {
       "Package": "UpSetR",
@@ -3522,7 +3531,8 @@
       "License": "GPL-2 | GPL-3",
       "URL": "http://www.rforge.net/base64enc",
       "NeedsCompilation": "yes",
-      "Repository": "CRAN"
+      "Repository": "RSPM",
+      "Encoding": "UTF-8"
     },
     "beachmat": {
       "Package": "beachmat",
@@ -3592,6 +3602,56 @@
       "Author": "Aron Eklund [aut, cre] (<https://orcid.org/0000-0003-0861-1001>), James Trimble [aut] (<https://orcid.org/0000-0001-7282-8745>)",
       "Maintainer": "Aron Eklund <aroneklund@gmail.com>",
       "Repository": "CRAN"
+    },
+    "biomaRt": {
+      "Package": "biomaRt",
+      "Version": "2.66.2",
+      "Source": "Bioconductor",
+      "Title": "Interface to BioMart databases (i.e. Ensembl)",
+      "Authors@R": "c( person(\"Steffen\", \"Durinck\", , \"biomartdev@gmail.com\", role = \"aut\"), person(\"Wolfgang\", \"Huber\", role = \"aut\"), person(\"Sean\", \"Davis\", , \"sdavis2@mail.nih.gov\", role = \"ctb\"), person(\"Francois\", \"Pepin\", role = \"ctb\"), person(\"Vince S\", \"Buffalo\", role = \"ctb\"), person(\"Mike\", \"Smith\", , \"grimbough@gmail.com\", role = \"ctb\", comment = c(ORCID = \"0000-0002-7800-3848\")), person(\"Hugo\", \"Gruson\", , \"hugo.gruson@embl.de\", role = c(\"ctb\", \"cre\"), comment = c(ORCID = \"0000-0002-4094-1476\")), person(\"German Network for Bioinformatics Infrastructure - de.NBI\", role = \"fnd\") )",
+      "Description": "In recent years a wealth of biological data has become available in public data repositories. Easy access to these valuable data resources and firm integration with data analysis is needed for comprehensive bioinformatics data analysis.  biomaRt provides an interface to a growing collection of databases implementing the BioMart software suite (<https://www.ensembl.org/info/data/biomart/index.html>). The package enables retrieval of large amounts of data in a uniform way without the need to know the underlying database schemas or write complex SQL queries.  The most prominent examples of BioMart databases are maintained by Ensembl, which provides biomaRt users direct access to a diverse set of data and enables a wide range of powerful online queries from gene annotation to database mining.",
+      "License": "Artistic-2.0",
+      "URL": "https://github.com/Huber-group-EMBL/biomaRt, https://huber-group-embl.github.io/biomaRt/",
+      "BugReports": "https://github.com/Huber-group-EMBL/biomaRt/issues",
+      "Depends": [
+        "methods",
+        "R (>= 4.5.0)"
+      ],
+      "Imports": [
+        "AnnotationDbi",
+        "BiocFileCache",
+        "curl",
+        "httr2",
+        "progress",
+        "stringr",
+        "utils",
+        "xml2"
+      ],
+      "Suggests": [
+        "BiocStyle",
+        "httptest2",
+        "knitr",
+        "mockery",
+        "rmarkdown",
+        "testthat (>= 3.0.0)"
+      ],
+      "VignetteBuilder": "knitr",
+      "biocViews": "Annotation",
+      "Config/Needs/website": "xfun",
+      "Config/testthat/edition": "3",
+      "Encoding": "UTF-8",
+      "LazyLoad": "yes",
+      "NeedsCompilation": "no",
+      "Roxygen": "list(markdown = TRUE)",
+      "RoxygenNote": "7.3.3",
+      "Collate": "'biomaRt-package.R' 'biomaRtClasses.R' 'methods-Mart.R' 'biomaRt.R' 'caching.R' 'ensembl.R' 'ensembl_wrappers.R' 'ensembl_ssl_settings.R' 'utilityFunctions.R' 'non-biomart-utils.R' 'exportFASTA.R' 'NP2009code.R'",
+      "git_url": "https://git.bioconductor.org/packages/biomaRt",
+      "git_branch": "RELEASE_3_22",
+      "git_last_commit": "d5e1d36",
+      "git_last_commit_date": "2026-03-13",
+      "Repository": "Bioconductor 3.22",
+      "Author": "Steffen Durinck [aut], Wolfgang Huber [aut], Sean Davis [ctb], Francois Pepin [ctb], Vince S Buffalo [ctb], Mike Smith [ctb] (ORCID: <https://orcid.org/0000-0002-7800-3848>), Hugo Gruson [ctb, cre] (ORCID: <https://orcid.org/0000-0002-4094-1476>), German Network for Bioinformatics Infrastructure - de.NBI [fnd]",
+      "Maintainer": "Hugo Gruson <hugo.gruson@embl.de>"
     },
     "bit": {
       "Package": "bit",
@@ -5405,6 +5465,7 @@
       "biocViews": "AlternativeSplicing, BatchEffect, Bayesian, BiomedicalInformatics, CellBiology, ChIPSeq, Clustering, Coverage, DifferentialExpression, DifferentialMethylation, DifferentialSplicing, DNAMethylation, Epigenetics, FunctionalGenomics, GeneExpression, GeneSetEnrichment, Genetics, Genetics, ImmunoOncology, MultipleComparison, Normalization, Pathways, Proteomics, QualityControl, Regression, RNASeq, SAGE, Sequencing, SingleCell, SystemsBiology, TimeCourse, Transcription, Transcriptomics",
       "NeedsCompilation": "yes",
       "Repository": "https://bioc-release.r-universe.dev",
+      "RemoteType": "bioconductor",
       "RemoteUrl": "https://github.com/bioc/edgeR",
       "RemoteRef": "RELEASE_3_22",
       "RemoteSha": "af0343acbb3998d2d2bb3e3d259bbee17a2c8a7e"
@@ -5430,7 +5491,7 @@
       "LazyData": "yes",
       "NeedsCompilation": "no",
       "URL": "https://r-forge.r-project.org/projects/estimate/",
-      "Repository": "http://r-forge.r-project.org",
+      "Repository": "R-Forge",
       "Repository/R-Forge/Project": "estimate",
       "Repository/R-Forge/Revision": "21",
       "Repository/R-Forge/DateTimeStamp": "2016-10-04 21:13:08"
@@ -8260,54 +8321,6 @@
       "Author": "Vitalie Spinu [aut, cre], Garrett Grolemund [aut], Hadley Wickham [aut], Davis Vaughan [ctb], Ian Lyttle [ctb], Imanuel Costigan [ctb], Jason Law [ctb], Doug Mitarotonda [ctb], Joseph Larmarange [ctb], Jonathan Boiser [ctb], Chel Hee Lee [ctb]",
       "Repository": "CRAN"
     },
-    "magick": {
-      "Package": "magick",
-      "Version": "2.9.0",
-      "Source": "Repository",
-      "Type": "Package",
-      "Title": "Advanced Graphics and Image-Processing in R",
-      "Authors@R": "person(\"Jeroen\", \"Ooms\", role = c(\"aut\", \"cre\"), email = \"jeroenooms@gmail.com\", comment = c(ORCID = \"0000-0002-4035-0289\"))",
-      "Description": "Bindings to 'ImageMagick': the most comprehensive open-source image processing library available. Supports many common formats (png, jpeg, tiff, pdf, etc) and manipulations (rotate, scale, crop, trim, flip, blur, etc). All operations are vectorized via the Magick++ STL meaning they operate either on a single frame or a series of frames for working with layers, collages, or animation. In RStudio images are automatically previewed when printed to the console, resulting in an interactive editing environment. Also includes a graphics device for creating drawing onto images using pixel coordinates.",
-      "License": "MIT + file LICENSE",
-      "URL": "https://docs.ropensci.org/magick/ https://ropensci.r-universe.dev/magick",
-      "BugReports": "https://github.com/ropensci/magick/issues",
-      "SystemRequirements": "ImageMagick++: ImageMagick-c++-devel (rpm) or libmagick++-dev (deb)",
-      "VignetteBuilder": "knitr",
-      "Depends": [
-        "R (>= 4.1.0)"
-      ],
-      "Imports": [
-        "Rcpp (>= 0.12.12)",
-        "magrittr",
-        "curl"
-      ],
-      "LinkingTo": [
-        "Rcpp"
-      ],
-      "Suggests": [
-        "av",
-        "spelling",
-        "jsonlite",
-        "methods",
-        "knitr",
-        "rmarkdown",
-        "rsvg",
-        "webp",
-        "pdftools",
-        "ggplot2",
-        "gapminder",
-        "IRdisplay",
-        "tesseract",
-        "gifski"
-      ],
-      "Encoding": "UTF-8",
-      "RoxygenNote": "7.3.2",
-      "Language": "en-US",
-      "NeedsCompilation": "yes",
-      "Author": "Jeroen Ooms [aut, cre] (ORCID: <https://orcid.org/0000-0002-4035-0289>)",
-      "Maintainer": "Jeroen Ooms <jeroenooms@gmail.com>",
-      "Repository": "CRAN"
-    },
     "magrittr": {
       "Package": "magrittr",
       "Version": "2.0.4",
@@ -8403,11 +8416,7 @@
       "RemoteRepo": "medullo-classifier-package",
       "RemoteUsername": "d3b-center",
       "RemoteRef": "v0.1.1",
-      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c",
-      "NeedsCompilation": "no",
-      "Depends": [
-        "R (>= 3.5.0)"
-      ]
+      "RemoteSha": "9acc2096f1de6d80b054daabcb959e9ffd4d926c"
     },
     "memoise": {
       "Package": "memoise",
@@ -8437,30 +8446,6 @@
       "NeedsCompilation": "no",
       "Author": "Hadley Wickham [aut], Jim Hester [aut], Winston Chang [aut, cre], Kirill Müller [aut], Daniel Cook [aut], Mark Edmondson [ctb]",
       "Maintainer": "Winston Chang <winston@rstudio.com>",
-      "Repository": "CRAN"
-    },
-    "memuse": {
-      "Package": "memuse",
-      "Version": "4.2-3",
-      "Source": "Repository",
-      "Title": "Memory Estimation Utilities",
-      "Description": "How much ram do you need to store a 100,000 by 100,000 matrix? How much ram is your current R session using? How much ram do you even have? Learn the scintillating answer to these and many more such questions with the 'memuse' package.",
-      "License": "BSD 2-clause License + file LICENSE",
-      "Depends": [
-        "R (>= 3.0.0)"
-      ],
-      "Imports": [
-        "methods",
-        "utils"
-      ],
-      "NeedsCompilation": "yes",
-      "ByteCompile": "yes",
-      "Authors@R": "c( person(\"Drew\", \"Schmidt\", email=\"wrathematics@gmail.com\", role=c(\"aut\", \"cre\")), person(\"Christian\", \"Heckendorf\", role=\"ctb\", comment=\"FreeBSD improvements to meminfo\"), person(\"Wei-Chen\", \"Chen\", role=\"ctb\", comment=\"Windows build fixes\"), person(\"Dan\", \"Burgess\", role=\"ctb\", comment=\"donation of a Mac for development and testing\"))",
-      "Maintainer": "Drew Schmidt <wrathematics@gmail.com>",
-      "URL": "https://github.com/shinra-dev/memuse",
-      "BugReports": "https://github.com/shinra-dev/memuse/issues",
-      "RoxygenNote": "7.1.2",
-      "Author": "Drew Schmidt [aut, cre], Christian Heckendorf [ctb] (FreeBSD improvements to meminfo), Wei-Chen Chen [ctb] (Windows build fixes), Dan Burgess [ctb] (donation of a Mac for development and testing)",
       "Repository": "CRAN"
     },
     "metapod": {
@@ -11053,10 +11038,11 @@
       "biocViews": "Annotation,Visualization,DataImport",
       "Config/pak/sysreqs": "make libbz2-dev liblzma-dev libxml2-dev libssl-dev xz-utils zlib1g-dev",
       "Repository": "https://bioc-release.r-universe.dev",
+      "NeedsCompilation": "yes",
+      "RemoteType": "bioconductor",
       "RemoteUrl": "https://github.com/bioc/rtracklayer",
       "RemoteRef": "RELEASE_3_22",
-      "RemoteSha": "873c7111e8befb0e5761618280100a4de0cc5f3e",
-      "NeedsCompilation": "yes"
+      "RemoteSha": "873c7111e8befb0e5761618280100a4de0cc5f3e"
     },
     "rvest": {
       "Package": "rvest",
@@ -12780,6 +12766,62 @@
       "Author": "Thomas Lin Pedersen [aut, cre] (<https://orcid.org/0000-0002-5147-4711>)",
       "Repository": "CRAN"
     },
+    "txdbmaker": {
+      "Package": "txdbmaker",
+      "Version": "1.6.2",
+      "Source": "Bioconductor",
+      "Title": "Tools for making TxDb objects from genomic annotations",
+      "Description": "A set of tools for making TxDb objects from genomic annotations from various sources (e.g. UCSC, Ensembl, and GFF files). These tools allow the user to download the genomic locations of transcripts, exons, and CDS, for a given assembly, and to import them in a TxDb object. TxDb objects are implemented in the GenomicFeatures package, together with flexible methods for extracting the desired features in convenient formats.",
+      "biocViews": "Infrastructure, DataImport, Annotation, GenomeAnnotation, GenomeAssembly, Genetics, Sequencing",
+      "URL": "https://bioconductor.org/packages/txdbmaker",
+      "BugReports": "https://github.com/Bioconductor/txdbmaker/issues",
+      "License": "Artistic-2.0",
+      "Encoding": "UTF-8",
+      "Authors@R": "c( person(\"H.\", \"Pagès\", role=c(\"aut\", \"cre\"), email=\"hpages.on.github@gmail.com\"), person(\"M.\", \"Carlson\", role=\"aut\"), person(\"P.\", \"Aboyoun\", role=\"aut\"), person(\"S.\", \"Falcon\", role=\"aut\"), person(\"M.\", \"Morgan\", role=\"aut\"), person(\"R.\", \"Castelo\", role=\"ctb\"), person(\"M.\", \"Lawrence\", role=\"ctb\"), person(\"I-Hsuan\", \"Lin\", role=\"ctb\"), person(\"J.\", \"MacDonald\", role=\"ctb\"), person(\"M.\", \"Ramos\", role=\"ctb\"), person(\"S.\", \"Saini\", role=\"ctb\"), person(\"L.\", \"Shepherd\", role=\"ctb\"))",
+      "Depends": [
+        "BiocGenerics",
+        "S4Vectors (>= 0.47.6)",
+        "Seqinfo",
+        "GenomicRanges (>= 1.61.1)",
+        "GenomicFeatures (>= 1.61.4)"
+      ],
+      "Imports": [
+        "methods",
+        "utils",
+        "stats",
+        "tools",
+        "httr",
+        "rjson",
+        "DBI",
+        "RSQLite (>= 2.0)",
+        "IRanges",
+        "UCSC.utils (>= 1.6.1)",
+        "GenomeInfoDb",
+        "AnnotationDbi",
+        "Biobase",
+        "BiocIO",
+        "rtracklayer",
+        "biomaRt (>= 2.59.1)"
+      ],
+      "Suggests": [
+        "RMariaDB",
+        "ensembldb",
+        "GenomeInfoDbData",
+        "RUnit",
+        "BiocStyle",
+        "knitr"
+      ],
+      "VignetteBuilder": "knitr",
+      "Collate": "utils.R Ensembl-utils.R findCompatibleMarts.R TxDb-schema.R TxDb-CREATE-TABLE-helpers.R makeTxDb.R makeTxDbFromUCSC.R makeTxDbFromBiomart.R makeTxDbFromEnsembl.R makeTxDbFromGRanges.R makeTxDbFromGFF.R makeFeatureDbFromUCSC.R makeTxDbPackage.R zzz.R",
+      "git_url": "https://git.bioconductor.org/packages/txdbmaker",
+      "git_branch": "RELEASE_3_22",
+      "git_last_commit": "75a238d",
+      "git_last_commit_date": "2025-12-08",
+      "Repository": "Bioconductor 3.22",
+      "NeedsCompilation": "no",
+      "Author": "H. Pagès [aut, cre], M. Carlson [aut], P. Aboyoun [aut], S. Falcon [aut], M. Morgan [aut], R. Castelo [ctb], M. Lawrence [ctb], I-Hsuan Lin [ctb], J. MacDonald [ctb], M. Ramos [ctb], S. Saini [ctb], L. Shepherd [ctb]",
+      "Maintainer": "H. Pagès <hpages.on.github@gmail.com>"
+    },
     "tzdb": {
       "Package": "tzdb",
       "Version": "0.5.0",
@@ -13305,9 +13347,10 @@
         "R (>= 2.10.0)"
       ],
       "License": "GPL (>= 2)",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "NeedsCompilation": "no",
-      "Author": "David B. Dahl [aut], David Scott [aut, cre], Charles Roosen [aut], Arni Magnusson [aut], Jonathan Swinton [aut], Ajay Shah [ctb], Arne Henningsen [ctb], Benno Puetz [ctb], Bernhard Pfaff [ctb], Claudio Agostinelli [ctb], Claudius Loehnert [ctb], David Mitchell [ctb], David Whiting [ctb], Fernando da Rosa [ctb], Guido Gay [ctb], Guido Schulz [ctb], Ian Fellows [ctb], Jeff Laake [ctb], John Walker [ctb], Jun Yan [ctb], Liviu Andronic [ctb], Markus Loecher [ctb], Martin Gubri [ctb], Matthieu Stigler [ctb], Robert Castelo [ctb], Seth Falcon [ctb], Stefan Edwards [ctb], Sven Garbade [ctb], Uwe Ligges [ctb]"
+      "Author": "David B. Dahl [aut], David Scott [aut, cre], Charles Roosen [aut], Arni Magnusson [aut], Jonathan Swinton [aut], Ajay Shah [ctb], Arne Henningsen [ctb], Benno Puetz [ctb], Bernhard Pfaff [ctb], Claudio Agostinelli [ctb], Claudius Loehnert [ctb], David Mitchell [ctb], David Whiting [ctb], Fernando da Rosa [ctb], Guido Gay [ctb], Guido Schulz [ctb], Ian Fellows [ctb], Jeff Laake [ctb], John Walker [ctb], Jun Yan [ctb], Liviu Andronic [ctb], Markus Loecher [ctb], Martin Gubri [ctb], Matthieu Stigler [ctb], Robert Castelo [ctb], Seth Falcon [ctb], Stefan Edwards [ctb], Sven Garbade [ctb], Uwe Ligges [ctb]",
+      "Encoding": "UTF-8"
     },
     "xts": {
       "Package": "xts",
