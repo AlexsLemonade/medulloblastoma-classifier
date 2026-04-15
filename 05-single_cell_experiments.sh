@@ -61,5 +61,5 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 Rscript "${scripts_dir}/extract_cbl_dev_marker_genes.R"
 
 # Calculate AUCell scores for human cerebellar development cell type markers
-Rscripts "${scripts_dir}/calculate_cbl_dev_aucell.R"
+Rscript "${scripts_dir}/calculate_cbl_dev_aucell.R"
 
