@@ -63,9 +63,9 @@ umap_cluster_file <- here::here(plots_data_dir,
 
 # We don't want to do any filtering for the Smart-seq2 dataset
 no_filter_rf_results_file <- here::here(sc_results_dir, 
-                                        "rf_0.tsv")
+                                        "rf_0.00.tsv")
 no_filter_ktsp_results_file <- here::here(sc_results_dir, 
-                                          "ktsp_0_gene.tsv")
+                                          "ktsp_0.00_gene.tsv")
 
 # 0.1, gene-based filtering for the 10X dataset
 tenperc_rf_results_file <- here::here(sc_results_dir, 
