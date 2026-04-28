@@ -63,15 +63,15 @@ umap_cluster_file <- here::here(plots_data_dir,
 
 # We don't want to do any filtering for the Smart-seq2 dataset
 no_filter_rf_results_file <- here::here(sc_results_dir, 
-                                        "rf_0.tsv")
+                                        "rf_0.00.tsv")
 no_filter_ktsp_results_file <- here::here(sc_results_dir, 
-                                          "ktsp_0_gene.tsv")
+                                          "ktsp_0.00_gene.tsv")
 
 # 0.1, gene-based filtering for the 10X dataset
 tenperc_rf_results_file <- here::here(sc_results_dir, 
-                                      "rf_0.1.tsv")
+                                      "rf_0.10.tsv")
 tenperc_ktsp_results_file <- here::here(sc_results_dir, 
-                                        "ktsp_0.1_gene.tsv")
+                                        "ktsp_0.10_gene.tsv")
 
 # Put all together for convenience
 results_files <- c(no_filter_ktsp_results_file, 
@@ -122,7 +122,7 @@ results_df <- results_files |>
   # Use the file name to pull out the parameters that were used to generate the
   # results into columns
   dplyr::mutate(
-    prop_observed = stringr::word(run, 2, sep = "_"),
+    prop_observed = as.numeric(stringr::word(run, 2, sep = "_")),
     filtering_type = stringr::word(run, 3, sep = "_")
   ) |>
   # Drop identifier derived from file names

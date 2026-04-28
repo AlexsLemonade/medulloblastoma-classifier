@@ -136,7 +136,7 @@ results_df <- results_list |>
   purrr::set_names(stringr::str_remove(basename(results_files), "\\.tsv")) |>
   dplyr::bind_rows(.id = "run") |>
   dplyr::mutate(
-    prop_observed = stringr::word(run, 2, sep = "_"),
+    prop_observed = as.numeric(stringr::word(run, 2, sep = "_")),
     filtering_type = stringr::word(run, 3, sep = "_")
   ) |>
   dplyr::select(-run)

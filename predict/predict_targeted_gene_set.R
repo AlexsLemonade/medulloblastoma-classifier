@@ -33,6 +33,13 @@ processed_data_dir <- here::here("processed_data")
 models_dir <- here::here("models")
 random_dir <- here::here(models_dir, "targeted_gene_set_random")
 
+# create random dir if none exists
+if (!dir.exists(random_dir)) {
+
+  dir.create(random_dir, recursive = TRUE)
+
+}
+
 bulk_genex_filepath <- file.path(processed_data_dir, "bulk_genex.tsv")
 bulk_metadata_filepath <- file.path(processed_data_dir, "bulk_metadata.tsv")
 
