@@ -25,7 +25,7 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/pseudobulk_analysis.Rmd
 
 # Vary the proportion of genes in a model that need to be observed to classify
 # an individual cell
-for prop_observed in 0 0.05 0.10 0.15 0.20 0.25 0.5; do
+for prop_observed in 0.00 0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 0.45 0.50; do
 
   # At each proportion observed value, run kTSP using two different modes of
   # filtering out cells
@@ -61,5 +61,5 @@ Rscript -e "rmarkdown::render('${analysis_notebooks_dir}/single_cell_viz.Rmd')"
 Rscript "${scripts_dir}/extract_cbl_dev_marker_genes.R"
 
 # Calculate AUCell scores for human cerebellar development cell type markers
-Rscripts "${scripts_dir}/calculate_cbl_dev_aucell.R"
+Rscript "${scripts_dir}/calculate_cbl_dev_aucell.R"
 
