@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:3.16
+FROM bioconductor/bioconductor_docker:3.22
 
 # set a name for the conda environment
 ARG ENV_NAME=medulloblastoma-classifier
@@ -45,12 +45,12 @@ RUN Rscript -e "install.packages('renv')"
 # https://support.bioconductor.org/p/122925/#124701
 # https://github.com/bmbolstad/preprocessCore/issues/1#issuecomment-326756305
 # put this last with force = TRUE to ensure it is properly installed
-RUN Rscript -e "options(warn = 2); BiocManager::install( \
-    'preprocessCore', \
-    configure.args = '--disable-threading', \
-    force = TRUE, \
-    update = FALSE, \
-    version = 3.16)"
+# RUN Rscript -e "options(warn = 2); BiocManager::install( \
+#     'preprocessCore', \
+#     configure.args = '--disable-threading', \
+#     force = TRUE, \
+#     update = FALSE, \
+#     version = 3.22)"
 
 # Copy over renv lockfile
 WORKDIR /usr/local/renv
@@ -59,7 +59,10 @@ COPY renv.lock renv.lock
 ENV RENV_CONFIG_CACHE_ENABLED=FALSE
 
 # Restore from renv.lock file and clean up to reduce image size
-RUN Rscript -e 'renv::restore()' \
+RUN Rscript -e 'renv::restore(exclude = c("MM2S", "estimate", "GSVA"))' \
+  && Rscript -e 'install.packages("https://mghp.osn.xsede.org/bir190004-bucket01/archive.bioconductor.org%2Fpackages%2F3.17%2Fbioc%2Fsrc%2Fcontrib%2FArchive%2FGSVA%2FGSVA_1.48.0.tar.gz")' \
+  && Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/MM2S/MM2S_1.0.6.tar.gz")' \
+  && Rscript -e 'install.packages("estimate", repos = "http://r-forge.r-project.org", dependencies = TRUE)' \
   && rm -rf ~/.cache/R/renv \
   && rm -rf /tmp/downloaded_packages \
   && rm -rf /tmp/Rtmp*

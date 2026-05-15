@@ -6,7 +6,7 @@ create_models <- TRUE # train new models (if FALSE, reads existing models from f
 overwrite <- TRUE # if create_models is also TRUE, overwrite existing models file
 seed <- 44 # set initial seed for run_many_models() and before stochastic plots
 n_repeats <- 10 # set number of times to repeat in run_many_models()
-n_cores <- 3 # set number of cores to use in run_many_models()
+n_cores <- 10 # set number of cores to use in run_many_models()
 ah_date <- "2022-10-30"
 
 # Rationale ----

@@ -64,6 +64,7 @@ extract_top_n_markers <- function(marker_dframe,
 
 # Read in Seurat object
 srt <- readr::read_rds(srt_file)
+srt@images <- list()
 
 # Convert to SingleCellExperiment, RNA only
 sce <- as.SingleCellExperiment(srt, assay = "RNA")

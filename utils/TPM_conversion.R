@@ -34,7 +34,7 @@ get_GENCODE_gene_lengths <- function(gtf_filepath, GENCODE_gene_lengths_filepath
     # follows example from https://www.biostars.org/p/83901/
     
     # create transcriptome database from GTF file
-    txdb <- GenomicFeatures::makeTxDbFromGFF(gtf_filepath, format = "gtf")
+    txdb <- txdbmaker::makeTxDbFromGFF(gtf_filepath, format = "gtf")
     
     # gather exons from each transcript at gene level and
     # collapse each gene's exons to form union of bases covered
