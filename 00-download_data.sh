@@ -120,7 +120,7 @@ done < ${data_sources_file}
 ################################################################################
 
 # As needed, recreate data/md5_check_sums.tsv by running this command:
-# find data -type f | grep -v "json\|md5\|stjudecloud" | xargs md5sum > data/md5_check_sums.tsv
+# find data -type f | grep -v "json\|md5\|stjudecloud\|GENCODE_gene_lengths" | xargs md5sum > data/md5_check_sums.tsv
 
 # check md5 sums of downloaded files
 echo Checking md5 sums of downloaded files...
