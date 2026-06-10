@@ -36,7 +36,7 @@ We identified samples on St. Jude Cloud with the following search (accessed 2022
 https://platform.stjude.cloud/data/diseases/tumor?file_type=FEATURE_COUNTS&seq_type=RNA-SEQ&sample_type=diagnosis&search=MBL&selected_tags=AMBLNWSG3,AMBLNWSG4,DMBLSHH,AMBL,AMBLSHH,MBL,MBLG3,MBLG4,MBLSHH,MBLWNT
 ```
 
-This resulted in a cohort with samples listed in `data/stjudecloud/SAMPLE_INFO.sample_name.tsv`.
+This resulted in a cohort with samples listed in `data/stjudecloud/SAMPLE_INFO.sample_name.txt`.
 
 ## Internal development guidelines
 
