@@ -22,6 +22,21 @@ This table summarizes the models used in this work, the packages from which they
 | medulloPackage ([Rathi et al. 2020.](https://doi.org/10.1371/journal.pcbi.1008263)) | [`medulloPackage`](https://github.com/d3b-center/medullo-classifier-package/) | All RNA-seq data is log2-transformed |
 | LASSO Logistic Regression | [`glmnet`](https://cran.r-project.org/web/packages/glmnet/index.html) | Each sample is scaled to sum to 1 |
 
+## Data download
+
+Running `bash 00-download_data.sh` will fetch publicly availble gene expression data from various public resources detailed in `data/data_sources.tsv`.
+
+#### St. Jude data
+
+Downloading RNA-seq data from St. Jude Cloud requires an individual account.
+We are able to share what St. Jude samples are part of our project, and users can download those as part of their own project.
+We identified samples on St. Jude Cloud with the following search (accessed 2022-06-16):
+
+```
+https://platform.stjude.cloud/data/diseases/tumor?file_type=FEATURE_COUNTS&seq_type=RNA-SEQ&sample_type=diagnosis&search=MBL&selected_tags=AMBLNWSG3,AMBLNWSG4,DMBLSHH,AMBL,AMBLSHH,MBL,MBLG3,MBLG4,MBLSHH,MBLWNT
+```
+
+This resulted in a cohort with samples listed in `data/stjudecloud/SAMPLE_INFO.sample_name.txt`.
 
 ## Internal development guidelines
 
